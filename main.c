@@ -5,10 +5,6 @@
 * Created on April 23, 2015, 11:05 AM
 */
 
-// I added a comment from github!! :)
-
-// Now I added another comment from MPLAB X :)
-
 //*****************************************************************************
 
 
