@@ -10,9 +10,9 @@ CND_CONF=default
 CND_DISTDIR=dist
 TMPDIR=build/${CND_CONF}/${IMAGE_TYPE}/tmp-packaging
 TMPDIRNAME=tmp-packaging
-OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/IWP_Firmware.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-OUTPUT_BASENAME=IWP_Firmware.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-PACKAGE_TOP_DIR=iwpfirmware.x/
+OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/IWP_Firmware.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+OUTPUT_BASENAME=IWP_Firmware.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+PACKAGE_TOP_DIR=iwpfirmware/
 
 # Functions
 function checkReturnCode
@@ -57,15 +57,15 @@ mkdir -p ${TMPDIR}
 
 # Copy files and create directories and links
 cd "${TOP}"
-makeDirectory ${TMPDIR}/iwpfirmware.x/bin
+makeDirectory ${TMPDIR}/iwpfirmware/bin
 copyFileToTmpDir "${OUTPUT_PATH}" "${TMPDIR}/${PACKAGE_TOP_DIR}bin/${OUTPUT_BASENAME}" 0755
 
 
 # Generate tar file
 cd "${TOP}"
-rm -f ${CND_DISTDIR}/${CND_CONF}/package/iwpfirmware.x.tar
+rm -f ${CND_DISTDIR}/${CND_CONF}/package/iwpfirmware.tar
 cd ${TMPDIR}
-tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/iwpfirmware.x.tar *
+tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/iwpfirmware.tar *
 checkReturnCode
 
 # Cleanup
