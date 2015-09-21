@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <project>
-  <executable name="dist/default/production/IWP_Firmware.X.production.elf">
+  <executable name="dist/default/production/IWP_Firmware.production.elf">
     <memory name="data">
       <units>bytes</units>
       <length>2048</length>
-      <used>354</used>
-      <free>1694</free>
+      <used>352</used>
+      <free>1696</free>
     </memory>
     <memory name="program">
       <units>bytes</units>
       <length>33024</length>
-      <used>14982</used>
-      <free>18042</free>
+      <used>14943</used>
+      <free>18081</free>
     </memory>
   </executable>
 </project>

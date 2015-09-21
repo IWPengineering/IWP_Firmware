@@ -105,8 +105,9 @@ const int yearI2Cvar = 0x06;
 const float angleRadius = .008; // this is 80 millimeters so should it equal 80 or .008?
 int depthSensorInUse;
 int queueCount = 0;
-int queueLength = 7; //don't forget to change angleQueue to this number also
-float angleQueue[7];
+//const int queueLength = 7; //don't forget to change angleQueue to this number also
+#define queueLength        7
+float angleQueue[queueLength]; // Now we don't have to remember to change it anymore. Just change it once.
 float theta1 = 0; // angle captured in getHandleAngle
 float theta2 = 0; // angle captured in getHandleAngle
 float theta3 = 0; // angle captured in getHandleAngle
