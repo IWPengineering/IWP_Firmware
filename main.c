@@ -9,6 +9,8 @@
 
 
 #include "IWPUtilities.h"
+#include "I2C.h"
+#include "Pin_Manager.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -67,7 +69,7 @@ void main(void)
     	initialization();
         sendTextMessage("What Hath God Wrought? Number 11");
 
-        while(1){
+        //while(1){
 //            sendTextMessage("What Hath God Wrought \r\n");
 //            int angleForMessage = getHandleAngle();
 //            char angleMessage[20];
@@ -77,7 +79,7 @@ void main(void)
 //            concat(angleMessage, "\r \n");
 //            sendMessage("angle: ");
 //            sendMessage(angleMessage);
-        }
+        //}
 
 
 	waterPrimeTimeOut /= upstrokeInterval;

@@ -121,12 +121,7 @@ extern int vcc2Pin;
 extern int debugCounter; // DEBUG DEBUG DEBUG DEBUG DEBUG
 
 
-void debugHighLow(int pin); // DEBUG DEBUG DEBUG DEBUG DEBUG
-void digitalPinSet(int pin, int io);
-void specifyAnalogPin(int pin, int analogOrDigital);
-void analogIOandSHinput(int pin, int IO);
-int digitalPinStatus(int pin);
-void pinDirectionIO(int pin, int io);
+
 void initialization(void);
 int longLength(long num);
 void longToString(long num, char *numString);
@@ -148,24 +143,7 @@ void pushToQueue(float value);
 float queueAverage();
 float queueDifference();
 float batteryLevel(void);
-unsigned int IdleI2C(void);
-unsigned int StartI2C(void);
-unsigned int StopI2C(void);
-void RestartI2C(void);
-void NackI2C(void);
-void AckI2C(void);
-void configI2c(void);
-void WriteI2C(unsigned char byte);
-unsigned int ReadI2C(void);
-void turnOffClockOscilator(void);
-int getSecondI2C(void);
-int getMinuteI2C(void);
-int getHourI2C(void);
-int getYearI2C(void);
-int getMonthI2C(void);
-int getWkdayI2C(void);
-int getDateI2C(void);
-void setTime(char sec, char min, char hr, char wkday, char date, char month, char year);
+
 float degToRad(float degrees);
 void delayMs(int ms);
 int getLowerBCDAsDecimal(int bcd);
