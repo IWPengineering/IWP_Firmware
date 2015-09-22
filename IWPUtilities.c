@@ -108,13 +108,6 @@ int queueCount = 0;
 //const int queueLength = 7; //don't forget to change angleQueue to this number also
 #define queueLength        7
 float angleQueue[queueLength]; // Now we don't have to remember to change it anymore. Just change it once.
-float theta1 = 0; // angle captured in getHandleAngle
-float theta2 = 0; // angle captured in getHandleAngle
-float theta3 = 0; // angle captured in getHandleAngle
-float omega2 = 0; // angle captured in getHandleAngle
-float omega3 = 0;
-float alpha = 0;
-double timeStep; //Time between getHandleAngle function calls
 
 int prevTimer2 = 0; // Should intially begin at zero
 
@@ -124,6 +117,14 @@ float midDayDepth;
 //int prevMinute;
 //int prevHour; // just for testing, not a real variable
 int invalid;
+float angle1;
+float angle2;
+float angle3;
+float angle4;
+float angle5;
+float angle6;
+
+
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
@@ -310,6 +311,12 @@ void initialization(void)
                 midDayDepthRead();
             }
         }
+
+        angle2 = getHandleAngle();
+        angle3 = getHandleAngle();
+        angle4 = getHandleAngle();
+        angle5 = getHandleAngle();
+        angle6 = getHandleAngle();
 
         sendTimeMessage();
 }
@@ -936,6 +943,22 @@ float getHandleAngle()
             angle = -30.0;
         }
 	return angle;
+
+
+}
+
+float getAngleAverage()
+{
+    angle1 = getHandleAngle();
+    angle2 = angle1;
+    angle3 = angle2;
+    angle4 = angle3;
+    angle5 = angle4;
+    angle6 = angle5;
+
+    float averageAngle = (angle1 + angle2 + angle3 + angle4 + angle5 + angle6)/6.0;
+
+    return averageAngle;
 
 
 }
