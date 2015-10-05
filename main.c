@@ -6,8 +6,6 @@
 */
 
 //*****************************************************************************
-
-
 #include "IWPUtilities.h"
 #include "I2C.h"
 #include "Pin_Manager.h"
@@ -16,6 +14,8 @@
 #include <math.h>
 #include <xc.h>
 #include <string.h>
+
+
 
 
 // ****************************************************************************
@@ -67,7 +67,12 @@
 void main(void)
 {
     	initialization();
-        sendTextMessage("What Hath God Wrought? Number 11");
+        while(1){
+        char angleString[20];
+        angleString[0] = 0;
+        floatToString(getHandleAngle(), angleString);
+        sendMessage(angleString);
+        }
 
         //while(1){
 //            sendTextMessage("What Hath God Wrought \r\n");
