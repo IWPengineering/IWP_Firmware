@@ -41,11 +41,11 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/_ext/43898991/main.o ${OBJECTDIR}/_ext/43898991/IWPUtilities.o ${OBJECTDIR}/_ext/43898991/I2C.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/_ext/43898991/main.o.d ${OBJECTDIR}/_ext/43898991/IWPUtilities.o.d ${OBJECTDIR}/_ext/43898991/I2C.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/_ext/43898991/main.o ${OBJECTDIR}/_ext/43898991/IWPUtilities.o ${OBJECTDIR}/_ext/43898991/I2C.o ${OBJECTDIR}/_ext/43898991/Pin_Manager.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/_ext/43898991/main.o.d ${OBJECTDIR}/_ext/43898991/IWPUtilities.o.d ${OBJECTDIR}/_ext/43898991/I2C.o.d ${OBJECTDIR}/_ext/43898991/Pin_Manager.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/_ext/43898991/main.o ${OBJECTDIR}/_ext/43898991/IWPUtilities.o ${OBJECTDIR}/_ext/43898991/I2C.o
+OBJECTFILES=${OBJECTDIR}/_ext/43898991/main.o ${OBJECTDIR}/_ext/43898991/IWPUtilities.o ${OBJECTDIR}/_ext/43898991/I2C.o ${OBJECTDIR}/_ext/43898991/Pin_Manager.o
 
 
 CFLAGS=
@@ -87,6 +87,12 @@ ${OBJECTDIR}/_ext/43898991/I2C.o: ../../I2C.c  nbproject/Makefile-${CND_CONF}.mk
 	${MP_CC} $(MP_EXTRA_CC_PRE)  ../../I2C.c  -o ${OBJECTDIR}/_ext/43898991/I2C.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/_ext/43898991/I2C.o.d"        -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
 	@${FIXDEPS} "${OBJECTDIR}/_ext/43898991/I2C.o.d" $(SILENT) 
 	
+${OBJECTDIR}/_ext/43898991/Pin_Manager.o: ../../Pin_Manager.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/43898991 
+	@${RM} ${OBJECTDIR}/_ext/43898991/Pin_Manager.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  ../../Pin_Manager.c  -o ${OBJECTDIR}/_ext/43898991/Pin_Manager.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/_ext/43898991/Pin_Manager.o.d"        -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/_ext/43898991/Pin_Manager.o.d" $(SILENT) 
+	
 else
 ${OBJECTDIR}/_ext/43898991/main.o: ../../main.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR}/_ext/43898991 
@@ -105,6 +111,12 @@ ${OBJECTDIR}/_ext/43898991/I2C.o: ../../I2C.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/_ext/43898991/I2C.o.d 
 	${MP_CC} $(MP_EXTRA_CC_PRE)  ../../I2C.c  -o ${OBJECTDIR}/_ext/43898991/I2C.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/_ext/43898991/I2C.o.d"        -g -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
 	@${FIXDEPS} "${OBJECTDIR}/_ext/43898991/I2C.o.d" $(SILENT) 
+	
+${OBJECTDIR}/_ext/43898991/Pin_Manager.o: ../../Pin_Manager.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/43898991 
+	@${RM} ${OBJECTDIR}/_ext/43898991/Pin_Manager.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  ../../Pin_Manager.c  -o ${OBJECTDIR}/_ext/43898991/Pin_Manager.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/_ext/43898991/Pin_Manager.o.d"        -g -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/_ext/43898991/Pin_Manager.o.d" $(SILENT) 
 	
 endif
 
