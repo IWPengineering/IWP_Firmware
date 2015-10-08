@@ -1,4 +1,6 @@
 #include "IWPUtilities.h"
+#include "Pin_Manager.h"
+#include "I2C.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
