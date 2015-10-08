@@ -71,8 +71,10 @@ unsigned int IdleI2C(void)
 			invalid=0xff;
 			return;
 		}
+        
+        timeOut++;
 	}
-	timeOut++;
+	
 }
 
 
