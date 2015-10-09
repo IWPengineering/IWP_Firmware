@@ -128,7 +128,7 @@ void main(void)
                           midDayDepthRead();
                           } 
 
-			delayMs(100); // Delay for a short time
+			delayMs(10); // Delay for a short time
                         float newAngle = getHandleAngle();
                         float deltaAngle = newAngle - anglePrevious;
 
@@ -137,7 +137,7 @@ void main(void)
                         }
 
                         anglePrevious = newAngle;
-                        if (deltaAngle > 1){ // prevents floating accelerometer values when it's not actually moving
+                        if (deltaAngle > .5){ // prevents floating accelerometer values when it's not actually moving
                         angleAccumulated += deltaAngle;
                         }
 			// If the angle has changed, set the handleMovement flag
