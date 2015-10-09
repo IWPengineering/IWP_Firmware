@@ -720,8 +720,7 @@ void initialization(void)
         angle9 = getHandleAngle();
         angle10 = getHandleAngle();
 
-        sendTimeMessage();
-        sendMessage("Hello! I'm mad at you! /r/n");
+        //sendTimeMessage();
 }
 
 void sendTimeMessage(void){
@@ -980,10 +979,14 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
  ********************************************************************/
 void turnOffSIM()
 {
-	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
-		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn off Fona
-	}
-	while (digitalPinStatus(statusPin) == 0) {} // Wait for Fona to power up
+//	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
+//		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn off Fona
+//	}
+    if(digitalPinStatus(statusPin) == 1)
+    {
+        digitalPinSet(pwrKeyPin, 0);
+    }
+	while (digitalPinStatus(statusPin) == 1) {} // Wait for Fona to power off
 	digitalPinSet(pwrKeyPin, 1);//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
 
 
@@ -1358,8 +1361,8 @@ float getHandleAngle()
 
         float averageAngle = (angle1 + angle2 + angle3 + angle4 + angle5 + angle6 + angle7 + angle8 + angle9 + angle10)/10.0;
 
-        //return averageAngle;
-        return angle;
+        return averageAngle;
+        //return angle;
 }
 
 
@@ -1514,7 +1517,7 @@ float readDepthSensor(void)
         depthInMeters = 2.2629 * realVoltage;
         depthInMeters *= realVoltage;
         depthInMeters -= 5.7605 * realVoltage;
-        depthInMeters +=3.4137;
+        depthInMeters += 3.4137;
 
 	return depthInMeters;
 
