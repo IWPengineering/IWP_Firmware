@@ -245,7 +245,7 @@ void main(void)
 		long leakDurationCounter = volumeLoopCounter * volumeDelay; // The volume loop has 50 milliseconds of delay before entry
 		while (readWaterSensor() && (leakTimeCounter < leakRateTimeOut))
 		{
-                                sendMessage("Leakage Rate Loop \r\n");
+                                
 				angleCurrent = getHandleAngle(); //Get the current angle of the pump handle
 				//Calculate the change in angle of the pump handle
 				angleDelta = angleCurrent - anglePrevious;
@@ -258,7 +258,7 @@ void main(void)
                                     leakCondition=1;
 					break;
                                 }
-                                if (leakDurationCounter > 100) // change to 20,000 for real code
+                                if (leakDurationCounter > 20000) // change to 20,000 for real code (was 100 - 10/8/2015 KK)
                                 {
                                     leakCondition=2;
                                         break;
@@ -285,19 +285,9 @@ void main(void)
 			leakRateLong = leakRate * 3600; //reports in L/hr
 		}
 
-                sendMessage("LeakRate: ");
-                char leakRateMessage[20];
-                leakRateMessage[0] = 0;
-                floatToString(leakRate, leakRateMessage);
-                sendMessage(leakRateMessage);
-                sendMessage("\r\n");
                 upStrokeExtract = degToRad(upStrokeExtract);
 		volumeEvent = (MKII * upStrokeExtract);
-                volumeEvent -= (leakRate * extractionDuration / 10.0);
-                char volumeEventMessage[20];
-                volumeEventMessage[0] = 0;
-                floatToString(volumeEvent, volumeEventMessage);
-                sendMessage(volumeEventMessage);
+                volumeEvent -= (leakRate * extractionDuration / 10.0); // Why is this 10?
 
 		hour = BcdToDec(getHourI2C());
 		switch (hour / 2)
