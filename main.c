@@ -221,8 +221,6 @@ void main(void)
                         }
                         //absoluteAngle = angleDelta; // this should be the absolute value of angleDelta now
                         anglePrevious = angleCurrent;
-                        //char volumeMessage[20];
-                        volumeMessage[0] = 0;
                         if(angleDelta > 0){
                             angleDelta = angleDelta; //degToRad(angleDelta);
                             upStrokeExtract += angleDelta;
