@@ -114,11 +114,6 @@ void main(void)
                 float angleAccumulated=0;
 		while (handleMovement == 0)
 		{
-                    char anglechar[30];
-                    anglechar[0] = 0;
-                    floatToString(getHandleAngle(), anglechar);
-                    concat(anglechar, "Handle not moving \r\n");
-                    sendMessage(anglechar);
                     
                           currentDay = getDateI2C();
 			if ( prevDay != currentDay){ //(prevDay != getDateI2C()){// it's a new day so send midNightMessage();
@@ -142,13 +137,12 @@ void main(void)
                         }
 
                         anglePrevious = newAngle;
-                        if (deltaAngle > 2){ // prevents floating accelerometer values when it's not actually moving
+                        if (deltaAngle > 1){ // prevents floating accelerometer values when it's not actually moving
                         angleAccumulated += deltaAngle;
                         }
 			// If the angle has changed, set the handleMovement flag
 			if (angleAccumulated > 5) //05-30-14 Test for small delta's used to be angleDeltaThreshold
 			{
-                            sendMessage("The handle moved. \r\n");
 				handleMovement = 1;
 			}
 		}
