@@ -164,7 +164,6 @@ void main(void)
                 // Averaging angle code
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
 		{
-                    sendMessage("priming loop \r\n");
 			delayMs(upstrokeInterval);  // delay a short time (10ms)
 
                         // averaging angle Code 9/17/2015
@@ -177,7 +176,7 @@ void main(void)
 
                         angleCurrent = getHandleAngle(); // Get the current angle of the pump handle
 			angleDelta = angleCurrent - anglePrevious; // Calculate the change in angle of the pump handle
-                        if(angleDelta > 2){
+                        if(angleDelta > 1){
                         //if (deltaAverage > 5){ // averaging angle code 9/17/2015
                            // upStroke += deltaAverage; // angle Code 9/17/2015
                             upStroke += angleDelta;
@@ -190,12 +189,6 @@ void main(void)
 			anglePrevious = angleCurrent; // Update the previous angle for the next calculation
 			}
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	// Convert to meters
-                char upStrokePrime[40];
-                upStrokePrime[0] = 0;
-                floatToString(upStrokePrimeMeters, upStrokePrime);
-                sendMessage("Prime in upStroke: ");
-                sendMessage(upStrokePrime);
-                sendMessage("\r\n");
 
 		if (upStrokePrimeMeters > longestPrime) // Updates the longestPrime
 		{
@@ -206,7 +199,7 @@ void main(void)
 		// Tracks the upStroke for the water being extracted
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
-                float absoluteAngleThreshold = 3.5;
+                float absoluteAngleThreshold = 3.5; // Why is this 3.5 degrees? Isn't that probably too much?
                 int volumeLoopCounter = 5; // 50ms
 
                 unsigned long extractionDuration = 0;
@@ -217,11 +210,10 @@ void main(void)
 
                     int i = 0;
                     while((i < volumeLoopCounter) && readWaterSensor()){
-                        sendMessage("Volume Calculation Loop\r\n");
                         angleCurrent = getHandleAngle();
                         angleDelta = angleCurrent - anglePrevious;
                         if (angleDelta < 0){ // absolute value of angleDelta
-                            absoluteAngle+= angleDelta * -1;
+                            absoluteAngle += angleDelta * -1;
                         }
                         else
                         {
@@ -229,15 +221,11 @@ void main(void)
                         }
                         //absoluteAngle = angleDelta; // this should be the absolute value of angleDelta now
                         anglePrevious = angleCurrent;
-                        char volumeMessage[20];
+                        //char volumeMessage[20];
                         volumeMessage[0] = 0;
                         if(angleDelta > 0){
                             angleDelta = angleDelta; //degToRad(angleDelta);
-                            upStrokeExtract = upStrokeExtract + angleDelta;
-                            floatToString(upStrokeExtract, volumeMessage);
-                            sendMessage("Volume Calc Loop: ");
-                            sendMessage(volumeMessage);
-                            sendMessage("\r\n");
+                            upStrokeExtract += angleDelta;
                         }
                             totalAbsoluteAngle += absoluteAngle;
                             i++;
