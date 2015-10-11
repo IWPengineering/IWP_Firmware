@@ -1,4 +1,6 @@
 #include "IWPUtilities.h"
+#include "Pin_Manager.h"
+#include "I2C.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -108,13 +110,6 @@ int queueCount = 0;
 //const int queueLength = 7; //don't forget to change angleQueue to this number also
 #define queueLength        7
 float angleQueue[queueLength]; // Now we don't have to remember to change it anymore. Just change it once.
-float theta1 = 0; // angle captured in getHandleAngle
-float theta2 = 0; // angle captured in getHandleAngle
-float theta3 = 0; // angle captured in getHandleAngle
-float omega2 = 0; // angle captured in getHandleAngle
-float omega3 = 0;
-float alpha = 0;
-double timeStep; //Time between getHandleAngle function calls
 
 int prevTimer2 = 0; // Should intially begin at zero
 
@@ -124,6 +119,18 @@ float midDayDepth;
 //int prevMinute;
 //int prevHour; // just for testing, not a real variable
 int invalid;
+float angle1 = 0;
+float angle2 = 0;
+float angle3 = 0;
+float angle4 = 0;
+float angle5 = 0;
+float angle6 = 0;
+float angle7 = 0;
+float angle8 = 0;
+float angle9 = 0;
+float angle10 = 0;
+
+
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
@@ -180,407 +187,398 @@ int waterPresenceSensorOnOffPin = 26;
 int GNDPin = 27;
 int vcc2Pin = 28;
 
+////////////////////////////////////////////////////////////////////
+////                                                            ////
+////                    PIN ASSIGNMENT                          ////
+////                                                            ////
+////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
 ////                                                             ////
 ////                PIN MANAGEMENT FUNCTIONS                     ////
 ////                                                             ////
 /////////////////////////////////////////////////////////////////////
-void pinDirectionIO(int pin, int io){ // 1 is an input, 0 is an output
-	// Pin 1 can't change direction
-	if (pin == 2)
-	{
-		TRISAbits.TRISA0 = io;
-	}
-	else if (pin == 3)
-	{
-		TRISAbits.TRISA1 = io;
-	}
-	else if (pin == 4)
-	{
-		TRISBbits.TRISB0 = io;
-	}
-	else if (pin == 5)
-	{
-		TRISBbits.TRISB1 = io;
-	}
-	else if (pin == 6)
-	{
-		TRISBbits.TRISB2 = io;
-	}
-	else if (pin == 7)
-	{
-		TRISBbits.TRISB3 = io;
-	}
-	// Pin8 - Always VSS for PIC24FV32KA302 - Do nothing
-	else if (pin == 9)
-	{
-		TRISAbits.TRISA2 = io;
-	}
-	else if (pin == 10)
-	{
-		TRISAbits.TRISA3 = io;
-	}
-	else if (pin == 11)
-	{
-		TRISBbits.TRISB4 = io;
-	}
-	else if (pin == 12)
-	{
-		TRISAbits.TRISA4 = io;
-	}
-	//Pin 13 - Always VDD for PIC24FV32KA302 - Do nothing
-	else if (pin == 14)
-	{
-		TRISBbits.TRISB5 = io;
-	}
-	else if (pin == 15)
-	{
-		TRISBbits.TRISB6 = io;
-	}
-	else if (pin == 16)
-	{
-		TRISBbits.TRISB7 = io;
-	} //Usually reserved for TX
-	else if (pin == 17)
-	{
-		TRISBbits.TRISB8 = io;
-	}//Usually reserved for I2C
-	else if (pin == 18)
-	{
-		TRISBbits.TRISB9 = io;
-	}//Usually Reserved for I2C
-	else if (pin == 19)
-	{
-		TRISAbits.TRISA7 = io;
-	}
-	// Pin 20 - Always vCap for PIC24FV32KA302 - Do nothing
-	else if (pin == 21)
-	{
-		TRISBbits.TRISB10 = io;
-	}
-	else if (pin == 22)
-	{
-		TRISBbits.TRISB11 = io;
-	}
-	else if (pin == 23)
-	{
-		TRISBbits.TRISB12 = io;
-	}
-	else if (pin == 24)
-	{
-		TRISBbits.TRISB13 = io;
-	}
-	else if (pin == 25)
-	{
-		TRISBbits.TRISB14 = io;
-	}
-	else if (pin == 26)
-	{
-		TRISBbits.TRISB15 = io;
-	}
-	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
-	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
-}
-
-
-void digitalPinSet(int pin, int set) // 1 for high, 0 for low
-{
-	if (pin == 1)
-	{
-		PORTAbits.RA5 = set;
-	}
-	else if (pin == 2)
-	{
-		PORTAbits.RA0 = set;
-	}
-	else if (pin == 3)
-	{
-		PORTAbits.RA1 = set;
-	}
-	else if (pin == 4)
-	{
-		PORTBbits.RB0 = set;
-	}
-	else if (pin == 5)
-	{
-		PORTBbits.RB1 = set;
-	}
-	else if (pin == 6)
-	{
-		PORTBbits.RB2 = set;
-	}
-	else if (pin == 7)
-	{
-		PORTBbits.RB3 = set;
-	}
-	// Pin8 - Always VSS for PIC24FV32KA302 - Do nothing
-	else if (pin == 9)
-	{
-		PORTAbits.RA2 = set;
-	}
-	else if (pin == 10)
-	{
-		PORTAbits.RA3 = set;
-	}
-	else if (pin == 11)
-	{
-		PORTBbits.RB4 = set;
-	}
-	else if (pin == 12)
-	{
-		PORTAbits.RA4 = set;
-	}
-	//Pin 13 - Always VDD for PIC24FV32KA302 - Do nothing
-	else if (pin == 14)
-	{
-		PORTBbits.RB5 = set;
-	}
-	else if (pin == 15)
-	{
-		PORTBbits.RB6 = set;
-	}
-	else if (pin == 16)
-	{
-		PORTBbits.RB7 = set;
-	} //Usually reserved for TX
-	else if (pin == 17)
-	{
-		PORTBbits.RB8 = set;
-	}//Usually reserved for I2C
-	else if (pin == 18)
-	{
-		PORTBbits.RB9 = set;
-	}//Usually Reserved for I2C
-	else if (pin == 19)
-	{
-		PORTAbits.RA7 = set;
-	}
-	// Pin 20 - Always vCap for PIC24FV32KA302 - Do nothing
-	else if (pin == 21)
-	{
-		PORTBbits.RB10 = set;
-	}
-	else if (pin == 22)
-	{
-		PORTBbits.RB11 = set;
-	}
-	else if (pin == 23)
-	{
-		PORTBbits.RB12 = set;
-	}
-	else if (pin == 24)
-	{
-		PORTBbits.RB13 = set;
-	}
-	else if (pin == 25)
-	{
-		PORTBbits.RB14 = set;
-	}
-	else if (pin == 26)
-	{
-		PORTBbits.RB15 = set;
-	}
-	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
-	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
-}
-
-//TODO: Should be based off of the RB values, not the AN
-void specifyAnalogPin(int pin, int analogOrDigital) // analogOrDigital = 1 if analog, 0 is digital
-{
-	if (pin == 4)
-	{
-		ANSBbits.ANSB0 = analogOrDigital;
-	}
-	else if (pin == 5)
-	{
-		ANSBbits.ANSB1 = analogOrDigital;
-	}
-	else if (pin == 6)
-	{
-		ANSBbits.ANSB2 = analogOrDigital;
-	}
-	else if (pin == 7)
-	{
-		ANSBbits.ANSB3 = analogOrDigital;
-		//TODO: Jacqui needs to find out why pin 7 isn't in the library
-	}
-	else if (pin == 11)
-	{
-		ANSBbits.ANSB4 = analogOrDigital;
-	}
-	else if (pin == 23)
-	{
-		ANSBbits.ANSB12 = analogOrDigital;
-	}
-	else if (pin == 24)
-	{
-		ANSBbits.ANSB13 = analogOrDigital;
-	}
-	else if (pin == 25)
-	{
-		ANSBbits.ANSB14 = analogOrDigital;
-	}
-	else if (pin == 26)
-	{
-		ANSBbits.ANSB15 = analogOrDigital;
-	}
-}
-
-void pinSampleSelectRegister(int pin){ //  A/D Sample Select Regiser (this is only used in the readADC() function)
-    if (pin == 4)
-	{
-		AD1CHSbits.CH0SA = 2; //AN2
-	}
-	else if (pin == 5)
-	{
-		AD1CHSbits.CH0SA = 3; //AN3
-	}
-	else if (pin == 6)
-	{
-		AD1CHSbits.CH0SA = 4;
-	}
-	else if (pin == 7)
-	{
-		AD1CHSbits.CH0SA = 5;
-	}
-	else if (pin == 11)
-	{
-		AD1CHSbits.CH0SA = 15;
-	}
-	else if (pin == 23)
-	{
-		AD1CHSbits.CH0SA = 12;
-	}
-	else if (pin == 24)
-	{
-		AD1CHSbits.CH0SA = 11;
-	}
-	else if (pin == 25)
-	{
-		AD1CHSbits.CH0SA = 10;
-	}
-	else if (pin == 26)
-	{
-		AD1CHSbits.CH0SA = 9;
-	}
-}
-
-int digitalPinStatus(int pin)
-{
-	int pinValue;
-	if (pin == 1)
-	{
-		pinValue = PORTAbits.RA5;
-	}
-	else if (pin == 2)
-	{
-		pinValue = PORTAbits.RA0;
-	}
-	else if (pin == 3)
-	{
-		pinValue = PORTAbits.RA1;
-	}
-	else if (pin == 4)
-	{
-		pinValue = PORTBbits.RB0;
-	}
-	else if (pin == 5)
-	{
-		pinValue = PORTBbits.RB1;
-	}
-	else if (pin == 6)
-	{
-		pinValue = PORTBbits.RB2;
-	}
-	else if (pin == 7)
-	{
-		pinValue = PORTBbits.RB3;
-	}
-	// Pin8 - Always VSS for PIC24FV32KA302 - Do nothing
-	else if (pin == 9)
-	{
-		pinValue = PORTAbits.RA2;
-	}
-	else if (pin == 10)
-	{
-		pinValue = PORTAbits.RA3;
-	}
-	else if (pin == 11)
-	{
-		pinValue = PORTBbits.RB4;
-	}
-	else if (pin == 12)
-	{
-		pinValue = PORTAbits.RA4;
-	}
-	//Pin 13 - Always VDD for PIC24FV32KA302 - Do nothing
-	else if (pin == 14)
-	{
-		pinValue = PORTBbits.RB5;
-	}
-	else if (pin == 15)
-	{
-		pinValue = PORTBbits.RB6;
-	}
-	else if (pin == 16)
-	{
-		pinValue = PORTBbits.RB7;
-	} //Usually reserved for TX
-	else if (pin == 17)
-	{
-		pinValue = PORTBbits.RB8;
-	}//Usually reserved for I2C
-	else if (pin == 18)
-	{
-		pinValue = PORTBbits.RB9;
-	}//Usually Reserved for I2C
-	else if (pin == 19)
-	{
-		pinValue = PORTAbits.RA7;
-	}
-	// Pin 20 - Always vCap for PIC24FV32KA302 - Do nothing
-	else if (pin == 21)
-	{
-		pinValue = PORTBbits.RB10;
-	}
-	else if (pin == 22)
-	{
-		pinValue = PORTBbits.RB11;
-	}
-	else if (pin == 23)
-	{
-		pinValue = PORTBbits.RB12;
-	}
-	else if (pin == 24)
-	{
-		pinValue = PORTBbits.RB13;
-	}
-	else if (pin == 25)
-	{
-		pinValue = PORTBbits.RB14;
-	}
-	else if (pin == 26)
-	{
-		pinValue = PORTBbits.RB15;
-	}
-	return pinValue;
-	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
-	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
-}
-
-
-//DEBUG DEBUG DEBUG DEBUG
-void debugHighLow(int pin){
-    specifyAnalogPin(pin, 0); // makes digital
-    pinDirectionIO(pin, 0); // makes output
-    if(digitalPinStatus(pin) == 0) {
-        digitalPinSet(pin, 1); // makes high
-    }
-    else{
-        digitalPinSet(pin, 0); //makes low
-    }
-}
-//DEBUG DEBUG DEBUG DEBUG
+//void pinDirectionIO(int pin, int io){ // 1 is an input, 0 is an output
+//	// Pin 1 can't change direction
+//	if (pin == 2)
+//	{
+//		TRISAbits.TRISA0 = io;
+//	}
+//	else if (pin == 3)
+//	{
+//		TRISAbits.TRISA1 = io;
+//	}
+//	else if (pin == 4)
+//	{
+//		TRISBbits.TRISB0 = io;
+//	}
+//	else if (pin == 5)
+//	{
+//		TRISBbits.TRISB1 = io;
+//	}
+//	else if (pin == 6)
+//	{
+//		TRISBbits.TRISB2 = io;
+//	}
+//	else if (pin == 7)
+//	{
+//		TRISBbits.TRISB3 = io;
+//	}
+//	// Pin8 - Always VSS for PIC24FV32KA302 - Do nothing
+//	else if (pin == 9)
+//	{
+//		TRISAbits.TRISA2 = io;
+//	}
+//	else if (pin == 10)
+//	{
+//		TRISAbits.TRISA3 = io;
+//	}
+//	else if (pin == 11)
+//	{
+//		TRISBbits.TRISB4 = io;
+//	}
+//	else if (pin == 12)
+//	{
+//		TRISAbits.TRISA4 = io;
+//	}
+//	//Pin 13 - Always VDD for PIC24FV32KA302 - Do nothing
+//	else if (pin == 14)
+//	{
+//		TRISBbits.TRISB5 = io;
+//	}
+//	else if (pin == 15)
+//	{
+//		TRISBbits.TRISB6 = io;
+//	}
+//	else if (pin == 16)
+//	{
+//		TRISBbits.TRISB7 = io;
+//	} //Usually reserved for TX
+//	else if (pin == 17)
+//	{
+//		TRISBbits.TRISB8 = io;
+//	}//Usually reserved for I2C
+//	else if (pin == 18)
+//	{
+//		TRISBbits.TRISB9 = io;
+//	}//Usually Reserved for I2C
+//	else if (pin == 19)
+//	{
+//		TRISAbits.TRISA7 = io;
+//	}
+//	// Pin 20 - Always vCap for PIC24FV32KA302 - Do nothing
+//	else if (pin == 21)
+//	{
+//		TRISBbits.TRISB10 = io;
+//	}
+//	else if (pin == 22)
+//	{
+//		TRISBbits.TRISB11 = io;
+//	}
+//	else if (pin == 23)
+//	{
+//		TRISBbits.TRISB12 = io;
+//	}
+//	else if (pin == 24)
+//	{
+//		TRISBbits.TRISB13 = io;
+//	}
+//	else if (pin == 25)
+//	{
+//		TRISBbits.TRISB14 = io;
+//	}
+//	else if (pin == 26)
+//	{
+//		TRISBbits.TRISB15 = io;
+//	}
+//	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
+//	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
+//}
+//
+//
+//void digitalPinSet(int pin, int set) // 1 for high, 0 for low
+//{
+//	if (pin == 1)
+//	{
+//		PORTAbits.RA5 = set;
+//	}
+//	else if (pin == 2)
+//	{
+//		PORTAbits.RA0 = set;
+//	}
+//	else if (pin == 3)
+//	{
+//		PORTAbits.RA1 = set;
+//	}
+//	else if (pin == 4)
+//	{
+//		PORTBbits.RB0 = set;
+//	}
+//	else if (pin == 5)
+//	{
+//		PORTBbits.RB1 = set;
+//	}
+//	else if (pin == 6)
+//	{
+//		PORTBbits.RB2 = set;
+//	}
+//	else if (pin == 7)
+//	{
+//		PORTBbits.RB3 = set;
+//	}
+//	// Pin8 - Always VSS for PIC24FV32KA302 - Do nothing
+//	else if (pin == 9)
+//	{
+//		PORTAbits.RA2 = set;
+//	}
+//	else if (pin == 10)
+//	{
+//		PORTAbits.RA3 = set;
+//	}
+//	else if (pin == 11)
+//	{
+//		PORTBbits.RB4 = set;
+//	}
+//	else if (pin == 12)
+//	{
+//		PORTAbits.RA4 = set;
+//	}
+//	//Pin 13 - Always VDD for PIC24FV32KA302 - Do nothing
+//	else if (pin == 14)
+//	{
+//		PORTBbits.RB5 = set;
+//	}
+//	else if (pin == 15)
+//	{
+//		PORTBbits.RB6 = set;
+//	}
+//	else if (pin == 16)
+//	{
+//		PORTBbits.RB7 = set;
+//	} //Usually reserved for TX
+//	else if (pin == 17)
+//	{
+//		PORTBbits.RB8 = set;
+//	}//Usually reserved for I2C
+//	else if (pin == 18)
+//	{
+//		PORTBbits.RB9 = set;
+//	}//Usually Reserved for I2C
+//	else if (pin == 19)
+//	{
+//		PORTAbits.RA7 = set;
+//	}
+//	// Pin 20 - Always vCap for PIC24FV32KA302 - Do nothing
+//	else if (pin == 21)
+//	{
+//		PORTBbits.RB10 = set;
+//	}
+//	else if (pin == 22)
+//	{
+//		PORTBbits.RB11 = set;
+//	}
+//	else if (pin == 23)
+//	{
+//		PORTBbits.RB12 = set;
+//	}
+//	else if (pin == 24)
+//	{
+//		PORTBbits.RB13 = set;
+//	}
+//	else if (pin == 25)
+//	{
+//		PORTBbits.RB14 = set;
+//	}
+//	else if (pin == 26)
+//	{
+//		PORTBbits.RB15 = set;
+//	}
+//	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
+//	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
+//}
+//
+////TODO: Should be based off of the RB values, not the AN
+//void specifyAnalogPin(int pin, int analogOrDigital) // analogOrDigital = 1 if analog, 0 is digital
+//{
+//	if (pin == 4)
+//	{
+//		ANSBbits.ANSB0 = analogOrDigital;
+//	}
+//	else if (pin == 5)
+//	{
+//		ANSBbits.ANSB1 = analogOrDigital;
+//	}
+//	else if (pin == 6)
+//	{
+//		ANSBbits.ANSB2 = analogOrDigital;
+//	}
+//	else if (pin == 7)
+//	{
+//		ANSBbits.ANSB3 = analogOrDigital;
+//		//TODO: Jacqui needs to find out why pin 7 isn't in the library
+//	}
+//	else if (pin == 11)
+//	{
+//		ANSBbits.ANSB4 = analogOrDigital;
+//	}
+//	else if (pin == 23)
+//	{
+//		ANSBbits.ANSB12 = analogOrDigital;
+//	}
+//	else if (pin == 24)
+//	{
+//		ANSBbits.ANSB13 = analogOrDigital;
+//	}
+//	else if (pin == 25)
+//	{
+//		ANSBbits.ANSB14 = analogOrDigital;
+//	}
+//	else if (pin == 26)
+//	{
+//		ANSBbits.ANSB15 = analogOrDigital;
+//	}
+//}
+//
+//void pinSampleSelectRegister(int pin){ //  A/D Sample Select Regiser (this is only used in the readADC() function)
+//    if (pin == 4)
+//	{
+//		AD1CHSbits.CH0SA = 2; //AN2
+//	}
+//	else if (pin == 5)
+//	{
+//		AD1CHSbits.CH0SA = 3; //AN3
+//	}
+//	else if (pin == 6)
+//	{
+//		AD1CHSbits.CH0SA = 4;
+//	}
+//	else if (pin == 7)
+//	{
+//		AD1CHSbits.CH0SA = 5;
+//	}
+//	else if (pin == 11)
+//	{
+//		AD1CHSbits.CH0SA = 15;
+//	}
+//	else if (pin == 23)
+//	{
+//		AD1CHSbits.CH0SA = 12;
+//	}
+//	else if (pin == 24)
+//	{
+//		AD1CHSbits.CH0SA = 11;
+//	}
+//	else if (pin == 25)
+//	{
+//		AD1CHSbits.CH0SA = 10;
+//	}
+//	else if (pin == 26)
+//	{
+//		AD1CHSbits.CH0SA = 9;
+//	}
+//}
+//
+//int digitalPinStatus(int pin)
+//{
+//	int pinValue;
+//	if (pin == 1)
+//	{
+//		pinValue = PORTAbits.RA5;
+//	}
+//	else if (pin == 2)
+//	{
+//		pinValue = PORTAbits.RA0;
+//	}
+//	else if (pin == 3)
+//	{
+//		pinValue = PORTAbits.RA1;
+//	}
+//	else if (pin == 4)
+//	{
+//		pinValue = PORTBbits.RB0;
+//	}
+//	else if (pin == 5)
+//	{
+//		pinValue = PORTBbits.RB1;
+//	}
+//	else if (pin == 6)
+//	{
+//		pinValue = PORTBbits.RB2;
+//	}
+//	else if (pin == 7)
+//	{
+//		pinValue = PORTBbits.RB3;
+//	}
+//	// Pin8 - Always VSS for PIC24FV32KA302 - Do nothing
+//	else if (pin == 9)
+//	{
+//		pinValue = PORTAbits.RA2;
+//	}
+//	else if (pin == 10)
+//	{
+//		pinValue = PORTAbits.RA3;
+//	}
+//	else if (pin == 11)
+//	{
+//		pinValue = PORTBbits.RB4;
+//	}
+//	else if (pin == 12)
+//	{
+//		pinValue = PORTAbits.RA4;
+//	}
+//	//Pin 13 - Always VDD for PIC24FV32KA302 - Do nothing
+//	else if (pin == 14)
+//	{
+//		pinValue = PORTBbits.RB5;
+//	}
+//	else if (pin == 15)
+//	{
+//		pinValue = PORTBbits.RB6;
+//	}
+//	else if (pin == 16)
+//	{
+//		pinValue = PORTBbits.RB7;
+//	} //Usually reserved for TX
+//	else if (pin == 17)
+//	{
+//		pinValue = PORTBbits.RB8;
+//	}//Usually reserved for I2C
+//	else if (pin == 18)
+//	{
+//		pinValue = PORTBbits.RB9;
+//	}//Usually Reserved for I2C
+//	else if (pin == 19)
+//	{
+//		pinValue = PORTAbits.RA7;
+//	}
+//	// Pin 20 - Always vCap for PIC24FV32KA302 - Do nothing
+//	else if (pin == 21)
+//	{
+//		pinValue = PORTBbits.RB10;
+//	}
+//	else if (pin == 22)
+//	{
+//		pinValue = PORTBbits.RB11;
+//	}
+//	else if (pin == 23)
+//	{
+//		pinValue = PORTBbits.RB12;
+//	}
+//	else if (pin == 24)
+//	{
+//		pinValue = PORTBbits.RB13;
+//	}
+//	else if (pin == 25)
+//	{
+//		pinValue = PORTBbits.RB14;
+//	}
+//	else if (pin == 26)
+//	{
+//		pinValue = PORTBbits.RB15;
+//	}
+//	return pinValue;
+//	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
+//	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
+//}
 
 /////////////////////////////////////////////////////////////////////
 ////                                                             ////
@@ -632,28 +630,28 @@ void initialization(void)
 	pinDirectionIO(pwrKeyPin, 0); //TRISBbits.TRISB6 = 0; //sets power key as an output (Pin 15)
 	pinDirectionIO(simVioPin, 0); //TRISAbits.TRISA1 = 0; //sets Vio as an output (pin 3)
 
-	//         Fona stuff
-	digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-	if (digitalPinStatus(statusPin) == 0){ //Checks see if the Fona is off pin
-		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn on Fona
-	}
-	while (digitalPinStatus(statusPin) == 0) {} // Wait for Fona to power up
-	digitalPinSet(pwrKeyPin, 1);//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-
-	// Turn on SIM800
-	 turnOnSIM();
+//	    //     Fona stuff
+//	digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
+//	if (digitalPinStatus(statusPin) == 0){ //Checks see if the Fona is off pin
+//		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn on Fona
+//	}
+//	while (digitalPinStatus(statusPin) == 0) {} // Wait for Fona to power up
+//	digitalPinSet(pwrKeyPin, 1);//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
+//
+//	// Turn on SIM800
+//	 turnOnSIM();
 
                 // PUTTY TEST (Serial Communication)
-//         specifyAnalogPin(txPin, 0);    // make digital
-//         specifyAnalogPin(rxPin, 0);    // make digital
-//         pinDirectionIO(txPin, 0);       // make output
-//         pinDirectionIO(rxPin, 1);       // make input
+         specifyAnalogPin(txPin, 0);    // make digital
+         specifyAnalogPin(rxPin, 0);    // make digital
+         pinDirectionIO(txPin, 0);       // make output
+         pinDirectionIO(rxPin, 1);       // make input
 
 	// Moved the RTCCSet function up since we do not rely on network anymore
 	configI2c();
 	char seconds = 50;
-	char minutes = 57;
-	char hours = 14;
+	char minutes = 58;
+	char hours = 23;
 	char weekday = 4;
 	char days = 12;
 	char months = 8;
@@ -712,7 +710,17 @@ void initialization(void)
             }
         }
 
-        sendTimeMessage();
+        angle2 = getHandleAngle();
+        angle3 = getHandleAngle();
+        angle4 = getHandleAngle();
+        angle5 = getHandleAngle();
+        angle6 = getHandleAngle();
+        angle7 = getHandleAngle();
+        angle8 = getHandleAngle();
+        angle9 = getHandleAngle();
+        angle10 = getHandleAngle();
+
+        //sendTimeMessage();
 }
 
 void sendTimeMessage(void){
@@ -854,7 +862,7 @@ void concat(char *dest, const char *src)
 	//Increments the pointer to the end of the string
 	while (*dest)
 	{
-		dest++;
+            dest++;
 	}
 	//Assigns the rest of string two to the incrementing pointer
 	while ((*dest++ = *src++) != '\0');
@@ -971,10 +979,14 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
  ********************************************************************/
 void turnOffSIM()
 {
-	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
-		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn off Fona
-	}
-	while (digitalPinStatus(statusPin) == 0) {} // Wait for Fona to power up
+//	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
+//		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn off Fona
+//	}
+    if(digitalPinStatus(statusPin) == 1)
+    {
+        digitalPinSet(pwrKeyPin, 0);
+    }
+	while (digitalPinStatus(statusPin) == 1) {} // Wait for Fona to power off
 	digitalPinSet(pwrKeyPin, 1);//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
 
 
@@ -1313,7 +1325,7 @@ int readAdc(int channel) //check with accelerometer
  * Function: getHandleAngle()
  * Input: None
  * Output: Float
- * Overview: Returns the current angle of the pump. The accelerometer
+ * Overview: Returns the average angle of the pump. The accelerometer
 should be oriented on the pump handle so that when the
 pump handle (the side the user is using) is down (water
 present), the angle is positive. When the pump handle
@@ -1336,10 +1348,23 @@ float getHandleAngle()
         else if (angle < -30){
             angle = -30.0;
         }
-	return angle;
+        angle10 = angle9;
+        angle9 = angle8;
+        angle8 = angle7;
+        angle7 = angle6;
+        angle6 = angle5;
+        angle5 = angle4;
+        angle4 = angle3;
+        angle3 = angle2;
+        angle2 = angle1;
+        angle1 = angle;
 
+        float averageAngle = (angle1 + angle2 + angle3 + angle4 + angle5 + angle6 + angle7 + angle8 + angle9 + angle10)/10.0;
 
+        return averageAngle;
+        //return angle;
 }
+
 
 /*********************************************************************
  * Function: initializeQueue()
@@ -1492,642 +1517,10 @@ float readDepthSensor(void)
         depthInMeters = 2.2629 * realVoltage;
         depthInMeters *= realVoltage;
         depthInMeters -= 5.7605 * realVoltage;
-        depthInMeters +=3.4137;
+        depthInMeters += 3.4137;
 
 	return depthInMeters;
 
-}
-
-/////////////////////////////////////////////////////////////////////
-////                                                             ////
-////                    I2C FUNCTIONS                            ////
-////                                                             ////
-/////////////////////////////////////////////////////////////////////
-/*********************************************************************
- * Function: SoftwareReset()
- * Input: None.
- * Output: None.
- * Overview: Resets software for I2C
- * Note: Contains a timeout loop that will disable then enable I2C
- ********************************************************************/
-void SoftwareReset(void)
-{
-    	I2C1CONbits.I2CEN = 0; // doesn't Configure I2C pins as I2C (on pins 17 an 18)
-        configI2c();    // Configure 12C pins as 12C (on pins 17 and 18
-
-	IdleI2C(); // Ensure module is idle
-	StartI2C(); // Initiate START condition
-	while ( I2C1CONbits.SEN ); // Wait until START condition is complete
-
-	int pulsesCreated = 0;
-	pinDirectionIO(sclI2CPin, 1); // input
-	pinDirectionIO(sdaI2CPin, 1); // input
-	if((digitalPinStatus(sclI2CPin) == 1) && (digitalPinStatus(sdaI2CPin) == 0)) {
-		pinDirectionIO(sdaI2CPin, 0); // make SDA an input
-		digitalPinSet(sdaI2CPin, 0); // set SDA
-		while ((pulsesCreated < 9) && digitalPinStatus(sdaI2CPin) == 0){ //PORTBbits.RB9 == 0){
-			delaySCL();
-			digitalPinSet(sclI2CPin, 1); //PORTBbits.RB9 = 1; // SCL
-			delaySCL();
-			digitalPinSet(sdaI2CPin, 0); //PORTBbits.RB9 = 0; // SCL
-			delaySCL();
-			pulsesCreated++;
-		}
-	}
-	// put pulse code here
-	RestartI2C(); // Initiate START condition
-	while ( I2C1CONbits.RSEN ); // Wait until START condition is complete
-	StopI2C(); // Initiate STOP condition
-	while ( I2C1CONbits.PEN ); // Wait until STOP condition is complete
-}
-
-/*********************************************************************
- * Function: IdleI2C()
- * Input: None.
- * Output: None.
- * Overview: Waits for bus to become Idle
- * Note: Contains a timeout loop that will disable then enable I2C
- ********************************************************************/
-unsigned int IdleI2C(void)
-{
-	int timeOut = 0;
-	while (I2C1STATbits.TRSTAT){//Wait for bus Idle
-		if (timeOut == 1300){ // time out loop incase I2C gets stuck
-			SoftwareReset();
-			invalid=0xff;
-			return;
-		}
-	}
-	timeOut++;
-}
-
-
-/*********************************************************************
- * Function: StartI2C()
- * Input: None.
- * Output: None.
- * Overview: Generates an I2C Start Condition
- * Note: Contains a timeout loop that will disable then enable I2C
- ********************************************************************/
-unsigned int StartI2C(void)
-{
-	//This function generates an I2C start condition and returns status
-	//of the Start.
-	int timeOut = 0;
-	I2C1CONbits.SEN = 1; //Generate Start COndition
-	while (I2C1CONbits.SEN) //Wait for Start COndition
-	{
-		if (timeOut == 1300){ // time out loop incase I2C gets stuck
-			SoftwareReset();
-			invalid=0xff;
-			break;
-		}
-		timeOut++;
-	}
-	//return(I2C1STATbits.S); //Optionally return status
-}
-
-/*********************************************************************
- * Function: StopI2C()
- * Input: None.
- * Output: None.
- * Overview: Generates a bus stop condition
- * Note: None
- ********************************************************************/
-unsigned int StopI2C(void)
-{
-	//This function generates an I2C stop condition and returns status
-	//of the Stop.
-	int timeOut = 0;
-
-	I2C1CONbits.PEN = 1; //Generate Stop Condition
-	while (I2C1CONbits.PEN) //Wait for Stop
-	{
-		if (timeOut == 1300){ // time out loop incase I2C gets stuck
-			SoftwareReset();
-			invalid=0xff;
-			break;
-		}
-		timeOut++;
-	}
-	//return(I2C1STATbits.P); //Optional - return status
-}
-
-/*********************************************************************
- * Function: RestartI2C()
- * Input: None.
- * Output: None.
- * Overview: Generates a restart condition and optionally returns status
- * Note: None
- ********************************************************************/
-void RestartI2C(void)
-{
-	//This function generates an I2C Restart condition and returns status
-	//of the Restart.
-	int timeOut = 0;
-	I2C1CONbits.RSEN = 1; //Generate Restart
-	while (I2C1CONbits.RSEN) //Wait for restart
-	{
-		if (timeOut == 1300){ // time out loop incase I2C gets stuck
-			SoftwareReset();
-			invalid=0xff;
-			break;
-		}
-		timeOut++;
-	}
-	//return(I2C1STATbits.S); //Optional - return status
-}
-
-void NackI2C(void)
-{
-	int timeOut = 0;
-	I2C1CONbits.ACKDT = 1;
-	I2C1CONbits.ACKEN = 1;
-	while (I2C1CONbits.ACKEN)
-	{
-		if (timeOut == 1300)
-		{ // time out loop incase I2C gets stuck
-			SoftwareReset();
-			invalid=0xff;
-			break;
-		}
-		timeOut++;
-	}
-}
-
-void AckI2C(void)
-{
-	int timeOut = 0;
-	I2C1CONbits.ACKDT = 0;
-	I2C1CONbits.ACKEN = 1;
-	while (I2C1CONbits.ACKEN)
-	{
-		if (timeOut == 1300)
-		{ // time out loop incase I2C gets stuck
-			SoftwareReset();
-			invalid=0xff;
-			break;
-		}
-		timeOut++;
-	}
-}
-
-void configI2c(void)
-{
-	//From Jake's
-	I2C1CONbits.A10M = 0; //Use 7-bit slave addresses
-	I2C1CONbits.DISSLW = 1; // Disable Slew rate
-	I2C1CONbits.IPMIEN = 0; //should be set to 0 when master
-	//IFS1bits.MI2C1IF = 0; // Disable Interupt
-	//^From Jake's
-	I2C1BRG = 0x4E; // If Fcy = 8 Mhz this will set the baud to 100 khz
-	I2C1CONbits.I2CEN = 1; // Configures I2C pins as I2C (on pins 17 an 18)
-}
-/*********************************************************************
- * Function: WriteI2C()
- * Input: Byte to write.
- * Output: None.
- * Overview: Writes a byte out to the bus
- * Note: None
- ********************************************************************/
-void WriteI2C(unsigned char byte)
-{
-	//This function transmits the byte passed to the function
-	int timeOut1 = 0;
-	while (I2C1STATbits.TRSTAT)//Wait for bus to be idle
-	{
-		if (timeOut1 == 1300)
-		{ // time out loop incase I2C gets stuck
-			SoftwareReset();
-			invalid=0xff;
-			return;
-		}
-		timeOut1++;
-
-	}
-	I2C1TRN = byte; //Load byte to I2C1 Transmit buffer
-	int timeOut2 = 0;
-	while (I2C1STATbits.TBF) //wait for data transmission
-	{
-		if (timeOut2 == 1300)
-		{ // time out loop incase I2C gets stuck
-			SoftwareReset();
-			invalid=0xff;
-			return;
-		}
-		timeOut2++;
-
-	}
-
-
-}
-
-/*********************************************************************
- * Function: ReadI2C()
- * Input: None
- * Output: Returns one Byte from Slave device
- * Overview: Receives Byte & Writes a Nack out to the bus
- * Note: None
- ********************************************************************/
-unsigned int ReadI2C(void)
-{
-	int timeOut1 = 0;
-	int timeOut2 = 0;
-	I2C1CONbits.ACKDT = 1; // Prepares to send NACK
-	I2C1CONbits.RCEN = 1; // Gives control of clock to Slave device
-	while (!I2C1STATbits.RBF) // Waits for register to fill up
-	{
-		if (timeOut1 == 1300){ // time out loop incase I2C gets stuck
-			SoftwareReset();
-                        invalid = 0xff;
-			return 0xff; // invalid
-		}
-		timeOut1++;
-
-	}
-	I2C1CONbits.ACKEN = 1; // Sends NACK or ACK set above
-	while (I2C1CONbits.ACKEN) // Waits till ACK is sent (hardware reset)
-	{
-		if (timeOut2 == 1300){ // time out loop incase I2C gets stuck
-			SoftwareReset();
-                        invalid = 0xff;
-			return 0xff; //invalid
-
-		}
-		timeOut2++;
-
-	}
-	return I2C1RCV; // Returns data
-}
-
-/*********************************************************************
- * Function: delaySCL()
- * Input: None
- * Output: None
- * Overview: Pulse length for I2C pulse
- * Note: None
- ********************************************************************/
-void delaySCL(void)
-{
-	int timeKiller = 0; //don't delete
-	int myIndex = 0;
-	while (myIndex < 5)
-	{
-		myIndex++;
-	}
-}
-
-
-/////////////////////////////////////////////////////////////////////
-////                                                             ////
-////                    RTCC FUNCTIONS                           ////
-////                                                             ////
-/////////////////////////////////////////////////////////////////////
-
-/*********************************************************************
- * Function: readRTCC
- * Input: enum RTCCaddress
- * Output: None
- * Overview: reads from the register specified by the input
- * Note: None
- ********************************************************************/
-
-int readRTCC(enum RTCCregister RTCCregister)
-{
-    unsigned char address;
-    unsigned char mask;
-    int data;
-
-    switch(RTCCregister)
-    {
-        case SEC_REGISTER:
-            address = 0x00;
-            mask = 0x7F;
-            break;
-
-        case MIN_REGISTER:
-            address = 0x01;
-            mask = 0x7F;
-            break;
-
-        case HOUR_REGISTER:
-            address = 0x02;
-            mask = 0x3F;
-            break;
-
-        case WKDAY_REGISTER:
-            address = 0x03;
-            mask = 0x07;
-            break;
-
-        case DATE_REGISTER:
-            address = 0x04;
-            mask = 0x3F;
-            break;
-
-        case MONTH_REGISTER:
-            address = 0x05;
-            mask = 0x1F;
-            break;
-
-        case YEAR_REGISTER:
-            address = 0x06;
-            mask = 0xFF;
-            break;
-    }
-
-	configI2c(); // sets up I2C
-	StartI2C();
-	WriteI2C(0xde); // MCP7490N device address + write command
-	IdleI2C();
-	WriteI2C(address); // device address for the given register on MCP7490N
-	IdleI2C();
-	RestartI2C();
-	IdleI2C();
-	WriteI2C(0xdf); // MCP7490N device address + read command
-	IdleI2C();
-	data = (int)ReadI2C();
-	StopI2C();
-        if(invalid == 0xFF)
-        {
-            invalid = 0;
-            data = readRTCC(address);
-        }
-	data = data & mask; // removes unnecessary bits (mostly control bits and other non-time data)
-	return data; // returns the time in address as a BCD number
-
-}
-
-/*********************************************************************
- * Function: turnOffClockOscilator()
- * Input: None
- * Output: None
- * Overview: Turns off RTCC Oscillator MCP7940N so it can be
- * set
- * Note: None
- ********************************************************************/
-void turnOffClockOscilator(void)
-{
-	// turns off oscilator to prepare to set time
-	StartI2C();
-	WriteI2C(0xde); //Device Address (RTCC) + Write Command
-	IdleI2C();
-	WriteI2C(0x00); //address reg. for sec
-	IdleI2C();
-	WriteI2C(0x00); //Turn off oscillator and sets seconds to 0
-	IdleI2C();
-        if(invalid == 0xFF)
-        {
-            invalid = 0;
-            turnOffClockOscilator();
-        }
-	StopI2C();
-}
-
-int getSecondI2C(void) //may want to pass char address to it in the future
-{
-	int sec; // temp var to hold seconds information
-
-	configI2c(); // sets up I2C
-	StartI2C();
-	WriteI2C(0xde); // MCP7490N device address + write command
-	IdleI2C();
-	WriteI2C(0x00); // device address for the Seconds register on MCP7490N
-	IdleI2C();
-	RestartI2C();
-	IdleI2C();
-	WriteI2C(0xdf); // MCP7490N device address + read command
-	IdleI2C();
-	sec = (int)ReadI2C();
-	StopI2C();
-        if(invalid == 0xFF)
-        {
-            invalid = 0;
-            sec = getSecondI2C();
-        }
-	sec = sec & 0x7f; // removes Oscillator bit
-	//sec = BcdToDec(sec); // converts sec to a decimal number
-	return sec; // returns the time in sec as a demimal number
-}
-
-int getMinuteI2C(void)
-{
-	int min; // temp var to hold seconds information
-	configI2c(); // sets up I2C
-	StartI2C();
-	WriteI2C(0xde); // MCP7490N device address + write command
-	IdleI2C();
-	WriteI2C(0x01); // device address for the minutes register on MCP7490N
-	IdleI2C();
-	RestartI2C();
-	IdleI2C();
-	WriteI2C(0xdf); // MCP7490N device address + read command
-	IdleI2C();
-	min = (int)ReadI2C();
-	StopI2C();
-        if(invalid == 0xFF)
-        {
-            invalid = 0;
-            min = getMinuteI2C();
-        }
-	min = min & 0x7f; // removes unused bit
-	//min = BcdToDec(min); // converts min to a decimal number
-	return min; // returns the time in min as a demimal number
-}
-
-int getHourI2C(void)
-{
-	int hr; // temp var to hold seconds information
-	configI2c(); // sets up I2C
-	StartI2C();
-	WriteI2C(0xde); // MCP7490N device address + write command
-	IdleI2C();
-	WriteI2C(0x02); // device address for the hours register on MCP7490N
-	IdleI2C();
-	RestartI2C();
-	IdleI2C();
-	WriteI2C(0xdf); // MCP7490N device address + read command
-	IdleI2C();
-	hr = (int)ReadI2C();
-	StopI2C();
-
-        if(invalid == 0xFF)
-        {
-            invalid = 0;
-            hr = getHourI2C();
-        }
-	hr = hr & 0x3f; // removes unused bits
-	//hr = BcdToDec(hr); // converts hr to a decimal number
-	return hr; // returns the time in hr as a demimal number
-}
-
-int getYearI2C(void)
-{
-	int yr; // temp var to hold seconds information
-	configI2c(); // sets up I2C
-	StartI2C();
-	WriteI2C(0xde); // MCP7490N device address + write command
-	IdleI2C();
-	WriteI2C(0x06); // device address for the years register on MCP7490N
-	IdleI2C();
-	RestartI2C();
-	IdleI2C();
-	WriteI2C(0xdf); // MCP7490N device address + read command
-	IdleI2C();
-	yr = (int)ReadI2C();
-	StopI2C();
-        if(invalid == 0xFF)
-        {
-            invalid = 0;
-            yr = getYearI2C();
-        }
-	return yr; // returns the time in hr as a demimal number
-}
-
-int getMonthI2C(void)
-{
-	int mnth; // temp var to hold seconds information
-	configI2c(); // sets up I2C
-	StartI2C();
-	WriteI2C(0xde); // MCP7490N device address + write command
-	IdleI2C();
-	WriteI2C(0x05); // device address for the years register on MCP7490N
-	IdleI2C();
-	RestartI2C();
-	IdleI2C();
-	WriteI2C(0xdf); // MCP7490N device address + read command
-	IdleI2C();
-	mnth = (int)ReadI2C();
-	StopI2C();
-        if(invalid == 0xFF)
-        {
-            invalid = 0;
-            mnth = getMonthI2C();
-        }
-        mnth = mnth & 0x1F;
-	return mnth; // returns the time in hr as a demimal number
-
-}
-int getWkdayI2C(void)
-{
-	unsigned char wkday; // temp var to hold seconds information
-	configI2c(); // sets up I2C
-	StartI2C();
-	WriteI2C(0xde); // MCP7490N device address + write command
-	IdleI2C();
-	WriteI2C(0x03); // device address for the years register on MCP7490N
-	IdleI2C();
-	RestartI2C();
-	IdleI2C();
-	WriteI2C(0xdf); // MCP7490N device address + read command
-	IdleI2C();
-	wkday = (int)ReadI2C();
-	StopI2C();
-        if(invalid == 0xFF)
-        {
-            invalid = 0;
-            wkday = getWkdayI2C();
-        }
-	wkday = wkday & 0x07; // converts yr to a decimal number
-	return wkday; // returns the time in hr as a demimal number
-}
-
-int getDateI2C(void)
-{
-	int date; // temp var to hold dat information
-	configI2c(); // sets up I2C
-	StartI2C();
-	WriteI2C(0xde); // MCP7490N device address + write command
-        IdleI2C();
-	WriteI2C(0x04); // device address for the date register on MCP7490N
-        IdleI2C();
-        RestartI2C();
-        IdleI2C();
-        WriteI2C(0xdf); // MCP7490N device address + read command
-        IdleI2C();
-        date = (int)ReadI2C();
-	StopI2C();
-        if(invalid == 0xFF)
-        {
-            invalid = 0;
-            date = getDateI2C();
-        }
-	date = date & 0x3f; // removes unused bits
-	//date = BcdToDec(date); // converts yr to a decimal number
-	return date; // returns the time in hr as a demimal number
-}
-
-/*********************************************************************
- * Function: setTime()
- * Input: SS MM HH WW DD MM YY
- * Output: None
- * Overview: Sets time for MCP7940N
- * Note: uses DecToBcd and I2C functions
- ********************************************************************/
-void setTime(char sec, char min, char hr, char wkday, char date, char month, char year)
-{
-	int leapYear;
-	if (year % 4 == 0)
-	{
-		leapYear = 1; //Is a leap Year
-	}
-	else
-	{
-		leapYear = 0; //Is not a leap Year
-	}
-	char BCDsec = DecToBcd(sec); // To BCD
-	char BCDmin = DecToBcd(min); // To BCD
-	char BCDhr = DecToBcd(hr);
-	char BCDwkday = DecToBcd(wkday); // To BCD
-	char BCDdate = DecToBcd(date);
-	char BCDmonth = DecToBcd(month); // To BCD
-	char BCDyear = DecToBcd(year);
-	BCDsec = BCDsec | 0x80; // add turn on oscilator bit
-	BCDhr = BCDhr & 0b10111111; // makes 24 hr time
-	BCDwkday = BCDwkday | 0b00001000; // the 0 says the external battery backup supply is enabled.
-	// To enable: Flip bits and OR it to turn on (NOT CURRENTLY ENABLED).
-	if (leapYear == 0)
-	{
-		BCDmonth = BCDmonth & 0b11011111; //Not a leap year
-	}
-	else
-	{
-		BCDmonth = BCDmonth | 0b00100000; //Is a leap year
-	}
-	configI2c();
-	turnOffClockOscilator();
-	//------------------------------------------------------------------------------
-	// sets clock
-	//------------------------------------------------------------------------------
-	StartI2C();
-	WriteI2C(0xDE); //Device Address (RTCC) + Write Command
-	IdleI2C();
-	WriteI2C(0x01); //Adress for minutes
-	IdleI2C();
-	WriteI2C(BCDmin); //Load min
-	IdleI2C();
-	WriteI2C(BCDhr); //Load hour
-	IdleI2C();
-	WriteI2C(BCDwkday); //Load day of week
-	IdleI2C();
-	WriteI2C(BCDdate); //Load Date
-	IdleI2C();
-	WriteI2C(BCDmonth); //Load Month
-	IdleI2C();
-	WriteI2C(BCDyear); // Load Year
-	IdleI2C();
-	StopI2C();
-	//------------------------------------------------------------------------------
-	// Sets seconds and turns on oscilator
-	//------------------------------------------------------------------------------
-	StartI2C();
-	WriteI2C(0xDE); //Device Address (RTCC) + Write Command
-	IdleI2C();
-	WriteI2C(0x00); //address reg. for sec
-	IdleI2C();
-	WriteI2C(BCDsec); //Turn on oscillator and sets seconds
-	IdleI2C();
-	StopI2C();
 }
 
 /////////////////////////////////////////////////////////////////////

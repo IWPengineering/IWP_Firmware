@@ -6,14 +6,16 @@
 */
 
 //*****************************************************************************
-
-
 #include "IWPUtilities.h"
+#include "I2C.h"
+#include "Pin_Manager.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <xc.h>
 #include <string.h>
+
+
 
 
 // ****************************************************************************
@@ -65,21 +67,7 @@
 void main(void)
 {
     	initialization();
-        sendTextMessage("What Hath God Wrought? Number 11");
-
-        while(1){
-//            sendTextMessage("What Hath God Wrought \r\n");
-//            int angleForMessage = getHandleAngle();
-//            char angleMessage[20];
-//            angleMessage[0]=0;
-//            longToString(angleForMessage, angleMessage);
-//
-//            concat(angleMessage, "\r \n");
-//            sendMessage("angle: ");
-//            sendMessage(angleMessage);
-        }
-
-
+      
 	waterPrimeTimeOut /= upstrokeInterval;
 	leakRateTimeOut /= upstrokeInterval;
 	//timeBetweenUpstrokes /= upstrokeInterval;
@@ -126,24 +114,30 @@ void main(void)
                 float angleAccumulated=0;
 		while (handleMovement == 0)
 		{
+                    
                           currentDay = getDateI2C();
 			if ( prevDay != currentDay){ //(prevDay != getDateI2C()){// it's a new day so send midNightMessage();
                                 batteryFloat = batteryLevel();
 				midnightMessage();
-			}
+			} 
                           if (depthSensorInUse == 1){ // if the Depth sensor is present
                               delayMs(1000);
                               int currentDayDepthSensor = BcdToDec(getDateI2C());
                               delayMs(1000);
                           if ((BcdToDec(getHourI2C() == 12) && (prevDayDepthSensor != currentDayDepthSensor)));
                           midDayDepthRead();
-                          }
+                          } 
 
-			delayMs(upstrokeInterval); // Delay for a short time
+			delayMs(10); // Delay for a short time
                         float newAngle = getHandleAngle();
-                        float deltaAngle = abs(newAngle - anglePrevious);
+                        float deltaAngle = newAngle - anglePrevious;
+
+                        if(deltaAngle < 0) {
+                            deltaAngle *= -1;
+                        }
+
                         anglePrevious = newAngle;
-                        if (deltaAngle > 2){ // prevents floating accelerometer values when it's not actually moving
+                        if (deltaAngle > .5){ // prevents floating accelerometer values when it's not actually moving
                         angleAccumulated += deltaAngle;
                         }
 			// If the angle has changed, set the handleMovement flag
@@ -165,28 +159,27 @@ void main(void)
                 upStroke = 0; // gets variable ready for new event
 
                 // averaging angle Code 9/17/2015
-                initializeQueue(anglePrevious);
-		previousAverage = queueAverage();
+                //initializeQueue(anglePrevious);
+		//previousAverage = queueAverage();
                 // Averaging angle code
-
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
 		{
 			delayMs(upstrokeInterval);  // delay a short time (10ms)
 
                         // averaging angle Code 9/17/2015
-                        pushToQueue(getHandleAngle()); //get Current angle of the pump handle
-                        deltaAverage = queueAverage() - previousAverage;
-                        previousAverage = queueAverage();
+                        //pushToQueue(getHandleAngle()); //get Current angle of the pump handle
+                        //deltaAverage = queueAverage() - previousAverage;
+                        //previousAverage = queueAverage();
                         
                         
                         // end averaging angle Code
 
                         angleCurrent = getHandleAngle(); // Get the current angle of the pump handle
 			angleDelta = angleCurrent - anglePrevious; // Calculate the change in angle of the pump handle
-                        //if(angleDelta > 5){
-                        if (deltaAverage > 5){ // averaging angle code 9/17/2015
-                            upStroke += deltaAverage; // angle Code 9/17/2015
-                           // upStroke += angleDelta;
+                        if(angleDelta > 1){
+                        //if (deltaAverage > 5){ // averaging angle code 9/17/2015
+                           // upStroke += deltaAverage; // angle Code 9/17/2015
+                            upStroke += angleDelta;
                             upStrokePrime += degToRad(upStroke); // Update the upStrokePrime
                             timeOutStatus=0;
                         // upstroke and current angle
@@ -206,7 +199,7 @@ void main(void)
 		// Tracks the upStroke for the water being extracted
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
-                float absoluteAngleThreshold = 3.5;
+                float absoluteAngleThreshold = 3.5; // Why is this 3.5 degrees? Isn't that probably too much?
                 int volumeLoopCounter = 5; // 50ms
 
                 unsigned long extractionDuration = 0;
@@ -220,16 +213,19 @@ void main(void)
                         angleCurrent = getHandleAngle();
                         angleDelta = angleCurrent - anglePrevious;
                         if (angleDelta < 0){ // absolute value of angleDelta
-                            angleDelta = angleDelta * -1;
+                            absoluteAngle += angleDelta * -1;
                         }
-                        absoluteAngle = angleDelta; // this should be the absolute value of angleDelta now
+                        else
+                        {
+                            absoluteAngle += angleDelta;
+                        }
+                        //absoluteAngle = angleDelta; // this should be the absolute value of angleDelta now
                         anglePrevious = angleCurrent;
-
                         if(angleDelta > 0){
                             angleDelta = angleDelta; //degToRad(angleDelta);
-                            upStrokeExtract = upStrokeExtract + angleDelta;
+                            upStrokeExtract += angleDelta;
                         }
-                            totalAbsoluteAngle =+ absoluteAngle;
+                            totalAbsoluteAngle += absoluteAngle;
                             i++;
                            delayMs(volumeDelay); // Delay for a short time
                            extractionDuration++;
@@ -247,6 +243,7 @@ void main(void)
 		long leakDurationCounter = volumeLoopCounter * volumeDelay; // The volume loop has 50 milliseconds of delay before entry
 		while (readWaterSensor() && (leakTimeCounter < leakRateTimeOut))
 		{
+                                
 				angleCurrent = getHandleAngle(); //Get the current angle of the pump handle
 				//Calculate the change in angle of the pump handle
 				angleDelta = angleCurrent - anglePrevious;
@@ -259,7 +256,7 @@ void main(void)
                                     leakCondition=1;
 					break;
                                 }
-                                if (leakDurationCounter > 100) // change to 20,000 for real code
+                                if (leakDurationCounter > 20000) // change to 20,000 for real code (was 100 - 10/8/2015 KK)
                                 {
                                     leakCondition=2;
                                         break;
@@ -288,7 +285,7 @@ void main(void)
 
                 upStrokeExtract = degToRad(upStrokeExtract);
 		volumeEvent = (MKII * upStrokeExtract);
-                volumeEvent -= (leakRate * extractionDuration / 10.0);
+                volumeEvent -= (leakRate * extractionDuration / 10.0); // Why is this 10?
 
 		hour = BcdToDec(getHourI2C());
 		switch (hour / 2)
