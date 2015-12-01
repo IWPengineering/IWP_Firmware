@@ -33,9 +33,10 @@
         <developmentServer>localhost</developmentServer>
         <targetDevice>PIC24FV32KA302</targetDevice>
         <targetHeader></targetHeader>
+        <targetPluginBoard></targetPluginBoard>
         <platformTool>PICkit3PlatformTool</platformTool>
         <languageToolchain>XC16</languageToolchain>
-        <languageToolchainVersion>1.24</languageToolchainVersion>
+        <languageToolchainVersion>1.21</languageToolchainVersion>
         <platform>3</platform>
       </toolsSet>
       <compileType>
@@ -43,8 +44,11 @@
           <linkerLibItems>
           </linkerLibItems>
         </linkerTool>
+        <archiverTool>
+        </archiverTool>
         <loading>
           <useAlternateLoadableFile>false</useAlternateLoadableFile>
+          <parseOnProdLoad>false</parseOnProdLoad>
           <alternateLoadableFile></alternateLoadableFile>
         </loading>
       </compileType>
@@ -57,16 +61,6 @@
         <makeCustomizationEnableLongLines>false</makeCustomizationEnableLongLines>
         <makeCustomizationNormalizeHexFile>false</makeCustomizationNormalizeHexFile>
       </makeCustomizationType>
-      <C30>
-      </C30>
-      <C30-AS>
-      </C30-AS>
-      <C30-LD>
-      </C30-LD>
-      <C30Global>
-      </C30Global>
-      <PICkit3PlatformTool>
-      </PICkit3PlatformTool>
     </conf>
   </confs>
 </configurationDescriptor>

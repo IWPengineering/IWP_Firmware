@@ -227,6 +227,10 @@ void main(void)
 		upStrokeExtract = degToRad(upStrokeExtract);
 		volumeEvent = (MKII * upStrokeExtract);
 		volumeEvent -= (leakRate * extractionDuration / volumeDelay);
+        if(volumeEvent < 0)
+        {
+            volumeEvent = 0; // we can't pump negative volume
+        }
 
 		hour = BcdToDec(getHourI2C());                                          //organize flow into 2 hours bins
 		switch (hour / 2)
