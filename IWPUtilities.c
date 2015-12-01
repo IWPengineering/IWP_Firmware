@@ -1,4 +1,6 @@
 #include "IWPUtilities.h"
+#include "Pin_Manager.h"
+#include "I2C.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -75,7 +77,7 @@ char DecToBcd(char val);
 const int xAxis = 11; // analog pin connected to x axis of accelerometer
 const int yAxis = 12; // analog pin connected to y axis of accelerometer
 const int batteryVoltage = 15;                  // analog channel connected to the battery
-const float MKII = .169; //0.467/2.0; // 0.4074 L/Radian; transfer variable for mkII delta handle angle to outflow
+const float MKII = .624; //0.4074 L/Radian; transfer variable for mkII delta handle angle to outflow
 const float leakSensorVolume = 0.01781283; // This is in Liters; pipe dia. = 33mm; rod diam 12 mm; gage length 24mm
                                            // THE FASTEST WE COULD POSSIBLE BE IF IT DOES PRIME IS 42ms FOR THE AVERAGE PERSON but we'll do half that incase you're pumping hard to get it to prime
 const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
@@ -111,7 +113,7 @@ float angleQueue[queueLength]; // Now we don't have to remember to change it any
 
 int prevTimer2 = 0; // Should intially begin at zero
 
-int prevDay;
+
 int prevDayDepthSensor;
 float midDayDepth;
 //int prevMinute;
@@ -134,12 +136,11 @@ float angle10 = 0;
 // ****************************************************************************
 //static char phoneNumber[] = "+233247398396"; // Number for the Black Phone
 //char phoneNumber[] = "+233545822291"; // Number for the White Phone Ghana trip 3
-//char phoneNumber[] = "+233545823475"; // Number for the Black? Phone Ghana trip 3
+//char phoneNumber[] = "+233545823475"; // Number for the Black Phone Ghana trip 3
 //char phoneNumber[] = "+19783840645"; // Number for Jake Sargent
-//char phoneNumber[] = "+19783840645"; // Number for Jake Sargent
-//char phoneNumber[] = "+17177784498"; // Number for Upside Wireless
+char phoneNumber[] = "+17177784498"; // Number for Upside Wireless
 //char phoneNumber2[] = "+17173039306"; // Tony's number
-char phoneNumber[] = "+13018737202"; // Number for Jacqui Young
+//char phoneNumber[] = "+13018737202"; // Number for Jacqui Young
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
@@ -601,125 +602,68 @@ void initialization(void)
 	ANSB = 0; // All port B pins are digital. Individual ADC are set in the readADC function
 	TRISB = 0xFFFF; // Sets all of port B to input
 
-	// pinDirectionIO(sclI2CPin, 0); //TRISBbits.TRISB8 = 0; // RB8 is an output
+	// pinDirectionIO(sclI2CPin, 0);                                            //TRISBbits.TRISB8 = 0; // RB8 is an output
 
-
-//	// Timer control (for WPS)
+	// Timer control (for WPS)
 	T1CONbits.TCS = 0; // Source is Internal Clock (8MHz)
 	T1CONbits.TCKPS = 0b11; // Prescalar to 1:256
 	T1CONbits.TON = 1; // Enable the timer (timer 1 is used for the water sensor)
 
-//        // Timer control (for getHandleAngle())
-        T2CONbits.T32 = 0; // Using 16-bit timer2
-        T2CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this)
-        T2CONbits.TON = 1; // Starts 16-bit Timer2
+    // Timer control (for getHandleAngle())
+    T2CONbits.T32 = 0; // Using 16-bit timer2
+    T2CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this)
+    T2CONbits.TON = 1; // Starts 16-bit Timer2
 
-
-	// UART control
-	U1BRG = 51; // Set baud to 9600, FCY = 8MHz (#pragma config FNOSC = FRC)
+	// UART config
+	U1BRG = 51;                                                                 // Set baud to 9600, FCY = 8MHz (#pragma config FNOSC = FRC)
 	U1STA = 0;
-	U1MODE = 0x8000; //enable UART for 8 bit data
-	//no parity, 1 stop bit
-	U1STAbits.UTXEN = 1; //enable transmit
-        pinDirectionIO(waterPresenceSensorOnOffPin, 0); //makes water presence sensor pin an output.
-	digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presnece sensor.
+	U1MODE = 0x8000;                                                            //enable UART for 8 bit data//no parity, 1 stop bit
+	U1STAbits.UTXEN = 1;                                                        //enable transmit
+    
+    //H2O sensor config
+    pinDirectionIO(waterPresenceSensorOnOffPin, 0);                             //makes water presence sensor pin an output.
+	digitalPinSet(waterPresenceSensorOnOffPin, 1);                              //turns on the water presnece sensor.
 
 	// From fona code (for enabling Texting)
-	pinDirectionIO(pwrKeyPin, 0); //TRISBbits.TRISB6 = 0; //sets power key as an output (Pin 15)
-	pinDirectionIO(simVioPin, 0); //TRISAbits.TRISA1 = 0; //sets Vio as an output (pin 3)
+	pinDirectionIO(pwrKeyPin, 0);                                               //TRISBbits.TRISB6 = 0; //sets power key as an output (Pin 15)
+	pinDirectionIO(simVioPin, 0);                                               //TRISAbits.TRISA1 = 0; //sets Vio as an output (pin 3)
+	digitalPinSet(simVioPin, 1);                                                //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
+	if (digitalPinStatus(statusPin) == 0){                                      //Checks see if the Fona is off pin
+	digitalPinSet(pwrKeyPin, 0);                                                //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn on Fona
+    }
+	while (digitalPinStatus(statusPin) == 0) {                                  // Wait for Fona to power up
+    } 
+	digitalPinSet(pwrKeyPin, 1);                                                //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
+    turnOnSIM();
 
-//	    //     Fona stuff
-//	digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-//	if (digitalPinStatus(statusPin) == 0){ //Checks see if the Fona is off pin
-//		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn on Fona
-//	}
-//	while (digitalPinStatus(statusPin) == 0) {} // Wait for Fona to power up
-//	digitalPinSet(pwrKeyPin, 1);//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-//
-//	// Turn on SIM800
-//	 turnOnSIM();
-
-                // PUTTY TEST (Serial Communication)
-         specifyAnalogPin(txPin, 0);    // make digital
-         specifyAnalogPin(rxPin, 0);    // make digital
-         pinDirectionIO(txPin, 0);       // make output
-         pinDirectionIO(rxPin, 1);       // make input
-
-	// Moved the RTCCSet function up since we do not rely on network anymore
-	configI2c();
-	char seconds = 50;
-	char minutes = 58;
-	char hours = 23;
-	char weekday = 4;
-	char days = 12;
-	char months = 8;
-	char years = 15;
-        depthSensorInUse = 0; // If Depth Sensor is in use, make a 1. Else make it zero.
-	setTime(seconds, minutes, hours, weekday, days, months, years); // SS MM HH WW DD MM YY
-
-	/*
-	 *
-         * Interrupt and internal clock commands for internal RTCC
-        RTCCSet(); // Sets time; Pic asks Sim which asks cell tower to get current time
-	_RTCWREN = 1; // allowing us to write to registers; Set Alarm for sending message
-	ALCFGRPTbits.CHIME = 1; //don't need to reset alarm?
-	ALCFGRPTbits.AMASK = 0b0110; //once a day
-	ALCFGRPTbits.ALRMPTR = 0b0010; //sets pointer
-	//The following two lines may not work
-	ALRMVAL = 0x0000; //set day and month to 0 and decrements pointer
-	ALRMVAL = alarmHour; //sets hour to 0 (12am), sets weekday to 0, and decrements pointer
-	ALRMVAL = 0x0000;//getMinuteOffset(); //set 5 min after midnight and set 1 second after midnight-
-	//*********************************************
-	// Make random number between 12:01-12:06
-	// Assigned 05-30-2014; completed 06-09-2014
-	//*********************************************
-	ALCFGRPTbits.ALRMEN = 1; //enables the alarm
-	_RTCWREN = 0; //no longer able to write to registers
-	IEC3bits.RTCIE = 1; //RTCC Interupt is enabled
-	 *
-	 */
-//        tryToConnectToNetwork();
-//        sendTextMessage("(\"t\":\"initialize\")");
+    //depth sensor I/O         
+	depthSensorInUse = 0; // If Depth Sensor is in use, make a 1. Else make it zero.
+	
 	initAdc();
 
+    batteryFloat = batteryLevel();
+    char initBatteryString[20];
+    initBatteryString[0] = 0;
+    floatToString(batteryFloat, initBatteryString);
+    char initialMessage[160];
+    initialMessage[0] = 0;
+    concat(initialMessage, "(\"t\":\"initialize\"");
+    concat(initialMessage, ",\"b\":");
+    concat(initialMessage, initBatteryString);
+    concat(initialMessage, ")");
+    
+    tryToConnectToNetwork();
+    sendTextMessage(initialMessage);        
 
-        batteryFloat = batteryLevel();
-        char initBatteryString[20];
-        initBatteryString[0] = 0;
-        floatToString(batteryFloat, initBatteryString);
-        char initialMessage[160];
-        initialMessage[0] = 0;
-        concat(initialMessage, "(\"t\":\"initialize\"");
-        concat(initialMessage, ",\"b\":");
-        concat(initialMessage, initBatteryString);
-        concat(initialMessage, ")");
-
-
-//        tryToConnectToNetwork();
-//        sendTextMessage(initialMessage);
-        sendMessage(initialMessage);
-        //prevHour = getHourI2C();
-        prevDay = getDateI2C();
-        if (depthSensorInUse == 1){
-            prevDayDepthSensor = BcdToDec(getDateI2C()) - 1; // The minus 1 is so that if the system is installed before noon we will receive data;
-            delayMs(1000);
-            if (BcdToDec(getHourI2C()) > 11){ // If it's already past noon on the first day, read the depthSensor now
-                midDayDepthRead();
-            }
-        }
-
-        angle2 = getHandleAngle();
-        angle3 = getHandleAngle();
-        angle4 = getHandleAngle();
-        angle5 = getHandleAngle();
-        angle6 = getHandleAngle();
-        angle7 = getHandleAngle();
-        angle8 = getHandleAngle();
-        angle9 = getHandleAngle();
-        angle10 = getHandleAngle();
-
-        sendTimeMessage();
-        sendMessage("Hello! I'm mad at you! /r/n");
+    angle2 = getHandleAngle();
+    angle3 = getHandleAngle();
+    angle4 = getHandleAngle();
+    angle5 = getHandleAngle();
+    angle6 = getHandleAngle();
+    angle7 = getHandleAngle();
+    angle8 = getHandleAngle();
+    angle9 = getHandleAngle();
+    angle10 = getHandleAngle();   
 }
 
 void sendTimeMessage(void){
@@ -978,10 +922,14 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
  ********************************************************************/
 void turnOffSIM()
 {
-	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
-		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn off Fona
-	}
-	while (digitalPinStatus(statusPin) == 0) {} // Wait for Fona to power up
+//	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
+//		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn off Fona
+//	}
+    if(digitalPinStatus(statusPin) == 1)
+    {
+        digitalPinSet(pwrKeyPin, 0);
+    }
+	while (digitalPinStatus(statusPin) == 1) {} // Wait for Fona to power off
 	digitalPinSet(pwrKeyPin, 1);//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
 
 
@@ -1356,8 +1304,8 @@ float getHandleAngle()
 
         float averageAngle = (angle1 + angle2 + angle3 + angle4 + angle5 + angle6 + angle7 + angle8 + angle9 + angle10)/10.0;
 
-        //return averageAngle;
-        return angle;
+        return averageAngle;
+        //return angle;
 }
 
 
@@ -1512,7 +1460,7 @@ float readDepthSensor(void)
         depthInMeters = 2.2629 * realVoltage;
         depthInMeters *= realVoltage;
         depthInMeters -= 5.7605 * realVoltage;
-        depthInMeters +=3.4137;
+        depthInMeters += 3.4137;
 
 	return depthInMeters;
 
@@ -1845,46 +1793,13 @@ void midDayDepthRead (void) {
 }
 void midnightMessage(void)
 {
-   	/* message type,
-	 * version # (no version number, we should just be able to check for new values in JSON),
-	 * date? (no date, the sms should have that within it),
-	 * sequence #; incase we didn't get a message (sent and recieved last 30, 60 total),
-	 * message data (all the variables):
-	 * leakageCoefficient (leakRateLongString)
-	 * longestPrime
-	 * volume02String
-	 * volume24String
-	 * volume46String
-	 * volume68String
-	 * volume810String
-	 * volume1012String
-	 * volume1214String
-	 * volume1416String
-	 * volume1618String
-	 * volume1820String
-	 * volume2022String
-	 * volume2224String
-	 * version #?
-	 * (won't include max/ min level in this version)
-	 * error1? (forseeable errors in the future)
-	 * error2? (forseeable errors in the future)
-	 * (won't use battery percentage till january)
-	 * check sum (sum of all the values)
-	 *
-	 *
-	 * {"t":"d","d":[{"l":123.123,"p":123.123,"v":[123.123,123.123,123.123,123.123,123.123,123.123,123.123,123.123,123.123,123.123,123.123,123.123]}]}
-	 *
-	 */
-
-
-
-	//Message assembly and sending; Use *floatToString() to send:
+    //Message assembly and sending; Use *floatToString() to send:
 	char longestPrimeString[20];
 	longestPrimeString[0] = 0;
 	char leakRateLongString[20];
 	leakRateLongString[0] = 0;
-        char batteryFloatString[20];
-        batteryFloatString[0] = 0;
+    char batteryFloatString[20];
+    batteryFloatString[0] = 0;
 	char volume02String[20];
 	volume02String[0] = 0;
 	char volume24String[20];
@@ -1911,7 +1826,7 @@ void midnightMessage(void)
 	volume2224String[0] = 0;
 	floatToString(leakRateLong, leakRateLongString);
 	floatToString(longestPrime, longestPrimeString);
-        floatToString(batteryFloat, batteryFloatString);
+    floatToString(batteryFloat, batteryFloatString);
 	floatToString(volume02, volume02String);
 	floatToString(volume24, volume24String);
 	floatToString(volume46, volume46String);
@@ -1934,31 +1849,29 @@ void midnightMessage(void)
 	concat(dataMessage, leakRateLongString);
 	concat(dataMessage, ",\"p\":");
 	concat(dataMessage, longestPrimeString);
-        concat(dataMessage, ",\"b\":");
-        concat(dataMessage, batteryFloatString);
-        if (depthSensorInUse == 1){ // if you have a depth sensor
-            pinDirectionIO(depthSensorOnOffPin, 0); //makes depth sensor pin an output.
-            digitalPinSet(depthSensorOnOffPin, 1); //turns on the depth sensor.
-
-            delayMs(30000); // Wait 30 seconds for the depth sensor to power up
-
-            char maxDepthLevelString[20];
-            maxDepthLevelString[0] = 0;
-            char minDepthLevelString[20];
-            minDepthLevelString[0] = 0;
-            float currentDepth = readDepthSensor();
-            if (midDayDepth > currentDepth){
-                floatToString(midDayDepth, maxDepthLevelString);
-                floatToString(currentDepth, minDepthLevelString);
-            }
-            else{
-                floatToString(currentDepth, maxDepthLevelString);
-                floatToString(midDayDepth, minDepthLevelString);
+    concat(dataMessage, ",\"b\":");
+    concat(dataMessage, batteryFloatString);
+    if (depthSensorInUse == 1){ // if you have a depth sensor
+        pinDirectionIO(depthSensorOnOffPin, 0); //makes depth sensor pin an output.
+        digitalPinSet(depthSensorOnOffPin, 1); //turns on the depth sensor.
+        delayMs(30000); // Wait 30 seconds for the depth sensor to power up
+        char maxDepthLevelString[20];
+        maxDepthLevelString[0] = 0;
+        char minDepthLevelString[20];
+        minDepthLevelString[0] = 0;
+        float currentDepth = readDepthSensor();
+        if (midDayDepth > currentDepth){
+        floatToString(midDayDepth, maxDepthLevelString);
+        floatToString(currentDepth, minDepthLevelString);
+    }
+    else{
+        floatToString(currentDepth, maxDepthLevelString);
+        floatToString(midDayDepth, minDepthLevelString);
                 
-            }
-            concat(dataMessage, ",\"d\":<");
-            concat(dataMessage, maxDepthLevelString);
-            concat(dataMessage, ",");
+    }
+    concat(dataMessage, ",\"d\":<");
+    concat(dataMessage, maxDepthLevelString);
+    concat(dataMessage, ",");
             concat(dataMessage, minDepthLevelString);
             concat(dataMessage, ">");
 
@@ -1990,16 +1903,17 @@ void midnightMessage(void)
 	concat(dataMessage, volume2224String);
 	concat(dataMessage, ">))");
 
+    turnOnSIM();
         // Try to establish network connection
-//	tryToConnectToNetwork();
+	tryToConnectToNetwork();
 	delayMs(2000);
 	// Send off the data
-//	sendTextMessage(dataMessage);
-        sendMessage(dataMessage);
-        sendMessage(" \r \n");
+	sendTextMessage(dataMessage);
+       // sendMessage(dataMessage);
+       //sendMessage(" \r \n");
 
 //        prevHour = getHourI2C();
-        prevDay = getDateI2C();
+//        prevDay = getDateI2C();
 
 	pressReset();
 	////////////////////////////////////////////////

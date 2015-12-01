@@ -9,6 +9,7 @@
 #include "xc.h"
 #include "I2C.h"
 #include "IWPUtilities.h"
+#include "Pin_Manager.h"
 
 
 /////////////////////////////////////////////////////////////////////
@@ -70,8 +71,10 @@ unsigned int IdleI2C(void)
 			invalid=0xff;
 			return;
 		}
+        
+        timeOut++;
 	}
-	timeOut++;
+	
 }
 
 
