@@ -41,11 +41,11 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=
-POSSIBLE_DEPFILES=
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/fonaI2C.o ${OBJECTDIR}/fonaIWPUtilities.o ${OBJECTDIR}/fonamain.o ${OBJECTDIR}/fonaPin_Manager.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/fonaI2C.o.d ${OBJECTDIR}/fonaIWPUtilities.o.d ${OBJECTDIR}/fonamain.o.d ${OBJECTDIR}/fonaPin_Manager.o.d
 
 # Object Files
-OBJECTFILES=
+OBJECTFILES=${OBJECTDIR}/fonaI2C.o ${OBJECTDIR}/fonaIWPUtilities.o ${OBJECTDIR}/fonamain.o ${OBJECTDIR}/fonaPin_Manager.o
 
 
 CFLAGS=
@@ -69,7 +69,55 @@ MP_LINKER_FILE_OPTION=,--script=p24FV32KA302.gld
 # ------------------------------------------------------------------------------------
 # Rules for buildStep: compile
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
+${OBJECTDIR}/fonaI2C.o: fonaI2C.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/fonaI2C.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  fonaI2C.c  -o ${OBJECTDIR}/fonaI2C.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/fonaI2C.o.d"        -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/fonaI2C.o.d" $(SILENT) 
+	
+${OBJECTDIR}/fonaIWPUtilities.o: fonaIWPUtilities.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/fonaIWPUtilities.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  fonaIWPUtilities.c  -o ${OBJECTDIR}/fonaIWPUtilities.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/fonaIWPUtilities.o.d"        -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/fonaIWPUtilities.o.d" $(SILENT) 
+	
+${OBJECTDIR}/fonamain.o: fonamain.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/fonamain.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  fonamain.c  -o ${OBJECTDIR}/fonamain.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/fonamain.o.d"        -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/fonamain.o.d" $(SILENT) 
+	
+${OBJECTDIR}/fonaPin_Manager.o: fonaPin_Manager.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/fonaPin_Manager.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  fonaPin_Manager.c  -o ${OBJECTDIR}/fonaPin_Manager.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/fonaPin_Manager.o.d"        -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1  -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/fonaPin_Manager.o.d" $(SILENT) 
+	
 else
+${OBJECTDIR}/fonaI2C.o: fonaI2C.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/fonaI2C.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  fonaI2C.c  -o ${OBJECTDIR}/fonaI2C.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/fonaI2C.o.d"        -g -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/fonaI2C.o.d" $(SILENT) 
+	
+${OBJECTDIR}/fonaIWPUtilities.o: fonaIWPUtilities.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/fonaIWPUtilities.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  fonaIWPUtilities.c  -o ${OBJECTDIR}/fonaIWPUtilities.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/fonaIWPUtilities.o.d"        -g -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/fonaIWPUtilities.o.d" $(SILENT) 
+	
+${OBJECTDIR}/fonamain.o: fonamain.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/fonamain.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  fonamain.c  -o ${OBJECTDIR}/fonamain.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/fonamain.o.d"        -g -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/fonamain.o.d" $(SILENT) 
+	
+${OBJECTDIR}/fonaPin_Manager.o: fonaPin_Manager.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/fonaPin_Manager.o.d 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  fonaPin_Manager.c  -o ${OBJECTDIR}/fonaPin_Manager.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/fonaPin_Manager.o.d"        -g -omf=elf -O0 -msmart-io=1 -Wall -msfr-warn=off
+	@${FIXDEPS} "${OBJECTDIR}/fonaPin_Manager.o.d" $(SILENT) 
+	
 endif
 
 # ------------------------------------------------------------------------------------
