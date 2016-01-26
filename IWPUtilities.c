@@ -84,7 +84,7 @@ const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) 
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
 const int adjustmentFactor = 511; // Used to ajust the values read from the accelerometer
-const int pulseWidthThreshold = 20; // The value to cFheck the pulse width against (2048)
+const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
 int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
