@@ -88,6 +88,7 @@ void initialization(void) {
     TRISAbits.TRISA0 = 0; //makes water presence sensor pin an output.
     PORTAbits.RA0 = 1; //turns on the water presnece sensor.
 
+
     initAdc();
 
 }
@@ -182,7 +183,37 @@ int readAdc(int channel) //check with accelerometer
     unsigned int adcValue = ADC1BUF0;
     return adcValue;
 }
+void initLCD(){
+     PORTBbits.rb1 = 0;       //LCD enable pin
+     delayMs(100);           //Wait >15 msec after power is applied
+     sendCommand(0x30);      //command 0x30 = Wake up
+     delayMs(30);            //must wait 5ms, busy flag not available
+     sendCommand(0x30);      //command 0x30 = Wake up #2
+     delayMs(10);            //must wait 160us, busy flag not available
+     sendCommand(0x30);      //command 0x30 = Wake up #3
+     delayMs(10);            //must wait 160us, busy flag not available
+     sendCommand(0x30);      //Function set: 8-bit/1-line
+     sendCommand(0x10);      //Set cursor
+     sendCommand(0x0c);      //Display ON; Cursor ON
+     sendCommand(0x06);      //Entry mode set
 
+}
+void sendCommand(char command){
+    dataBus = command;
+    PORTBbits.rb0 = 1;                 //high for command
+
+     PORTBbits.rb1 =1;
+     delayMs(1);
+     PORTBbits.rb1 = 0;
+}
+void sendData(char data){
+    dataBus = data;
+    PORTBbits.rb0 = 0; //low for data
+
+    PORTBbits.rb1 = 1;
+    delayMs(1); //Clocks on falling edge of enable
+    PORTBbits.rb1 = 0;
+}
 /*
  * 
  */
@@ -191,6 +222,7 @@ int main (){
     int counter = 0;
     int hourCounter = 0;
     int prevHourCounter;
+    PORTBbits.rb15 = 0;  //R/W always low for write
     while(1){
         prevHourCounter = hourCounter;
         delayMs(delayTime);
