@@ -183,8 +183,26 @@ int readAdc(int channel) //check with accelerometer
     unsigned int adcValue = ADC1BUF0;
     return adcValue;
 }
-void initLCD(){
-     PORTBbits.rb1 = 0;       //LCD enable pin
+/*********************************************************************
+ * Function: delayMs()
+ * Input: milliseconds
+ * Output: None
+ * Overview: Delays the specified number of milliseconds
+ * Note: Depends on Clock speed. Pic Dependent
+ * TestDate: 05-20-14
+ ********************************************************************/
+void delayMs(int ms) {
+    int myIndex;
+    while (ms > 0) {
+        myIndex = 0;
+        while (myIndex < 667) {
+            myIndex++;
+        }
+        ms--;
+    }
+}
+void initLCD(void){
+     PORTBbits.RB1 = 0;       //LCD enable pin
      delayMs(100);           //Wait >15 msec after power is applied
      sendCommand(0x30);      //command 0x30 = Wake up
      delayMs(30);            //must wait 5ms, busy flag not available
@@ -198,31 +216,61 @@ void initLCD(){
      sendCommand(0x06);      //Entry mode set
 
 }
-void sendCommand(char command){
-    dataBus = command;
-    PORTBbits.rb0 = 1;                 //high for command
 
-     PORTBbits.rb1 =1;
+void sendCommand(char command){
+    PORTBbits.RB12  = (command&&0b00000001);
+    PORTBbits.RB4  = (command&&0b00000010);
+    PORTBbits.RB9  = (command&&0b00000100);
+    PORTBbits.RB5  = (command&&0b00001000);
+    PORTBbits.RB14  = (command&&0b00010000);
+    PORTBbits.RB2  = (command&&0b00100000);
+    PORTBbits.RB13  = (command&&0b01000000);
+    PORTBbits.RB3  = (command&&0b10000000);
+
+    PORTBbits.RB0 = 1;                 //high for command
+
+     PORTBbits.RB1 =1;
      delayMs(1);
-     PORTBbits.rb1 = 0;
+     PORTBbits.RB1 = 0;
 }
 void sendData(char data){
-    dataBus = data;
-    PORTBbits.rb0 = 0; //low for data
+    PORTBbits.RB12  = (data&&0b00000001);
+    PORTBbits.RB4  = (data&&0b00000010);
+    PORTBbits.RB9  = (data&&0b00000100);
+    PORTBbits.RB5  = (data&&0b00001000);
+    PORTBbits.RB14  = (data&&0b00010000);
+    PORTBbits.RB2  = (data&&0b00100000);
+    PORTBbits.RB13  = (data&&0b01000000);
+    PORTBbits.RB3  = (data&&0b10000000);
+    PORTBbits.RB0 = 0; //low for data
 
-    PORTBbits.rb1 = 1;
+    PORTBbits.RB1 = 1;
     delayMs(1); //Clocks on falling edge of enable
-    PORTBbits.rb1 = 0;
+    PORTBbits.RB1 = 0;
 }
 /*
  * 
  */
-int main (){
+void main (void){
+
     int delayTime = 500; // half a second
     int counter = 0;
     int hourCounter = 0;
     int prevHourCounter;
-    PORTBbits.rb15 = 0;  //R/W always low for write
+    PORTBbits.RB15 = 0;  //R/W always low for write
+    initLCD();
+
+    sendData(0x48);   //H
+    sendData(0x65);   //E
+    sendData(0x6C);   //L
+    sendData(0x6C);   //L
+    sendData(0x6F);   //0
+
+
+
+
+
+
     while(1){
         prevHourCounter = hourCounter;
         delayMs(delayTime);

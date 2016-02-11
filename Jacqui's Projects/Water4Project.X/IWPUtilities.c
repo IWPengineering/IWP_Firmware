@@ -8,7 +8,7 @@
 #include <string.h>
 
 
-const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
+//const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 
 
 //Pin assignments
@@ -430,4 +430,4 @@ int vcc2Pin = 28;
 /////////////////////////////////////////////////////////////////////
 
 
-}
+//}
