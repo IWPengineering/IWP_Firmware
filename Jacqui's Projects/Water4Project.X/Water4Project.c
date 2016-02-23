@@ -264,24 +264,24 @@ void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt(){ //Tested 0
  void hoursToAsciiDisplay(int hours){
      initLCD();
      if (hours = 0){
-         sendData(30); // send 0 as the number of hours
+         sendData(48); // send 0 as the number of hours
      }
      else{
         if (hours % 10000){
-            sendData(hours / 10000 + 30);
+            sendData(hours / 10000 + 48);
         }
         if (hours % 1000){
-            sendData(hours / 1000 + 30);
+            sendData(hours / 1000 + 48);
 
         }
         if (hours % 100){
-            sendData(hours / 100 + 30);
+            sendData(hours / 100 + 48);
         }
         if (hours % 10){
-            sendData(hours / 10 + 30);
+            sendData(hours / 10 + 48);
         }
         if (hours % 1){
-            sendData(hours + 30);
+            sendData(hours + 48);
         }
     }
 }
@@ -303,12 +303,13 @@ void main (void){
         if (buttonFlag){ // button was pushed
 //            hoursToAsciiDisplay(hourCounter); // Display the number of hours
 //            delayMs(10000); // Delay for 10 seconds
-
-            // insert command to turn off display
+//
+//            initLCD();
+//            sendData(1); // Clears the screen
 
 
             initLCD();
-
+// There's a chance that our numbers aren't ASCII
             sendData(0x48);   //H
             sendData(0x65);   //E
             sendData(0x6C);   //L
