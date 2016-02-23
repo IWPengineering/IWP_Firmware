@@ -54,8 +54,8 @@
 #pragma config DSBOREN = ON // Deep Sleep Zero-Power BOR Enable bit (Deep Sleep BOR enabled in Deep Sleep)
 #pragma config DSWDTEN = ON // Deep Sleep Watchdog Timer Enable bit (DSWDT enabled)
 
-const int pulseWidthThreshold = 20; // The value to cFheck the pulse width against (2048)
-
+const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
+static volatile int buttonFlag = 0; // alerts us that the button has been pushed and entered the inerrupt subroutine
 /*********************************************************************
  * Function: initialization()
  * Input: None
@@ -88,6 +88,7 @@ void initialization(void) {
     TRISAbits.TRISA0 = 0; //makes water presence sensor pin an output.
     PORTAbits.RA0 = 1; //turns on the water presnece sensor.
 
+    IEC1bits.CNIE = 1; // enable change notification interrupt
 
     initAdc();
 
@@ -218,14 +219,14 @@ void initLCD(void){
 }
 
 void sendCommand(char command){
-    PORTBbits.RB12  = (command&&0b00000001);
-    PORTBbits.RB4  = (command&&0b00000010);
-    PORTBbits.RB9  = (command&&0b00000100);
-    PORTBbits.RB5  = (command&&0b00001000);
-    PORTBbits.RB14  = (command&&0b00010000);
-    PORTBbits.RB2  = (command&&0b00100000);
-    PORTBbits.RB13  = (command&&0b01000000);
-    PORTBbits.RB3  = (command&&0b10000000);
+    PORTBbits.RB12  = (command&0b00000001);
+    PORTBbits.RB4  = (command&0b00000010);
+    PORTBbits.RB9  = (command&0b00000100);
+    PORTBbits.RB5  = (command&0b00001000);
+    PORTBbits.RB14  = (command&0b00010000);
+    PORTBbits.RB2  = (command&0b00100000);
+    PORTBbits.RB13  = (command&0b01000000);
+    PORTBbits.RB3  = (command&0b10000000);
 
     PORTBbits.RB0 = 1;                 //high for command
 
@@ -234,20 +235,33 @@ void sendCommand(char command){
      PORTBbits.RB1 = 0;
 }
 void sendData(char data){
-    PORTBbits.RB12  = (data&&0b00000001);
-    PORTBbits.RB4  = (data&&0b00000010);
-    PORTBbits.RB9  = (data&&0b00000100);
-    PORTBbits.RB5  = (data&&0b00001000);
-    PORTBbits.RB14  = (data&&0b00010000);
-    PORTBbits.RB2  = (data&&0b00100000);
-    PORTBbits.RB13  = (data&&0b01000000);
-    PORTBbits.RB3  = (data&&0b10000000);
+    PORTBbits.RB12  = (data&0b00000001);
+    PORTBbits.RB4  = (data&0b00000010);
+    PORTBbits.RB9  = (data&0b00000100);
+    PORTBbits.RB5  = (data&0b00001000);
+    PORTBbits.RB14  = (data&0b00010000);
+    PORTBbits.RB2  = (data&0b00100000);
+    PORTBbits.RB13  = (data&0b01000000);
+    PORTBbits.RB3  = (data&0b10000000);
     PORTBbits.RB0 = 0; //low for data
 
     PORTBbits.RB1 = 1;
     delayMs(1); //Clocks on falling edge of enable
     PORTBbits.RB1 = 0;
 }
+void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt(){ //Tested 06-05-2014
+
+   }
+ void __attribute__ (( interrupt, auto_psv )) _CNInterrupt(void) {
+     if(IFS1bits.CNIF && PORTBbits.RB6){  // if button pushed it goes high
+
+       buttonFlag = 1;  // I have entered the ISR
+
+       IFS1bits.CNIF = 0;
+     }
+
+}
+
 /*
  * 
  */
@@ -258,20 +272,22 @@ void main (void){
     int hourCounter = 0;
     int prevHourCounter;
     PORTBbits.RB15 = 0;  //R/W always low for write
-    initLCD();
-
-    sendData(0x48);   //H
-    sendData(0x65);   //E
-    sendData(0x6C);   //L
-    sendData(0x6C);   //L
-    sendData(0x6F);   //0
-
-
-
 
 
 
     while(1){
+        if (buttonFlag){ // button was pushed
+            initLCD();
+
+            sendData(0x48);   //H
+            sendData(0x65);   //E
+            sendData(0x6C);   //L
+            sendData(0x6C);   //L
+            sendData(0x6F);   //0
+
+            buttonFlag = 0;
+    }
+        
         prevHourCounter = hourCounter;
         delayMs(delayTime);
             // is there water?
