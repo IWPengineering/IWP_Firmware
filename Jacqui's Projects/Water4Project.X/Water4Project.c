@@ -88,7 +88,7 @@ void initialization(void) {
     TRISAbits.TRISA0 = 0; //makes water presence sensor pin an output.
     PORTAbits.RA0 = 1; //turns on the water presnece sensor.
 
-    IEC1bits.CNIE = 1; // enable change notification interrupt
+//    IEC1bits.CNIE = 1; // enable change notification interrupt
 
     initAdc();
 
@@ -300,7 +300,7 @@ void main (void){
 
 
     while(1){
-        if (buttonFlag){ // button was pushed
+//        if (buttonFlag){ // button was pushed
 //            hoursToAsciiDisplay(hourCounter); // Display the number of hours
 //            delayMs(10000); // Delay for 10 seconds
 //
@@ -316,8 +316,8 @@ void main (void){
             sendData(0x6C);   //L
             sendData(0x6F);   //0
 
-            buttonFlag = 0;
-    }
+//            buttonFlag = 0;
+//    }
         
         prevHourCounter = hourCounter;
         delayMs(delayTime);
