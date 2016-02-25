@@ -87,7 +87,7 @@ void initialization(void) {
     // WPS_ON/OFF pin 2
     TRISAbits.TRISA0 = 0; //makes water presence sensor pin an output.
     PORTAbits.RA0 = 1; //turns on the water presnece sensor.
-
+//    CNEN2bits.CN24IE = 1; // enable interrupt for pin 15
 //    IEC1bits.CNIE = 1; // enable change notification interrupt
 
     initAdc();
@@ -203,7 +203,7 @@ void delayMs(int ms) {
     }
 }
 void initLCD(void){
-     PORTBbits.RB1 = 0;       //LCD enable pin
+     PORTBbits.RB1 = 0;       //LCD enable pin CTL3
      delayMs(100);           //Wait >15 msec after power is applied
      sendCommand(0x30);      //command 0x30 = Wake up
      delayMs(30);            //must wait 5ms, busy flag not available
@@ -219,35 +219,35 @@ void initLCD(void){
 }
 
 void sendCommand(char command){
-    PORTBbits.RB12  = (command&0b00000001);
-    PORTBbits.RB4  = (command&0b00000010);
-    PORTBbits.RB9  = (command&0b00000100);
-    PORTBbits.RB5  = (command&0b00001000);
-    PORTBbits.RB14  = (command&0b00010000);
-    PORTBbits.RB2  = (command&0b00100000);
-    PORTBbits.RB13  = (command&0b01000000);
-    PORTBbits.RB3  = (command&0b10000000);
+    PORTBbits.RB12  = (command&0b00000001); // DIS_B[0]
+    PORTBbits.RB4  = (command&0b00000010); //  DIS_B[1]
+    PORTBbits.RB9  = (command&0b00000100);  // DIS_B[2]
+    PORTBbits.RB5  = (command&0b00001000);  // DIS_B[3]
+    PORTBbits.RB14  = (command&0b00010000); // DIS_B[4]
+    PORTBbits.RB2  = (command&0b00100000);  // DIS_B[5]
+    PORTBbits.RB13  = (command&0b01000000); // DIS_B[6]
+    PORTBbits.RB3  = (command&0b10000000);  // DIS_B[7]
 
-    PORTBbits.RB0 = 1;                 //high for command
+    PORTBbits.RB0 = 1;                 //high for command CTL1
 
-     PORTBbits.RB1 =1;
+     PORTBbits.RB1 = 1;      // CTL3
      delayMs(1);
-     PORTBbits.RB1 = 0;
+     PORTBbits.RB1 = 0;     // CTL3
 }
 void sendData(char data){
-    PORTBbits.RB12  = (data&0b00000001);
-    PORTBbits.RB4  = (data&0b00000010);
-    PORTBbits.RB9  = (data&0b00000100);
-    PORTBbits.RB5  = (data&0b00001000);
-    PORTBbits.RB14  = (data&0b00010000);
-    PORTBbits.RB2  = (data&0b00100000);
-    PORTBbits.RB13  = (data&0b01000000);
-    PORTBbits.RB3  = (data&0b10000000);
-    PORTBbits.RB0 = 0; //low for data
+    PORTBbits.RB12  = (data & 0b00000001);    // DIS_B[0]
+    PORTBbits.RB4  = (data & 0b00000010);     // DIS_B[1]
+    PORTBbits.RB9  = (data & 0b00000100);     // DIS_B[2]
+    PORTBbits.RB5  = (data & 0b00001000);     // DIS_B[3]
+    PORTBbits.RB14  = (data & 0b00010000);    // DIS_B[4]
+    PORTBbits.RB2  = (data & 0b00100000);     // DIS_B[5]
+    PORTBbits.RB13  = (data & 0b01000000);    // DIS_B[6]
+    PORTBbits.RB3  = (data & 0b10000000);     // DIS_B[7]
+    PORTBbits.RB0 = 0; //low for data CTL1
 
-    PORTBbits.RB1 = 1;
+    PORTBbits.RB1 = 1;  // CTL3
     delayMs(1); //Clocks on falling edge of enable
-    PORTBbits.RB1 = 0;
+    PORTBbits.RB1 = 0;  // CTL3
 }
 void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt(){ //Tested 06-05-2014
 
@@ -290,12 +290,20 @@ void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt(){ //Tested 0
  * 
  */
 void main (void){
-
+    initialization();
     int delayTime = 500; // half a second
     int counter = 0;
     int hourCounter = 0;
     int prevHourCounter;
-    PORTBbits.RB15 = 0;  //R/W always low for write
+    PORTBbits.RB15 = 0;  //R/W always low for write CTL2
+
+     initLCD();
+// There's a chance that our numbers aren't ASCII
+            sendData(0x48);   //H
+//            sendData(0x65);   //E
+//            sendData(0x6C);   //L
+//            sendData(0x6C);   //L
+//            sendData(0x6F);   //0
 
 
 
@@ -305,16 +313,16 @@ void main (void){
 //            delayMs(10000); // Delay for 10 seconds
 //
 //            initLCD();
-//            sendData(1); // Clears the screen
+//            sendCommand(1); // Clears the screen
 
 
-            initLCD();
-// There's a chance that our numbers aren't ASCII
-            sendData(0x48);   //H
-            sendData(0x65);   //E
-            sendData(0x6C);   //L
-            sendData(0x6C);   //L
-            sendData(0x6F);   //0
+//            initLCD();
+//// There's a chance that our numbers aren't ASCII
+//            sendData(0x48);   //H
+//            sendData(0x65);   //E
+//            sendData(0x6C);   //L
+//            sendData(0x6C);   //L
+//            sendData(0x6F);   //0
 
 //            buttonFlag = 0;
 //    }
