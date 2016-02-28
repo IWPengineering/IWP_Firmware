@@ -287,28 +287,40 @@ void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt()
      }
 
 }
- void hoursToAsciiDisplay(int hours){
-     initLCD();
-     if (hours == 0){
-         sendData(48); // send 0 as the number of hours
-     }
-     else{
-        if (hours % 10000){
+ 
+void hoursToAsciiDisplay(int hours){
+    initLCD();
+    int startLcdView = 0;
+    if (hours == 0){
+        sendData(48); // send 0 as the number of hours
+    }
+    else
+    {
+        if(startLcdView || hours / 10000 != 0)
+        {
             sendData(hours / 10000 + 48);
+            startLcdView = 1;
         }
-        if (hours % 1000){
+        hours /= 10;
+        if(startLcdView || hours / 1000 != 0)
+        {
             sendData(hours / 1000 + 48);
-
+            startLcdView = 1;
         }
-        if (hours % 100){
+        hours /= 10;
+        if(startLcdView || hours / 100 != 0)
+        {
             sendData(hours / 100 + 48);
+            startLcdView = 1;
         }
-        if (hours % 10){
+        hours /= 10;
+        if(startLcdView || hours / 10 != 0)
+        {
             sendData(hours / 10 + 48);
+            startLcdView = 1;
         }
-        if (hours % 1){
-            sendData(hours + 48);
-        }
+        hours /= 10;
+        sendData(hours + 48);
     }
 }
 
