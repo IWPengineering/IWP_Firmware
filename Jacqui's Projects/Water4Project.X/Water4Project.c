@@ -291,7 +291,8 @@ void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt()
 void hoursToAsciiDisplay(int hours){
     initLCD();
     int startLcdView = 0;
-    if (hours == 0){
+    if (hours == 0)
+    {
         sendData(48); // send 0 as the number of hours
     }
     else
