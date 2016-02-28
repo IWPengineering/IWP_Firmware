@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <math.h>
 #include <xc.h>
 #include <string.h>
@@ -56,6 +57,8 @@
 
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 static volatile int buttonFlag = 0; // alerts us that the button has been pushed and entered the inerrupt subroutine
+
+void initAdc(void); // forward declaration of init adc
 /*********************************************************************
  * Function: initialization()
  * Input: None
@@ -87,11 +90,11 @@ void initialization(void) {
     // WPS_ON/OFF pin 2
     TRISAbits.TRISA0 = 0; //makes water presence sensor pin an output.
     PORTAbits.RA0 = 1; //turns on the water presnece sensor.
-//    CNEN2bits.CN24IE = 1; // enable interrupt for pin 15
-//    IEC1bits.CNIE = 1; // enable change notification interrupt
+    
+    CNEN2bits.CN24IE = 1; // enable interrupt for pin 15
+    IEC1bits.CNIE = 1; // enable change notification interrupt
 
     initAdc();
-
 }
 
 /*********************************************************************
@@ -181,8 +184,7 @@ int readAdc(int channel) //check with accelerometer
     AD1CON1bits.SAMP = 1;
     while (!AD1CON1bits.DONE) {
     }
-    unsigned int adcValue = ADC1BUF0;
-    return adcValue;
+    return ADC1BUF0;
 }
 /*********************************************************************
  * Function: delayMs()
@@ -202,6 +204,10 @@ void delayMs(int ms) {
         ms--;
     }
 }
+
+void sendCommand(char command); // forward dec
+void sendData(char data); // forward dec
+
 void initLCD(void){
      PORTBbits.RB1 = 0;       //LCD enable pin CTL3
      delayMs(100);           //Wait >15 msec after power is applied
@@ -219,14 +225,22 @@ void initLCD(void){
 }
 
 void sendCommand(char command){
-    PORTBbits.RB12  = (command&0b00000001); // DIS_B[0]
-    PORTBbits.RB4  = (command&0b00000010); //  DIS_B[1]
-    PORTBbits.RB9  = (command&0b00000100);  // DIS_B[2]
-    PORTBbits.RB5  = (command&0b00001000);  // DIS_B[3]
-    PORTBbits.RB14  = (command&0b00010000); // DIS_B[4]
-    PORTBbits.RB2  = (command&0b00100000);  // DIS_B[5]
-    PORTBbits.RB13  = (command&0b01000000); // DIS_B[6]
-    PORTBbits.RB3  = (command&0b10000000);  // DIS_B[7]
+//    PORTBbits.RB12  = (command&0b00000001); // DIS_B[0]
+//    PORTBbits.RB4  = (command&0b00000010); //  DIS_B[1]
+//    PORTBbits.RB9  = (command&0b00000100);  // DIS_B[2]
+//    PORTBbits.RB5  = (command&0b00001000);  // DIS_B[3]
+//    PORTBbits.RB14  = (command&0b00010000); // DIS_B[4]
+//    PORTBbits.RB2  = (command&0b00100000);  // DIS_B[5]
+//    PORTBbits.RB13  = (command&0b01000000); // DIS_B[6]
+//    PORTBbits.RB3  = (command&0b10000000);  // DIS_B[7]
+    PORTBbits.RB12 = (command & 0x01) >> 0;
+    PORTBbits.RB4  = (command & 0x02) >> 1;
+    PORTBbits.RB9  = (command & 0x04) >> 2;
+    PORTBbits.RB5  = (command & 0x08) >> 3;
+    PORTBbits.RB14 = (command & 0x10) >> 4;
+    PORTBbits.RB2  = (command & 0x20) >> 5;
+    PORTBbits.RB13 = (command & 0x40) >> 6;
+    PORTBbits.RB3  = (command & 0x80) >> 7;
 
     PORTBbits.RB0 = 1;                 //high for command CTL1
 
@@ -235,25 +249,37 @@ void sendCommand(char command){
      PORTBbits.RB1 = 0;     // CTL3
 }
 void sendData(char data){
-    PORTBbits.RB12  = (data & 0b00000001);    // DIS_B[0]
-    PORTBbits.RB4  = (data & 0b00000010);     // DIS_B[1]
-    PORTBbits.RB9  = (data & 0b00000100);     // DIS_B[2]
-    PORTBbits.RB5  = (data & 0b00001000);     // DIS_B[3]
-    PORTBbits.RB14  = (data & 0b00010000);    // DIS_B[4]
-    PORTBbits.RB2  = (data & 0b00100000);     // DIS_B[5]
-    PORTBbits.RB13  = (data & 0b01000000);    // DIS_B[6]
-    PORTBbits.RB3  = (data & 0b10000000);     // DIS_B[7]
+//    PORTBbits.RB12  = (data & 0b00000001);    // DIS_B[0]
+//    PORTBbits.RB4  = (data & 0b00000010);     // DIS_B[1]
+//    PORTBbits.RB9  = (data & 0b00000100);     // DIS_B[2]
+//    PORTBbits.RB5  = (data & 0b00001000);     // DIS_B[3]
+//    PORTBbits.RB14  = (data & 0b00010000);    // DIS_B[4]
+//    PORTBbits.RB2  = (data & 0b00100000);     // DIS_B[5]
+//    PORTBbits.RB13  = (data & 0b01000000);    // DIS_B[6]
+//    PORTBbits.RB3  = (data & 0b10000000);     // DIS_B[7]
+    
+    PORTBbits.RB12 = (data & 0x01) >> 0;
+    PORTBbits.RB4  = (data & 0x02) >> 1;
+    PORTBbits.RB9  = (data & 0x04) >> 2;
+    PORTBbits.RB5  = (data & 0x08) >> 3;
+    PORTBbits.RB14 = (data & 0x10) >> 4;
+    PORTBbits.RB2  = (data & 0x20) >> 5;
+    PORTBbits.RB13 = (data & 0x40) >> 6;
+    PORTBbits.RB3  = (data & 0x80) >> 7;
     PORTBbits.RB0 = 0; //low for data CTL1
 
     PORTBbits.RB1 = 1;  // CTL3
     delayMs(1); //Clocks on falling edge of enable
     PORTBbits.RB1 = 0;  // CTL3
 }
-void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt(){ //Tested 06-05-2014
+void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt()
+{ //Tested 06-05-2014
 
-   }
- void __attribute__ (( interrupt, auto_psv )) _CNInterrupt(void) {
-     if(IFS1bits.CNIF && PORTBbits.RB6){  // if button pushed it goes high
+}
+ void __attribute__ (( interrupt, auto_psv )) _CNInterrupt(void) 
+ {
+     if(IFS1bits.CNIF && PORTBbits.RB6)
+     {  // if button pushed it goes high
 
        buttonFlag = 1;  // I have entered the ISR
 
@@ -263,7 +289,7 @@ void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt(){ //Tested 0
 }
  void hoursToAsciiDisplay(int hours){
      initLCD();
-     if (hours = 0){
+     if (hours == 0){
          sendData(48); // send 0 as the number of hours
      }
      else{
@@ -289,17 +315,19 @@ void __attribute__((__interrupt__,__auto_psv__)) _DefaultInterrupt(){ //Tested 0
 /*
  * 
  */
-void main (void){
+#define delayTime       500
+#define msHr            (uint32_t)3600000
+#define hourTicks       msHr / delayTime
+int main (void){
     initialization();
-    int delayTime = 500; // half a second
     int counter = 0;
     int hourCounter = 0;
     int prevHourCounter;
     PORTBbits.RB15 = 0;  //R/W always low for write CTL2
 
      initLCD();
-// There's a chance that our numbers aren't ASCII
-            sendData(0x48);   //H
+    // There's a chance that our numbers aren't ASCII
+    sendData(0x48);   //H
 //            sendData(0x65);   //E
 //            sendData(0x6C);   //L
 //            sendData(0x6C);   //L
@@ -307,47 +335,29 @@ void main (void){
 
 
 
-    while(1){
-//        if (buttonFlag){ // button was pushed
-//            hoursToAsciiDisplay(hourCounter); // Display the number of hours
-//            delayMs(10000); // Delay for 10 seconds
-//
-//            initLCD();
-//            sendCommand(1); // Clears the screen
-
-
-//            initLCD();
-//// There's a chance that our numbers aren't ASCII
-//            sendData(0x48);   //H
-//            sendData(0x65);   //E
-//            sendData(0x6C);   //L
-//            sendData(0x6C);   //L
-//            sendData(0x6F);   //0
-
-//            buttonFlag = 0;
-//    }
-        
+    while(1)
+    {        
         prevHourCounter = hourCounter;
         delayMs(delayTime);
             // is there water?
-        if(readWaterSensor()){
+        if(readWaterSensor())
+        {
             counter++; // increments every half a second
 
-            if (counter >= (3600 * 1000 / (delayTime))){ // 7200 counter has reached 1 hour's worth
+            if (counter >= hourTicks)
+            { // 7200 counter has reached 1 hour's worth
                 hourCounter++;
-                counter = 0;
-
-                
+                counter = 0; 
+            }
         }
+        
+        if(buttonFlag)
+        {
+            buttonFlag = 0;
+            hoursToAsciiDisplay(hourCounter);
         }
-
     }
-        //yes increment counter
-              // convert counter and time
-              // Did hours increment?
-                    // yes update screen
 
-    // delay 500ms
-
+    return -1;
 }
 
