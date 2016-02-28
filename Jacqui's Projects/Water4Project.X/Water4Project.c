@@ -322,7 +322,6 @@ int main (void){
     initialization();
     int counter = 0;
     int hourCounter = 0;
-    int prevHourCounter;
     PORTBbits.RB15 = 0;  //R/W always low for write CTL2
 
      initLCD();
@@ -337,7 +336,6 @@ int main (void){
 
     while(1)
     {        
-        prevHourCounter = hourCounter;
         delayMs(delayTime);
             // is there water?
         if(readWaterSensor())
@@ -355,6 +353,7 @@ int main (void){
         {
             buttonFlag = 0;
             hoursToAsciiDisplay(hourCounter);
+            delayMs(5000);
         }
     }
 
