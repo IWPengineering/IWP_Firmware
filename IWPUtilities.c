@@ -621,7 +621,7 @@ void initialization(void) {
 
     //H2O sensor config
     pinDirectionIO(waterPresenceSensorOnOffPin, 0); //makes water presence sensor pin an output.
-    digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presnece sensor.
+    digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presnece sensor.
 
     // From fona code (for enabling Texting)
     pinDirectionIO(pwrKeyPin, 0); //TRISBbits.TRISB6 = 0; //sets power key as an output (Pin 15)
@@ -1112,6 +1112,8 @@ void sendTextMessage(char message[160]) // Tested 06-02-2014
  ********************************************************************/
 int readWaterSensor(void) // RB5 is one water sensor
 {
+    digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presnece sensor.
+
     if (digitalPinStatus(waterPresenceSensorPin) == 1) {
         while (digitalPinStatus(waterPresenceSensorPin)) {
         }; //make sure you start at the beginning of the positive pulse
@@ -1128,6 +1130,9 @@ int readWaterSensor(void) // RB5 is one water sensor
     } else {
         pulseWidth = (currentICTime - prevICTime + 0x100000000);
     }
+    
+    digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presnece sensor.
+
     //Check if this value is right
     return (pulseWidth <= pulseWidthThreshold);
 }
