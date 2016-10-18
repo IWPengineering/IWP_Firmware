@@ -83,7 +83,7 @@ const float leakSensorVolume = 0.01781283; // This is in Liters; pipe dia. = 33m
 const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
-const int adjustmentFactor = 511; // Used to ajust the values read from the accelerometer
+const int adjustmentFactor = 511; // Used to adjust the values read from the accelerometer
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
@@ -616,9 +616,12 @@ void initialization(void) {
     T2CONbits.TON = 1; // Starts 16-bit Timer2
 
     // UART config
-    U1BRG = 51; // Set baud to 9600, FCY = 8MHz (#pragma config FNOSC = FRC)
+    //U1BRG = 51;
+    U1BRG = 16; // Set baud to 9600, FCY = 8MHz (#pragma config FNOSC = FRC)
     U1STA = 0;
     U1MODE = 0x8000; //enable UART for 8 bit data//no parity, 1 stop bit
+    //U1MODEbits.BRGH = 0;
+    U1MODEbits.BRGH = 1;
     U1STAbits.UTXEN = 1; //enable transmit
 
     //H2O sensor config
