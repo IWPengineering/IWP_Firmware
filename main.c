@@ -16,7 +16,7 @@
 #include <string.h>
 
 
-//Demonstrating how to use version control. 
+
 
 // ****************************************************************************
 // *** PIC24F32KA302 Configuration Bit Settings *******************************
