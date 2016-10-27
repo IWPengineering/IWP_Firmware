@@ -165,7 +165,7 @@ void main(void)
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
 
-		float angleThreshold = 0.08;                                               //number close to zero to determine if handle is moving
+		angleThreshold = 0.08;                                               //number close to zero to determine if handle is moving
 		int volumeLoopCounter = 15; // 150 ms                                      //number of zero movement cycles before loop ends
 		unsigned long extractionDuration = 0;                                      //keeps track of pumping duration
 		int i = 0;                                                                   //Index to keep track of no movement cycles
