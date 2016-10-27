@@ -16,7 +16,7 @@
 #include <string.h>
 
 
-
+//This is an reverted triumph?
 
 // ****************************************************************************
 // *** PIC24F32KA302 Configuration Bit Settings *******************************
