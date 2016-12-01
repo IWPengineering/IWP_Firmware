@@ -190,10 +190,11 @@ void main(void)
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////
 		// Get the angle of the pump handle to measure against
-		int leakCondition;
+		int leakCondition = 3;  //Initializes leakCondition so that if the while loop breaks due to
+                                //no water at beginning of Leakage Rate Loop, then we jump to calculate leak rate.
 		anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
 		long leakDurationCounter = volumeLoopCounter * volumeDelay;             // The volume loop has 50 milliseconds of delay 
-											// before entry.
+                                                                                // before entry.
 		while (readWaterSensor() && (leakDurationCounter < leakRateTimeOut)){
 			angleCurrent = getHandleAngle();                                //Get the current angle of the pump handle
 			angleDelta = angleCurrent - anglePrevious;                      //Calculate the change in angle of the pump handle
@@ -204,8 +205,9 @@ void main(void)
 				leakCondition = 1;
 				break;
 			}
-			if (leakDurationCounter > 200000){                              // change to 20,000 for real code (was 100 - 10/8/2015 KK)
-				leakCondition = 2;
+			if (leakDurationCounter >= leakRateTimeOut){                              // (was 100 - 10/8/2015 KK)
+				leakCondition = 2; //Jump to condition for no leak if while is broken out of on condition of
+                                    //exceeding the leakRateTimeOut wait.
 				break;
 			}
 			leakCondition = 3;
@@ -223,6 +225,7 @@ void main(void)
 		case 3:
 			leakRate = leakSensorVolume / ((leakDurationCounter) / 1000.0); // liters/sec
 			leakRatePrevious = leakRate;
+            break;
 		}
 
 		if ((leakRate * 3600) > leakRateLong)
