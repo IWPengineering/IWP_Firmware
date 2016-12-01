@@ -223,7 +223,7 @@ void main(void)
 			leakRatePrevious = leakRate;
 			break;
 		case 3:
-			leakRate = leakSensorVolume / ((leakDurationCounter) / 1000.0); // liters/sec
+			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
 			leakRatePrevious = leakRate;
             break;
 		}
