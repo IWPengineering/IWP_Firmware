@@ -234,7 +234,7 @@ void main(void)
 		}
 		upStrokeExtract = degToRad(upStrokeExtract);
 		volumeEvent = (MKII * upStrokeExtract);
-		volumeEvent -= (leakRate * extractionDuration / upstrokeInterval);
+		volumeEvent -= (leakRate * (extractionDuration * upstrokeInterval) / 1000.0);
         if(volumeEvent < 0)
         {
             volumeEvent = 0; // we can't pump negative volume
