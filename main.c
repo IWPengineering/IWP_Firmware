@@ -109,7 +109,7 @@ void main(void)
 				midnightMessage();
 				prevDay = currentDay;
 			}
-			delayMs(10);                                         // Delay for a short time
+			delayMs(upstrokeInterval);                            // Delay for a short time
 			float newAngle = getHandleAngle();
 			float deltaAngle = newAngle - anglePrevious;
 			if(deltaAngle < 0) {
@@ -152,7 +152,7 @@ void main(void)
 			else{
 				timeOutStatus = 0;
 			}                                                     //Reset i if handle is moving
-			delayMs(10); 
+			delayMs(upstrokeInterval); 
                  }
 
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
@@ -184,7 +184,7 @@ void main(void)
 				i = 0;
 			}                                                             //Reset i if handle is moving
 			extractionDuration++;                                         // Keep track of elapsed time for leakage calc
-			delayMs(volumeDelay);                                         // Delay for a short time
+			delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
@@ -209,7 +209,7 @@ void main(void)
 				break;
 			}
 			leakCondition = 3;
-			delayMs(1);
+			delayMs(upstrokeInterval);
 			leakDurationCounter++;
 		}
 		switch (leakCondition){
@@ -231,7 +231,7 @@ void main(void)
 		}
 		upStrokeExtract = degToRad(upStrokeExtract);
 		volumeEvent = (MKII * upStrokeExtract);
-		volumeEvent -= (leakRate * extractionDuration / volumeDelay);
+		volumeEvent -= (leakRate * extractionDuration / upstrokeInterval);
         if(volumeEvent < 0)
         {
             volumeEvent = 0; // we can't pump negative volume
