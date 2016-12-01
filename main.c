@@ -70,7 +70,6 @@
 void main(void)
 {
 	initialization();
-
 	waterPrimeTimeOut /= upstrokeInterval;
 	leakRateTimeOut /= upstrokeInterval;
 	int handleMovement = 0; // Either 1 or no 0 if the handle moving upward
@@ -136,7 +135,7 @@ void main(void)
 		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
-                float angleThreshold = 0.08;                                  //number close to zero to determine if handle is moving
+     
 		upStroke = 0;                                                 // gets variable ready for new event
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
 		{
@@ -166,7 +165,6 @@ void main(void)
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
 
-		angleThreshold = 0.08;                                          //number close to zero to determine if handle is moving
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDuration = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
