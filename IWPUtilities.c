@@ -94,6 +94,7 @@ const int volumeDelay = 10; // Equivalent to 10ms
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
 const float angleThreshold = 0.08; //number close to zero to determine if handle is moving
 const int angleDeltaThreshold = 1; // The angle delta to check against
+const float idleHandleMonitorLoopAccelerometerMovementThreshold = 0.5; // stops accelerometer noise from being recorded as intentional movement
 const float upstrokeToMeters = 0.01287;
 const int minimumAngleDelta = 10;
 const float batteryLevelConstant = 0.476; //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476

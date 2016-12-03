@@ -47,6 +47,7 @@ extern long leakRateTimeOut; // Equivalent to 18 seconds (in 50 millisecond inte
 extern const int decimalAccuracy; // Number of decimal places to use when converting floats to strings
 extern const float angleThreshold; //number close to zero to determine if handle is moving
 extern const int angleDeltaThreshold; // The angle delta to check against
+extern const float idleHandleMonitorLoopAccelerometerMovementThreshold; // stops accelerometer noise from being recorded as intentional movement
 extern const float upstrokeToMeters;
 extern const int minimumAngleDelta;
 extern const float batteryLevelConstant;       //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476

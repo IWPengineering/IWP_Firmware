@@ -116,8 +116,8 @@ void main(void)
 				deltaAngle *= -1;
 			}
 			anglePrevious = newAngle;
-			if (deltaAngle > .5){                                // prevents floating accelerometer values when it's not 
-									     //actually moving
+			if (deltaAngle > idleHandleMonitorLoopAccelerometerMovementThreshold){ // prevents floating accelerometer values when it's not 
+                                                                 //actually moving (reading in degrees))
 				angleAccumulated += deltaAngle;
 			}
 
@@ -139,21 +139,21 @@ void main(void)
 		upStroke = 0;                                                 // gets variable ready for new event
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
 		{
-                        angleCurrent = getHandleAngle();                      //gets the latest 10-average angle
+            angleCurrent = getHandleAngle();                      //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;            //determines the amount of handle movement from last reading
 			anglePrevious = angleCurrent;                         //Prepares anglePrevious for the next loop
 			if(angleDelta > 0){                                   //Determines direction of handle movement
 				upStrokePrime += angleDelta;                  //If the valve is moving upward, the movement is added to an
-									      //accumlation var
+                                                             //accumlation var
 			}
 			if((angleDelta > (-1 * angleThreshold)) && (angleDelta < angleThreshold)){   //Determines if the handle is at rest
-				timeOutStatus++;
+				timeOutStatus++; //Timeout incremented for very small movement (pump handle is not moving/the person quit pumping)
 			}
 			else{
 				timeOutStatus = 0;
 			}                                                     //Reset i if handle is moving
 			delayMs(upstrokeInterval); 
-                 }
+        }
 
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
 		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
@@ -226,6 +226,8 @@ void main(void)
 			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
 			leakRatePrevious = leakRate;
             break;
+            
+            //We may get here if someone just bumps the handle.
 		}
 
 		if ((leakRate * 3600) > leakRateLong)
