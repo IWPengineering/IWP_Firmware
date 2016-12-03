@@ -90,7 +90,8 @@ void main(void)
 	int currentDay;
 	int prevDay = getDateI2C();
 
-
+//Test change
+    
 	while (1)
 	{ //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
