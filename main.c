@@ -101,7 +101,7 @@ void main(void)
 		float previousAverage = 0;
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		float angleAccumulated = 0;                                  // Loop until the handle starts moving or if there is water
-		while (handleMovement == 0)
+		while (handleMovement == 1)
 		{
 			currentDay = getDateI2C();
 			if (prevDay != currentDay){                          // it's a new day so send midNightMessage();
