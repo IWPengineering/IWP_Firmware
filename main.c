@@ -168,7 +168,7 @@ void main(void)
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDuration = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
-		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
+		while(readWaterSensor() && (i < volumeLoopCounter)&1){            //if the pump is primed and the handle has not been 
 										//still for five loops
 			angleCurrent = getHandleAngle();                        //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;              //determines the amount of handle movement from last reading
