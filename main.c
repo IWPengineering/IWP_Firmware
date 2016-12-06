@@ -116,7 +116,7 @@ void main(void)
 				deltaAngle *= -1;
 			}
 			anglePrevious = newAngle;
-			if (deltaAngle > idleHandleMonitorLoopAccelerometerMovementThreshold){ // prevents floating accelerometer values when it's not 
+			if (deltaAngle > angleThresholdSmall){ // prevents floating accelerometer values when it's not 
                                                                  //actually moving (reading in degrees))
 				angleAccumulated += deltaAngle;
 			}
@@ -146,7 +146,7 @@ void main(void)
 				upStrokePrime += angleDelta;                  //If the valve is moving upward, the movement is added to an
                                                              //accumlation var
 			}
-			if((angleDelta > (-1 * angleThreshold)) && (angleDelta < angleThreshold)){   //Determines if the handle is at rest
+			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				timeOutStatus++; //Timeout incremented for very small movement (pump handle is not moving/the person quit pumping)
 			}
 			else{
@@ -177,7 +177,7 @@ void main(void)
 				upStrokeExtract += angleDelta;                  //If the valve is moving upward, the movement is added to an
 										//accumlation var
 			}
-			if((angleDelta > (-1 * angleThreshold)) && (angleDelta < angleThreshold)){   //Determines if the handle is at rest
+			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				i++;
 			}
 			else{
@@ -201,7 +201,7 @@ void main(void)
 			anglePrevious = angleCurrent;                                   // Update the previous angle for the next calculation
 											// If the handle moved more than 2 degrees, 
 											// we will consider that an intentional pumping action                                                                // intentional pump and break out of the loop (2 is in radians)
-			if (angleDelta > angleDeltaThreshold){
+			if (angleDelta > angleThresholdSmall){
 				leakCondition = 1;
 				break;
 			}

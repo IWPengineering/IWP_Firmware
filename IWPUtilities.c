@@ -91,9 +91,15 @@ int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in 50 millisecond inte
 long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
-const float angleThreshold = 0.08; //number close to zero to determine if handle is moving
-const int angleDeltaThreshold = 1; // The angle delta to check against
-const float idleHandleMonitorLoopAccelerometerMovementThreshold = 0.5; // stops accelerometer noise from being recorded as intentional movement
+const float angleThresholdSmall = 0.1; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
+//roughly based on calculations from India Mark II sustainability report that 
+//67.6 strokes/minute average pumper
+//25.4 degrees/pk-pk movement
+//2 pk-pk/stroke
+//(25.4*2) degrees/stroke
+// 0.572 degrees/10ms delay for the average pumper
+//It would be nice to have data for the slowest possible pumper
+const float angleThresholdLarge = 5.0; //total angle movement to accumulate before identifying movement as intentional pumping
 const float upstrokeToMeters = 0.01287;
 const int minimumAngleDelta = 10;
 const float batteryLevelConstant = 0.476; //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476
