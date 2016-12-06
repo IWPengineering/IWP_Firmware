@@ -89,7 +89,6 @@ const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse w
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
 int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
 long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
-const int volumeDelay = 10; // Equivalent to 10ms
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
 const float angleThreshold = 0.08; //number close to zero to determine if handle is moving
