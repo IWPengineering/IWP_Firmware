@@ -166,7 +166,7 @@ void main(void)
 		///////////////////////////////////////////////////////
 
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
-		unsigned long extractionDuration = 0;                           //keeps track of pumping duration
+		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 										//still for five loops
@@ -183,7 +183,7 @@ void main(void)
 			else{
 				i = 0;
 			}                                                             //Reset i if handle is moving
-			extractionDuration++;                                         // Keep track of elapsed time for leakage calc
+			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
 			delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
 		///////////////////////////////////////////////////////
@@ -236,7 +236,7 @@ void main(void)
 		}
 		upStrokeExtract = degToRad(upStrokeExtract);
 		volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
-		volumeEvent -= (leakRate * ((extractionDuration * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
+		volumeEvent -= (leakRate * ((extractionDurationCounter * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
         if(volumeEvent < 0)
         {
             volumeEvent = 0; // we can't pump negative volume
