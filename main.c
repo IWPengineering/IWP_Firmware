@@ -232,11 +232,11 @@ void main(void)
 
 		if ((leakRate * 3600) > leakRateLong)
 		{
-			leakRateLong = leakRate * 3600;                                 //reports in L/hr
+			leakRateLong = leakRate * 3600;                                              //reports in L/hr
 		}
 		upStrokeExtract = degToRad(upStrokeExtract);
-		volumeEvent = (MKII * upStrokeExtract);
-		volumeEvent -= (leakRate * (extractionDuration * upstrokeInterval) / 1000.0);
+		volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
+		volumeEvent -= (leakRate * ((extractionDuration * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
         if(volumeEvent < 0)
         {
             volumeEvent = 0; // we can't pump negative volume
