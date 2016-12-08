@@ -36,7 +36,6 @@ extern const float leakSensorVolume; // This is in Liters; pipe dia. = 33mm; rod
 extern const int alarmHour; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 extern const int alarmStartingMinute; // The minimum minute that the alarm will go off
 extern const int alarmMinuteMax; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
-extern const int adjustmentFactor; // Used to ajust the values read from the accelerometer
 extern const int pulseWidthThreshold; // The value to check the pulse width against (2048)
 extern const int networkPulseWidthThreshold; // The value to check the pulse width against (about 20000)
 extern const int upstrokeInterval; // The number of milliseconds to delay before reading the upstroke

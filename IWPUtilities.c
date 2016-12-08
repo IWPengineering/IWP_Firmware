@@ -83,7 +83,6 @@ const float leakSensorVolume = 0.01781283; // This is in Liters; pipe dia. = 33m
 const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
-const int adjustmentFactor = 511; // Used to adjust the values read from the accelerometer
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
@@ -1155,9 +1154,10 @@ int readWaterSensor(void) // RB5 is one water sensor
  * Overview: Initializes Analog to Digital Converter
  * Note: Pic Dependent
  * TestDate: 06-02-2014
+ * Code Update Date: 12-8-2016
  ********************************************************************/
 void initAdc(void) {
-    // 10bit conversion
+    // 12bit conversion
     AD1CON1 = 0; // Default to all 0s
     AD1CON1bits.ADON = 0; // Ensure the ADC is turned off before configuration
     AD1CON1bits.FORM = 0; // absolute decimal result, unsigned, right-justified
@@ -1264,8 +1264,6 @@ the angle is negative.Gets a snapshot of the current sensor values.
  ********************************************************************/
 float getHandleAngle() {
     //OLD getHandleAngle Code:
-    signed int xValue = readAdc(xAxis) - adjustmentFactor; //added abs() 06-20-2014
-    signed int yValue = readAdc(yAxis) - adjustmentFactor; //added abs() 06-20-2014
     float angle = atan2(yValue, xValue) * (180 / 3.141592); //returns angle in degrees 06-20-2014
     // Calculate and return the angle of the pump handle // TODO: 3.141592=PI, make that a constant
     if (angle > 20) {
