@@ -36,6 +36,7 @@ extern const float leakSensorVolume; // This is in Liters; pipe dia. = 33mm; rod
 extern const int alarmHour; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 extern const int alarmStartingMinute; // The minimum minute that the alarm will go off
 extern const int alarmMinuteMax; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
+extern const int signedNumAdjustADC; // Used to divide the total range of the output of the 12 bit ADC into positive and negative range.
 extern const int pulseWidthThreshold; // The value to check the pulse width against (2048)
 extern const int networkPulseWidthThreshold; // The value to check the pulse width against (about 20000)
 extern const int upstrokeInterval; // The number of milliseconds to delay before reading the upstroke
@@ -45,6 +46,7 @@ extern long leakRateTimeOut; // Equivalent to 18 seconds (in 50 millisecond inte
 extern const int decimalAccuracy; // Number of decimal places to use when converting floats to strings
 extern const float angleThresholdSmall; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
 extern const float angleThresholdLarge; //total angle movement to accumulate before identifying movement as intentional pumping
+extern const float PI = 3.141592;
 extern const float upstrokeToMeters;
 extern const int minimumAngleDelta;
 extern const float batteryLevelConstant;       //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476

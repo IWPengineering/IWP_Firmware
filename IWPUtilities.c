@@ -83,6 +83,7 @@ const float leakSensorVolume = 0.01781283; // This is in Liters; pipe dia. = 33m
 const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
+const int signedNumAdjustADC = 2048; // Used to divide the total range of the output of the 12 bit ADC into positive and negative range.
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
@@ -109,6 +110,7 @@ const int dayI2Cvar = 0x03;
 const int dateI2Cvar = 0x04;
 const int monthI2Cvar = 0x05;
 const int yearI2Cvar = 0x06;
+const float PI = 3.141592;
 
 const float angleRadius = .008; // this is 80 millimeters so should it equal 80 or .008?
 int depthSensorInUse;
@@ -1263,9 +1265,11 @@ the angle is negative.Gets a snapshot of the current sensor values.
  * TestDate: TBD
  ********************************************************************/
 float getHandleAngle() {
-    //OLD getHandleAngle Code:
-    float angle = atan2(yValue, xValue) * (180 / 3.141592); //returns angle in degrees 06-20-2014
-    // Calculate and return the angle of the pump handle // TODO: 3.141592=PI, make that a constant
+
+    signed int xValue = readAdc(xAxis) - signedNumAdjustADC; 
+    signed int yValue = readAdc(yAxis) - signedNumAdjustADC; 
+    float angle = atan2(yValue, xValue) * (180 / PI); //returns angle in degrees 06-20-2014
+    // Calculate and return the angle of the pump handle
     if (angle > 20) {
         angle = 20.0;
     } else if (angle < -30) {
@@ -1452,7 +1456,7 @@ float readDepthSensor(void) {
  * TestDate: 06-20-2014
  ********************************************************************/
 float degToRad(float degrees) {
-    return degrees * (3.141592 / 180);
+    return degrees * (PI / 180);
 }
 
 /*********************************************************************
