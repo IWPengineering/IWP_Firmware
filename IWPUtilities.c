@@ -83,7 +83,7 @@ const float leakSensorVolume = 0.01781283; // This is in Liters; pipe dia. = 33m
 const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
-const int signedNumAdjustADC = 2048; // Used to divide the total range of the output of the 12 bit ADC into positive and negative range.
+const int signedNumAdjustADC = 511; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
@@ -1159,8 +1159,8 @@ int readWaterSensor(void) // RB5 is one water sensor
  * Code Update Date: 12-8-2016
  ********************************************************************/
 void initAdc(void) {
-    // 12bit conversion
     AD1CON1 = 0; // Default to all 0s
+    AD1CON1bits.MODE12 = 0; //Use 10bit rather than 12 bit conversions
     AD1CON1bits.ADON = 0; // Ensure the ADC is turned off before configuration
     AD1CON1bits.FORM = 0; // absolute decimal result, unsigned, right-justified
     AD1CON1bits.SSRC = 0; // The SAMP bit must be cleared by software
