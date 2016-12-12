@@ -83,17 +83,23 @@ const float leakSensorVolume = 0.01781283; // This is in Liters; pipe dia. = 33m
 const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
-const int adjustmentFactor = 511; // Used to adjust the values read from the accelerometer
+const int signedNumAdjustADC = 511; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
 int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
 long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
-const int volumeDelay = 10; // Equivalent to 10ms
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
-const float angleThreshold = 0.08; //number close to zero to determine if handle is moving
-const int angleDeltaThreshold = 1; // The angle delta to check against
+const float angleThresholdSmall = 0.1; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
+//roughly based on calculations from India Mark II sustainability report that 
+//67.6 strokes/minute average pumper
+//25.4 degrees/pk-pk movement
+//2 pk-pk/stroke
+//(25.4*2) degrees/stroke
+// 0.572 degrees/10ms delay for the average pumper
+//It would be nice to have data for the slowest possible pumper
+const float angleThresholdLarge = 5.0; //total angle movement to accumulate before identifying movement as intentional pumping
 const float upstrokeToMeters = 0.01287;
 const int minimumAngleDelta = 10;
 const float batteryLevelConstant = 0.476; //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476
@@ -104,6 +110,7 @@ const int dayI2Cvar = 0x03;
 const int dateI2Cvar = 0x04;
 const int monthI2Cvar = 0x05;
 const int yearI2Cvar = 0x06;
+const float PI = 3.141592;
 
 const float angleRadius = .008; // this is 80 millimeters so should it equal 80 or .008?
 int depthSensorInUse;
@@ -1149,10 +1156,11 @@ int readWaterSensor(void) // RB5 is one water sensor
  * Overview: Initializes Analog to Digital Converter
  * Note: Pic Dependent
  * TestDate: 06-02-2014
+ * Code Update Date: 12-8-2016
  ********************************************************************/
 void initAdc(void) {
-    // 10bit conversion
     AD1CON1 = 0; // Default to all 0s
+    AD1CON1bits.MODE12 = 0; //Use 10bit rather than 12 bit conversions
     AD1CON1bits.ADON = 0; // Ensure the ADC is turned off before configuration
     AD1CON1bits.FORM = 0; // absolute decimal result, unsigned, right-justified
     AD1CON1bits.SSRC = 0; // The SAMP bit must be cleared by software
@@ -1257,11 +1265,11 @@ the angle is negative.Gets a snapshot of the current sensor values.
  * TestDate: TBD
  ********************************************************************/
 float getHandleAngle() {
-    //OLD getHandleAngle Code:
-    signed int xValue = readAdc(xAxis) - adjustmentFactor; //added abs() 06-20-2014
-    signed int yValue = readAdc(yAxis) - adjustmentFactor; //added abs() 06-20-2014
-    float angle = atan2(yValue, xValue) * (180 / 3.141592); //returns angle in degrees 06-20-2014
-    // Calculate and return the angle of the pump handle // TODO: 3.141592=PI, make that a constant
+
+    signed int xValue = readAdc(xAxis) - signedNumAdjustADC; 
+    signed int yValue = readAdc(yAxis) - signedNumAdjustADC; 
+    float angle = atan2(yValue, xValue) * (180 / PI); //returns angle in degrees 06-20-2014
+    // Calculate and return the angle of the pump handle
     if (angle > 20) {
         angle = 20.0;
     } else if (angle < -30) {
@@ -1448,7 +1456,7 @@ float readDepthSensor(void) {
  * TestDate: 06-20-2014
  ********************************************************************/
 float degToRad(float degrees) {
-    return degrees * (3.141592 / 180);
+    return degrees * (PI / 180);
 }
 
 /*********************************************************************

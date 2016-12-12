@@ -116,8 +116,8 @@ void main(void)
 				deltaAngle *= -1;
 			}
 			anglePrevious = newAngle;
-			if (deltaAngle > .5){                                // prevents floating accelerometer values when it's not 
-									     //actually moving
+			if (deltaAngle > angleThresholdSmall){ // prevents floating accelerometer values when it's not 
+                                                                 //actually moving (reading in degrees))
 				angleAccumulated += deltaAngle;
 			}
 
@@ -139,21 +139,21 @@ void main(void)
 		upStroke = 0;                                                 // gets variable ready for new event
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
 		{
-                        angleCurrent = getHandleAngle();                      //gets the latest 10-average angle
+            angleCurrent = getHandleAngle();                      //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;            //determines the amount of handle movement from last reading
 			anglePrevious = angleCurrent;                         //Prepares anglePrevious for the next loop
 			if(angleDelta > 0){                                   //Determines direction of handle movement
 				upStrokePrime += angleDelta;                  //If the valve is moving upward, the movement is added to an
-									      //accumlation var
+                                                             //accumlation var
 			}
-			if((angleDelta > (-1 * angleThreshold)) && (angleDelta < angleThreshold)){   //Determines if the handle is at rest
-				timeOutStatus++;
+			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
+				timeOutStatus++; //Timeout incremented for very small movement (pump handle is not moving/the person quit pumping)
 			}
 			else{
 				timeOutStatus = 0;
 			}                                                     //Reset i if handle is moving
 			delayMs(upstrokeInterval); 
-                 }
+        }
 
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
 		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
@@ -166,7 +166,7 @@ void main(void)
 		///////////////////////////////////////////////////////
 
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
-		unsigned long extractionDuration = 0;                           //keeps track of pumping duration
+		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 										//still for five loops
@@ -177,13 +177,13 @@ void main(void)
 				upStrokeExtract += angleDelta;                  //If the valve is moving upward, the movement is added to an
 										//accumlation var
 			}
-			if((angleDelta > (-1 * angleThreshold)) && (angleDelta < angleThreshold)){   //Determines if the handle is at rest
+			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				i++;
 			}
 			else{
 				i = 0;
 			}                                                             //Reset i if handle is moving
-			extractionDuration++;                                         // Keep track of elapsed time for leakage calc
+			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
 			delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
 		///////////////////////////////////////////////////////
@@ -193,7 +193,7 @@ void main(void)
 		int leakCondition = 3;  //Initializes leakCondition so that if the while loop breaks due to
                                 //no water at beginning of Leakage Rate Loop, then we jump to calculate leak rate.
 		anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
-		long leakDurationCounter = volumeLoopCounter * volumeDelay;             // The volume loop has 50 milliseconds of delay 
+		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 50 milliseconds of delay 
                                                                                 // before entry.
 		while (readWaterSensor() && (leakDurationCounter < leakRateTimeOut)){
 			angleCurrent = getHandleAngle();                                //Get the current angle of the pump handle
@@ -201,7 +201,7 @@ void main(void)
 			anglePrevious = angleCurrent;                                   // Update the previous angle for the next calculation
 											// If the handle moved more than 2 degrees, 
 											// we will consider that an intentional pumping action                                                                // intentional pump and break out of the loop (2 is in radians)
-			if (angleDelta > angleDeltaThreshold){
+			if (angleDelta > angleThresholdSmall){
 				leakCondition = 1;
 				break;
 			}
@@ -226,15 +226,17 @@ void main(void)
 			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
 			leakRatePrevious = leakRate;
             break;
+            
+            //We may get here if someone just bumps the handle.
 		}
 
 		if ((leakRate * 3600) > leakRateLong)
 		{
-			leakRateLong = leakRate * 3600;                                 //reports in L/hr
+			leakRateLong = leakRate * 3600;                                              //reports in L/hr
 		}
 		upStrokeExtract = degToRad(upStrokeExtract);
-		volumeEvent = (MKII * upStrokeExtract);
-		volumeEvent -= (leakRate * (extractionDuration * upstrokeInterval) / 1000.0);
+		volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
+		volumeEvent -= (leakRate * ((extractionDurationCounter * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
         if(volumeEvent < 0)
         {
             volumeEvent = 0; // we can't pump negative volume

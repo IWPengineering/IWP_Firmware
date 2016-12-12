@@ -32,12 +32,11 @@ extern const int xAxis; // analog pin connected to x axis of accelerometer
 extern const int yAxis; // analog pin connected to y axis of accelerometer
 extern const int batteryVoltage;                  // analog pin connected to the battery
 extern const float MKII; // 0.4074 L/Radian; transfer variable for mkII delta handle angle to outflow
-extern const int volumeDelay;
 extern const float leakSensorVolume; // This is in Liters; pipe dia. = 33mm; rod diam 12 mm; gage length 24mm
 extern const int alarmHour; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 extern const int alarmStartingMinute; // The minimum minute that the alarm will go off
 extern const int alarmMinuteMax; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
-extern const int adjustmentFactor; // Used to ajust the values read from the accelerometer
+extern const int signedNumAdjustADC; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
 extern const int pulseWidthThreshold; // The value to check the pulse width against (2048)
 extern const int networkPulseWidthThreshold; // The value to check the pulse width against (about 20000)
 extern const int upstrokeInterval; // The number of milliseconds to delay before reading the upstroke
@@ -45,8 +44,9 @@ extern int waterPrimeTimeOut; // Equivalent to 7 seconds (in 50 millisecond inte
 extern long leakRateTimeOut; // Equivalent to 18 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
 //extern long timeBetweenUpstrokes; // 3 seconds (based on upstrokeInterval)
 extern const int decimalAccuracy; // Number of decimal places to use when converting floats to strings
-extern const float angleThreshold; //number close to zero to determine if handle is moving
-extern const int angleDeltaThreshold; // The angle delta to check against
+extern const float angleThresholdSmall; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
+extern const float angleThresholdLarge; //total angle movement to accumulate before identifying movement as intentional pumping
+extern const float PI = 3.141592;
 extern const float upstrokeToMeters;
 extern const int minimumAngleDelta;
 extern const float batteryLevelConstant;       //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476
