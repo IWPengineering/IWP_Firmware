@@ -110,7 +110,7 @@ const int dayI2Cvar = 0x03;
 const int dateI2Cvar = 0x04;
 const int monthI2Cvar = 0x05;
 const int yearI2Cvar = 0x06;
-const float PI = 3.141592;
+// already defined RKF const float PI = 3.141592;
 
 const float angleRadius = .008; // this is 80 millimeters so should it equal 80 or .008?
 int depthSensorInUse;
@@ -683,7 +683,7 @@ void sendTimeMessage(void) {
     char timeMinuteMessage[20];
     timeMinuteMessage[0] = 0;
     char timeSecondMessage[20];
-    timeSecondMessage[0];
+    timeSecondMessage[0]=0;
     char timeMessage[160];
     timeMessage[0] = 0;
     char timeWeekMessage[20];
@@ -691,7 +691,7 @@ void sendTimeMessage(void) {
     char timeDayMessage[20];
     timeDayMessage[0] = 0;
     char timeMonthMessage[20];
-    timeMonthMessage[0];
+    timeMonthMessage[0]=0;
     char timeYearMessage[20];
     timeYearMessage[0] = 0;
 
