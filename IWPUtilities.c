@@ -110,7 +110,7 @@ const int dayI2Cvar = 0x03;
 const int dateI2Cvar = 0x04;
 const int monthI2Cvar = 0x05;
 const int yearI2Cvar = 0x06;
-// already defined RKF const float PI = 3.141592;
+const float PI = 3.141592;
 
 const float angleRadius = .008; // this is 80 millimeters so should it equal 80 or .008?
 int depthSensorInUse;
