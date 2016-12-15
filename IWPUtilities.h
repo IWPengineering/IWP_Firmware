@@ -46,7 +46,7 @@ extern long leakRateTimeOut; // Equivalent to 18 seconds (in 50 millisecond inte
 extern const int decimalAccuracy; // Number of decimal places to use when converting floats to strings
 extern const float angleThresholdSmall; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
 extern const float angleThresholdLarge; //total angle movement to accumulate before identifying movement as intentional pumping
-extern const float PI = 3.141592;
+extern const float PI;
 extern const float upstrokeToMeters;
 extern const int minimumAngleDelta;
 extern const float batteryLevelConstant;       //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476

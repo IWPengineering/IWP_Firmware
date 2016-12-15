@@ -683,7 +683,7 @@ void sendTimeMessage(void) {
     char timeMinuteMessage[20];
     timeMinuteMessage[0] = 0;
     char timeSecondMessage[20];
-    timeSecondMessage[0];
+    timeSecondMessage[0]=0;
     char timeMessage[160];
     timeMessage[0] = 0;
     char timeWeekMessage[20];
@@ -691,7 +691,7 @@ void sendTimeMessage(void) {
     char timeDayMessage[20];
     timeDayMessage[0] = 0;
     char timeMonthMessage[20];
-    timeMonthMessage[0];
+    timeMonthMessage[0]=0;
     char timeYearMessage[20];
     timeYearMessage[0] = 0;
 
