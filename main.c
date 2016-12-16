@@ -88,6 +88,19 @@ void main(void)
 	int currentDay;
 	int prevDay = getDateI2C();
 
+    while (1) {
+        int prevICTime = TMR1; //get time at start of positive pulse
+        int currentICTime = TMR1; //get time at end of positive pulse
+        digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presnece sensor.
+        while((currentICTime = TMR1)<prevICTime + 100){
+        }
+        digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns on the water presnece sensor.
+        prevICTime = TMR1;
+        while((currentICTime = TMR1)<prevICTime + 50){
+        }
+           
+        
+    }
 
 	while (1)
 	{ //MAIN LOOP; repeats indefinitely
@@ -193,8 +206,8 @@ void main(void)
 		int leakCondition = 3;  //Initializes leakCondition so that if the while loop breaks due to
                                 //no water at beginning of Leakage Rate Loop, then we jump to calculate leak rate.
 		anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
-		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 50 milliseconds of delay 
-                                                                                // before entry.
+		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 150 milliseconds of delay 
+                                                                                // if no water or no handle movement before entry.
 		while (readWaterSensor() && (leakDurationCounter < leakRateTimeOut)){
 			angleCurrent = getHandleAngle();                                //Get the current angle of the pump handle
 			angleDelta = angleCurrent - anglePrevious;                      //Calculate the change in angle of the pump handle

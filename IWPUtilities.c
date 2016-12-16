@@ -613,13 +613,16 @@ void initialization(void) {
     // pinDirectionIO(sclI2CPin, 0);                                            //TRISBbits.TRISB8 = 0; // RB8 is an output
 
     // Timer control (for WPS)
-    T1CONbits.TCS = 0; // Source is Internal Clock (8MHz)
-    T1CONbits.TCKPS = 0b11; // Prescalar to 1:256
+    T1CONbits.TCS = 0; // Source is Internal Clock if FNOSC = FRC, Fosc/2 = 4Mhz
+    T1CONbits.TCKPS = 0b11; // Prescalar to 1:256 
+                            // if FNOSC = FRC, Timer Clock = 15.625khz
     T1CONbits.TON = 1; // Enable the timer (timer 1 is used for the water sensor)
 
     // Timer control (for getHandleAngle())
+    T2CONbits.TCS = 0; //Source is Internal Clock Fosc/2  if #pragma config FNOSC = FRC, Fosc/2 = 4Mhz
     T2CONbits.T32 = 0; // Using 16-bit timer2
-    T2CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this)
+    T2CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this) 
+                            // if FNOSC = FRC, Timer Clock = 15.625khz
     T2CONbits.TON = 1; // Starts 16-bit Timer2
 
     // UART config
@@ -663,8 +666,10 @@ void initialization(void) {
     concat(initialMessage, initBatteryString);
     concat(initialMessage, ")");
 
+    //  DEBUG  - Comment these commands out if FONA does not have SIM Card
     tryToConnectToNetwork();
     sendTextMessage(initialMessage);
+    //  DEBUG  - Comment these commands out if FONA does not have SIM Card
 
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
