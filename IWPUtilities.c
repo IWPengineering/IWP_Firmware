@@ -147,7 +147,8 @@ float angle10 = 0;
 //char phoneNumber[] = "+233545823475"; // Number for the Black Phone Ghana trip 3
 //char phoneNumber[] = "+19783840645"; // Number for Jake Sargent
 //char phoneNumber[] = "+17177784498"; // Number for Upside Wireless
-char phoneNumber[] = "+19107094602"; //Number for John Harro
+// char phoneNumber[] = "+19107094602"; //Number for John Harro
+char phoneNumber[] = "+17176837803"; //Number for John Harro
 //char phoneNumber2[] = "+17173039306"; // Tony's number
 //char phoneNumber[] = "+13018737202"; // Number for Jacqui Young
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
@@ -680,6 +681,10 @@ void initialization(void) {
     angle8 = getHandleAngle();
     angle9 = getHandleAngle();
     angle10 = getHandleAngle();
+    // If this is the first time the board is programmed, you need to set the 
+    // RTCC to the proper values
+    //void setTime(char sec, char min, char hr, char wkday, char date, char month, char year)
+   setTime(0,57,12,6,24,12,16); //Saturday Dec 24th 12:57:00 PM
 }
 
 void sendTimeMessage(void) {
@@ -1130,7 +1135,8 @@ void sendTextMessage(char message[160]) // Tested 06-02-2014
 int readWaterSensor(void) // RB5 is one water sensor
 {
     digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presnece sensor.
-
+   
+    delayMs(5);  //debug
     if (digitalPinStatus(waterPresenceSensorPin) == 1) {
         while (digitalPinStatus(waterPresenceSensorPin)) {
         }; //make sure you start at the beginning of the positive pulse

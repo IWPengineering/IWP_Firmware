@@ -87,22 +87,9 @@ void main(void)
 	float leakRate = 0; // Rate at which water is leaking from the rising main
 	int currentDay;
 	int prevDay = getDateI2C();
+ 
 
-    while (1) {
-        int prevICTime = TMR1; //get time at start of positive pulse
-        int currentICTime = TMR1; //get time at end of positive pulse
-        digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presnece sensor.
-        while((currentICTime = TMR1)<prevICTime + 100){
-        }
-        digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns on the water presnece sensor.
-        prevICTime = TMR1;
-        while((currentICTime = TMR1)<prevICTime + 50){
-        }
-           
-        
-    }
-
-	while (1)
+    	while (1)
 	{ //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
 		// Idle Handle Monitor Loop
