@@ -88,7 +88,13 @@ void main(void)
 	int currentDay;
 	int prevDay = getDateI2C();
  
-
+    //Debug
+    // Try writing to and reading from EEPROM
+        EEFloatData = 900.5;
+    EEProm_Write_Float(1,&EEFloatData);
+    EEProm_Read_Float(1, &leakRatePrevious);
+     
+    // Debug
     	while (1)
 	{ //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////

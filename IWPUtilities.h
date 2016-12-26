@@ -90,6 +90,7 @@ extern float volume1618;
 extern float volume1820;
 extern float volume2022;
 extern float volume2224;
+extern float EEFloatData;
 //Pin assignments
 extern int mclrPin;
 extern int depthSensorPin;
@@ -162,4 +163,9 @@ void SoftwareReset(void);
 void delaySCL(void);
 void midDayDepthRead(void);
 void sendTimeMessage(void);
+
+void EEProm_Write_Int(int addr, int newData);
+int EEProm_Read_Int(int addr);
+void EEProm_Read_Float(unsigned int ee_addr, void *obj_p);
+void EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
 #endif	/* IWPUTILITIES_H */

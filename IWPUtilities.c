@@ -72,7 +72,14 @@ void RTCCSet(void);
 int getMinuteOffset();
 char BcdToDec(char val);
 char DecToBcd(char val);
+ * 
+void EEProm_Write_Int(int addr, int newData);
+int EEProm_Read_Int(int addr);
+EEProm_Read_Float(unsigned int ee_addr, void *obj_p);
+EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
  **********************************/
+
+int __attribute__ ((space(eedata))) eeData; // Global variable located in EEPROM
 
 const int xAxis = 11; // analog pin connected to x axis of accelerometer
 const int yAxis = 12; // analog pin connected to y axis of accelerometer
@@ -166,6 +173,7 @@ float volume1618 = 0;
 float volume1820 = 0;
 float volume2022 = 0;
 float volume2224 = 0;
+float EEFloatData = 0;  // to be used when trying to write a float to EEProm EEFloatData = 123.456 then pass as &EEFloatData
 //Pin assignments
 int mclrPin = 1;
 int depthSensorPin = 2;
@@ -668,8 +676,8 @@ void initialization(void) {
     concat(initialMessage, ")");
 
     //  DEBUG  - Comment these commands out if FONA does not have SIM Card
-    tryToConnectToNetwork();
-    sendTextMessage(initialMessage);
+    //tryToConnectToNetwork();
+    //sendTextMessage(initialMessage);
     //  DEBUG  - Comment these commands out if FONA does not have SIM Card
 
     angle2 = getHandleAngle();
@@ -684,7 +692,7 @@ void initialization(void) {
     // If this is the first time the board is programmed, you need to set the 
     // RTCC to the proper values
     //void setTime(char sec, char min, char hr, char wkday, char date, char month, char year)
-   setTime(0,57,12,6,24,12,16); //Saturday Dec 24th 12:57:00 PM
+   //setTime(0,57,12,6,24,12,16); //Saturday Dec 24th 12:57:00 PM
 }
 
 void sendTimeMessage(void) {
@@ -1886,3 +1894,121 @@ void midnightMessage(void) {
     RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
 
 }
+/*********************************************************************
+ * Function: EEProm_Write_Int(int addr, int newData)
+ * Input: addr - the location to write to relative to the start of EEPROM
+ *        newData - - Floating point value to write to EEPROM
+ * Output: none
+ * Overview: The value passed by newData is written to the location in EEPROM
+ *           which is multiplied by 2 to only use addresses with even values
+ *           and is then offset up from the start of EEPROM
+ * Note: Library
+ * TestDate: Not yet tested
+ ********************************************************************/
+void EEProm_Write_Int(int addr, int newData){
+    unsigned int offset;
+    NVMCON = 0x4004;
+    // Set up a pointer to the EEPROM location to be erased
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (2* addr & 0x01ff); // Initizlize lower word of address
+    __builtin_tblwtl(offset, newData); // Write EEPROM data to write latch
+    asm volatile ("disi #5"); // Disable Interrupts For 5 Instructions
+    __builtin_write_NVM(); // Issue Unlock Sequence & Start Write Cycle
+    while(NVMCONbits.WR==1); // Optional: Poll WR bit to wait for
+    // write sequence to complete
+}
+/*********************************************************************
+ * Function: int EEProm_Read_Int(int addr);
+ * Input: addr - the location to read from relative to the start of EEPROM
+ * Output: int value read from EEPROM
+ * Overview: A single int is read from EEPROM start + offset and is returned
+ * Note: Library
+ * TestDate: 12-26-2016
+ ********************************************************************/
+int EEProm_Read_Int(int addr){
+    int data; // Data read from EEPROM
+    unsigned int offset;
+
+    // Set up a pointer to the EEPROM location to be erased
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (2* addr & 0x01ff); // Initialize lower word of address
+    data = __builtin_tblrdl(offset); // Write EEPROM data to write latch
+    return data;
+}
+/*********************************************************************
+ * Function: EEProm_Read_Float(unsigned int ee_addr, void *obj_p)
+ * Input: ee_addr - the location to read from relative to the start of EEPROM
+ *        *obj_p - the address of the variable to be updated (assumed to be a float)
+ * Output: none
+ * Overview: A single float is read from EEPROM start + offset.  This is done by
+ *           updating the contents of the float address provided, one int at a time
+ * Note: Library
+ * TestDate: 12-26-2016
+ ********************************************************************/
+
+
+void EEProm_Read_Float(unsigned int ee_addr, void *obj_p)
+ {
+     unsigned int *p = obj_p;  //point to the float to be updated
+     unsigned int offset;
+     
+     ee_addr = ee_addr*4;  // floats use 4 address locations
+
+     // Read and update the first half of the float
+    // Set up a pointer to the EEPROM location to be erased
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (ee_addr & 0x01ff); // Initialize lower word of address
+    *p = __builtin_tblrdl(offset); // Write EEPROM data to write latch
+      // First half read is complete
+    
+    p++;
+    ee_addr = ee_addr+2;
+      
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (ee_addr & 0x01ff); // Initialize lower word of address
+    *p = __builtin_tblrdl(offset); // Write EEPROM data to write latch
+      // second half read is complete
+      
+ }
+/*********************************************************************
+ * Function: EEProm_Write_Float(unsigned int ee_addr, void *obj_p)
+ * Input: ee_addr - the location to write to relative to the start of EEPROM
+ *                  it is assumed that you are referring to the # of the float 
+ *                  you want to write.  The first is 0, the next is 1 etc.
+ *        *obj_p - the address of the variable which contains the float
+ *                  to be written to EEPROM
+ * Output: none
+ * Overview: A single float is written to EEPROM start + offset.  This is done by
+ *           writing the contents of the float address provided, one int at a time
+ * Note: Library
+ * TestDate: 12-26-2016
+ ********************************************************************/
+ void EEProm_Write_Float(unsigned int ee_addr, void *obj_p)
+ {
+    unsigned int *p = obj_p;
+    unsigned int offset;
+    NVMCON = 0x4004;
+    ee_addr = ee_addr*4;  // floats use 4 address locations
+    
+    // Write the first half of the float
+     // Set up a pointer to the EEPROM location to be erased
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (ee_addr & 0x01ff); // Initizlize lower word of address
+    __builtin_tblwtl(offset, *p); // Write EEPROM data to write latch
+     asm volatile ("disi #5"); // Disable Interrupts For 5 Instructions
+    __builtin_write_NVM(); // Issue Unlock Sequence & Start Write Cycle
+    while(NVMCONbits.WR==1); // Optional: Poll WR bit to wait for
+    // first half of float write sequence to complete
+    
+    // Write the second half of the float
+    p++;
+    ee_addr = ee_addr + 2;
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (ee_addr & 0x01ff); // Initizlize lower word of address
+    __builtin_tblwtl(offset, *p); // Write EEPROM data to write latch
+     asm volatile ("disi #5"); // Disable Interrupts For 5 Instructions
+    __builtin_write_NVM(); // Issue Unlock Sequence & Start Write Cycle
+    while(NVMCONbits.WR==1); // Optional: Poll WR bit to wait for
+    // second half of float write sequence to complete
+    
+ }
