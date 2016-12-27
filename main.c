@@ -88,14 +88,8 @@ void main(void)
 	int currentDay;
 	int prevDay = getDateI2C();
  
-    //Debug
-    // Try writing to and reading from EEPROM
-        EEFloatData = 900.5;
-    EEProm_Write_Float(1,&EEFloatData);
-    EEProm_Read_Float(1, &leakRatePrevious);
-     
-    // Debug
-    	while (1)
+    
+    while (1)
 	{ //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
 		// Idle Handle Monitor Loop
@@ -164,6 +158,7 @@ void main(void)
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
 		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
 			longestPrime = upStrokePrimeMeters;
+            EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
 		}
 		///////////////////////////////////////////////////////
 		// Volume Calculation loop
@@ -239,6 +234,7 @@ void main(void)
 		if ((leakRate * 3600) > leakRateLong)
 		{
 			leakRateLong = leakRate * 3600;                                              //reports in L/hr
+            EEProm_Write_Float(0,&leakRateLong);                                        // Save to EEProm
 		}
 		upStrokeExtract = degToRad(upStrokeExtract);
 		volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
@@ -249,6 +245,17 @@ void main(void)
         }
 
 		hour = BcdToDec(getHourI2C());                                          //organize flow into 2 hours bins
+        if((active_volume_bin >=6) && (hour/2 > active_volume_bin)){
+            //write previous volume to EEProm
+            EEProm_Write_Float(active_volume_bin + 2,&leakRateLong);
+            active_volume_bin = hour/2;  
+        }
+        if((active_volume_bin < 6) && (hour/2 > active_volume_bin)){
+            //write previous volume to EEProm
+            EEProm_Write_Float(active_volume_bin + 14,&leakRateLong);
+            active_volume_bin = hour/2;  
+        }
+        
 		switch (hour / 2)
 		{
 		case 0:

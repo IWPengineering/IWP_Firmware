@@ -75,6 +75,7 @@ extern int prevTimer2;
 //static char phoneNumber[] = "+233247398396"; // Number for the Black Phone
 extern char phoneNumber[]; // Number for Upside Wireless
 extern char phoneNumber2[]; // Tony's number
+extern char active_volume_bin;
 extern float longestPrime; // total upstroke fo the longest priming event of the day
 extern float leakRateLong; // largest leak rate recorded for the day
 extern float batteryFloat; // batteryLevel before sends text message commences
@@ -121,6 +122,7 @@ extern int waterPresenceSensorOnOffPin;
 extern int GNDPin;
 extern int vcc2Pin;
 extern int debugCounter; // DEBUG DEBUG DEBUG DEBUG DEBUG
+extern char active_volume_bin;
 
 
 
@@ -159,6 +161,7 @@ int getMinuteOffset();
 char BcdToDec(char val);
 char DecToBcd(char val);
 void midnightMessage(void);
+void noonMessage(void);
 void SoftwareReset(void);
 void delaySCL(void);
 void midDayDepthRead(void);

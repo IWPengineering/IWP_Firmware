@@ -77,6 +77,7 @@ void EEProm_Write_Int(int addr, int newData);
 int EEProm_Read_Int(int addr);
 EEProm_Read_Float(unsigned int ee_addr, void *obj_p);
 EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
+void noonMessage(void);
  **********************************/
 
 int __attribute__ ((space(eedata))) eeData; // Global variable located in EEPROM
@@ -161,6 +162,7 @@ char phoneNumber[] = "+17176837803"; //Number for John Harro
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
+char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots is being updated
 float volume02 = 0; // Total Volume extracted from 0:00-2:00
 float volume24 = 0;
 float volume46 = 0;
@@ -665,15 +667,16 @@ void initialization(void) {
     initAdc();
 
     batteryFloat = batteryLevel();
-    char initBatteryString[20];
-    initBatteryString[0] = 0;
-    floatToString(batteryFloat, initBatteryString);
-    char initialMessage[160];
-    initialMessage[0] = 0;
-    concat(initialMessage, "(\"t\":\"initialize\"");
-    concat(initialMessage, ",\"b\":");
-    concat(initialMessage, initBatteryString);
-    concat(initialMessage, ")");
+    active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
+  //  char initBatteryString[20];
+  //  initBatteryString[0] = 0;
+  //  floatToString(batteryFloat, initBatteryString);
+  //  char initialMessage[160];
+  //  initialMessage[0] = 0;
+  //  concat(initialMessage, "(\"t\":\"initialize\"");
+  //  concat(initialMessage, ",\"b\":");
+  //  concat(initialMessage, initBatteryString);
+  //  concat(initialMessage, ")");
 
     //  DEBUG  - Comment these commands out if FONA does not have SIM Card
     //tryToConnectToNetwork();
@@ -1765,7 +1768,193 @@ void midDayDepthRead(void) {
 
     }
 }
+/////////////// IN PROCESS //////////////
+void noonMessage(void) {
+    //Message assembly and sending; Use *floatToString() to send:
+    // Create storage for the various values to report
 
+    char longestPrimeString[20];
+    longestPrimeString[0] = 0;
+    char leakRateLongString[20];
+    leakRateLongString[0] = 0;
+    char batteryFloatString[20];
+    batteryFloatString[0] = 0;
+    char volume02String[20];
+    volume02String[0] = 0;
+    char volume24String[20];
+    volume24String[0] = 0;
+    char volume46String[20];
+    volume46String[0] = 0;
+    char volume68String[20];
+    volume68String[0] = 0;
+    char volume810String[20];
+    volume810String[0] = 0;
+    char volume1012String[20];
+    volume1012String[0] = 0;
+    char volume1214String[20];
+    volume1214String[0] = 0;
+    char volume1416String[20];
+    volume1416String[0] = 0;
+    char volume1618String[20];
+    volume1618String[0] = 0;
+    char volume1820String[20];
+    volume1820String[0] = 0;
+    char volume2022String[20];
+    volume2022String[0] = 0;
+    char volume2224String[20];
+    volume2224String[0] = 0;
+    // Read values from EEPROM and convert them to strings
+    EEProm_Read_Float(0, &leakRateLong);
+    floatToString(leakRateLong, leakRateLongString);
+    EEProm_Read_Float(1, &longestPrime);
+    floatToString(longestPrime, longestPrimeString);
+    
+    floatToString(batteryFloat, batteryFloatString); //latest battery voltage
+    
+    EEProm_Read_Float(2, &volume02);  // Read yesterday saved 0-2AM volume, convert to string
+    floatToString(volume02, volume02String);
+    EEProm_Read_Float(3, &volume24);  // Read yesterday saved 2-4AM volume, convert to string
+    floatToString(volume24, volume24String);
+    EEProm_Read_Float(4, &volume46);  // Read yesterday saved 4-6AM volume, convert to string
+    floatToString(volume46, volume46String);    
+    EEProm_Read_Float(5, &volume68);  // Read yesterday saved 6-8AM volume, convert to string
+    floatToString(volume68, volume68String);    
+    EEProm_Read_Float(6, &volume810);  // Read yesterday saved 8-10AM volume, convert to string
+    floatToString(volume810, volume810String);    
+    EEProm_Read_Float(7, &volume1012);  // Read yesterday saved 10-12AM volume, convert to string
+    floatToString(volume1012, volume1012String);   
+    EEProm_Read_Float(8, &volume1214);  // Read yesterday saved 12-14PM volume, convert to string
+    floatToString(volume1214, volume1214String);    
+    EEProm_Read_Float(9, &volume1416);  // Read yesterday saved 14-16PM volume, convert to string
+    floatToString(volume1416, volume1416String);    
+    EEProm_Read_Float(10, &volume1618);  // Read yesterday saved 16-18PM volume, convert to string
+    floatToString(volume1618, volume1618String);    
+    EEProm_Read_Float(11, &volume1820);  // Read yesterday saved 18-20PM volume, convert to string
+    floatToString(volume1820, volume1820String);    
+    EEProm_Read_Float(12, &volume2022);  // Read yesterday saved 20-22PM volume, convert to string
+    floatToString(volume2022, volume2022String);    
+    EEProm_Read_Float(13, &volume2224);  // Read yesterday saved 22-24PM volume, convert to string
+    floatToString(volume2224, volume2224String);
+    
+    long checkSum = longestPrime + leakRateLong + volume02 + volume24 + volume46 + volume68 + volume810 + volume1012 + volume1214 + volume1416 + volume1618 + volume1820 + volume2022 + volume2224;
+    char stringCheckSum[20];
+    floatToString(checkSum, stringCheckSum);
+    
+    
+    // Clear saved leakRateLong and longestPrime
+    leakRateLong = 0; //Clear local and saved value 
+    EEProm_Write_Float(0,&leakRateLong); 
+    longestPrime = 0;//Clear local and saved value
+    EEProm_Write_Float(1,&longestPrime);
+    // Move today's 0-12AM values into the yesterday positions
+    // There is no need to relocate data from 12-24PM since it has not yet been measured
+    EEProm_Read_Float(14, &volume02); // Overwrite saved volume with today's value
+    EEProm_Write_Float(2,&volume02);
+    EEProm_Read_Float(15, &volume24); // Overwrite saved volume with today's value
+    EEProm_Write_Float(3,&volume24);
+    EEProm_Read_Float(16, &volume46); // Overwrite saved volume with today's value
+    EEProm_Write_Float(4,&volume46);
+    EEProm_Read_Float(17, &volume68); // Overwrite saved volume with today's value
+    EEProm_Write_Float(5,&volume68);
+    EEProm_Read_Float(18, &volume810); // Overwrite saved volume with today's value
+    EEProm_Write_Float(6,&volume810);
+    EEProm_Read_Float(19, &volume1012); // Overwrite saved volume with today's value
+    EEProm_Write_Float(7,&volume1012);
+    //Clear slots for volume 1214-2224 to make sure they are zero in case there is no power to fill
+    EEFloatData = 0;
+    EEProm_Write_Float(8, &EEFloatData);
+    EEProm_Write_Float(9, &EEFloatData);
+    EEProm_Write_Float(10, &EEFloatData);
+    EEProm_Write_Float(11, &EEFloatData);
+    EEProm_Write_Float(12, &EEFloatData);
+    EEProm_Write_Float(13, &EEFloatData);
+    EEProm_Write_Float(14, &EEFloatData);
+    EEProm_Write_Float(15, &EEFloatData);
+    EEProm_Write_Float(16, &EEFloatData);
+    EEProm_Write_Float(17, &EEFloatData);
+    EEProm_Write_Float(18, &EEFloatData);
+    EEProm_Write_Float(19, &EEFloatData);
+    
+    
+    //will need more formating for JSON 5-30-2014
+    char dataMessage[160];
+    dataMessage[0] = 0;
+    concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
+    concat(dataMessage, leakRateLongString);
+    concat(dataMessage, ",\"p\":");
+    concat(dataMessage, longestPrimeString);
+    concat(dataMessage, ",\"b\":");
+    concat(dataMessage, batteryFloatString);
+    if (depthSensorInUse == 1) { // if you have a depth sensor
+        pinDirectionIO(depthSensorOnOffPin, 0); //makes depth sensor pin an output.
+        digitalPinSet(depthSensorOnOffPin, 1); //turns on the depth sensor.
+        delayMs(30000); // Wait 30 seconds for the depth sensor to power up
+        char maxDepthLevelString[20];
+        maxDepthLevelString[0] = 0;
+        char minDepthLevelString[20];
+        minDepthLevelString[0] = 0;
+        float currentDepth = readDepthSensor();
+        if (midDayDepth > currentDepth) {
+            floatToString(midDayDepth, maxDepthLevelString);
+            floatToString(currentDepth, minDepthLevelString);
+        } else {
+            floatToString(currentDepth, maxDepthLevelString);
+            floatToString(midDayDepth, minDepthLevelString);
+
+        }
+        concat(dataMessage, ",\"d\":<");
+        concat(dataMessage, maxDepthLevelString);
+        concat(dataMessage, ",");
+        concat(dataMessage, minDepthLevelString);
+        concat(dataMessage, ">");
+
+        digitalPinSet(depthSensorOnOffPin, 0); //turns off the depth sensor.
+    }
+    concat(dataMessage, ",\"v\":<");
+    concat(dataMessage, volume02String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume24String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume46String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume68String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume810String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1012String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1214String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1416String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1618String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1820String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume2022String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume2224String);
+    concat(dataMessage, ">))");
+
+    turnOnSIM();
+    // Try to establish network connection
+    tryToConnectToNetwork();
+    delayMs(2000);
+    // Send off the data
+    sendTextMessage(dataMessage);
+    // sendMessage(dataMessage);
+    //sendMessage(" \r \n");
+
+    //        prevHour = getHourI2C();
+    //        prevDay = getDateI2C();
+    pressReset();
+    ////////////////////////////////////////////////
+    // Should we put the SIM back to sleep here?
+    ////////////////////////////////////////////////
+    RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
+
+}
+/////////////// IN PROCESS //////////////
 void midnightMessage(void) {
     //Message assembly and sending; Use *floatToString() to send:
     char longestPrimeString[20];
