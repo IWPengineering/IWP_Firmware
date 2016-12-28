@@ -76,6 +76,7 @@ extern int prevTimer2;
 extern char phoneNumber[]; // Number for Upside Wireless
 extern char phoneNumber2[]; // Tony's number
 extern char active_volume_bin;
+extern char noon_msg_sent;  //set to 1 when noon message has been sent
 extern float longestPrime; // total upstroke fo the longest priming event of the day
 extern float leakRateLong; // largest leak rate recorded for the day
 extern float batteryFloat; // batteryLevel before sends text message commences

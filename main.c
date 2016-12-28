@@ -103,12 +103,26 @@ void main(void)
 		float angleAccumulated = 0;                                  // Loop until the handle starts moving or if there is water
 		while (handleMovement == 0)
 		{
-			currentDay = getDateI2C();
-			if (prevDay != currentDay){                          // it's a new day so send midNightMessage();
-				batteryFloat = batteryLevel();
-				midnightMessage();
-				prevDay = currentDay;
-			}
+			
+            
+            ;
+            hour = BcdToDec(getHourI2C());
+            if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
+                //send noon message
+                batteryFloat = batteryLevel();
+                noonMessage();
+                noon_msg_sent = 1;                             // only want to send it once
+            }
+            if(hour != 12){
+                noon_msg_sent = 0;
+            }
+            
+           // currentDay = getDateI2C();
+			//if (prevDay != currentDay){                          // it's a new day so send midNightMessage();
+			//	batteryFloat = batteryLevel();
+			//	midnightMessage();
+			//	prevDay = currentDay;
+			//}
 			delayMs(upstrokeInterval);                            // Delay for a short time
 			float newAngle = getHandleAngle();
 			float deltaAngle = newAngle - anglePrevious;
@@ -245,54 +259,104 @@ void main(void)
         }
 
 		hour = BcdToDec(getHourI2C());                                          //organize flow into 2 hours bins
-        if((active_volume_bin >=6) && (hour/2 > active_volume_bin)){
-            //write previous volume to EEProm
-            EEProm_Write_Float(active_volume_bin + 2,&leakRateLong);
-            active_volume_bin = hour/2;  
-        }
-        if((active_volume_bin < 6) && (hour/2 > active_volume_bin)){
-            //write previous volume to EEProm
-            EEProm_Write_Float(active_volume_bin + 14,&leakRateLong);
-            active_volume_bin = hour/2;  
-        }
-        
+               
 		switch (hour / 2)
 		{
 		case 0:
 			volume02 = volume02 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(13,&volume2224);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 1:
 			volume24 = volume24 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(14,&volume02);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 2:
 			volume46 = volume46 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(15,&volume24);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 3:
 			volume68 = volume68 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(16,&volume46);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 4:
 			volume810 = volume810 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(17,&volume68);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 5:
 			volume1012 = volume1012 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(18,&volume810);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 6:
 			volume1214 = volume1214 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(19,&volume1012);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 7:
 			volume1416 = volume1416 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(8,&volume1214);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 8:
 			volume1618 = volume1618 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(9,&volume1416);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 9:
 			volume1820 = volume1820 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(10,&volume1618);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 10:
 			volume2022 = volume2022 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(11,&volume1820);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		case 11:
 			volume2224 = volume2224 + volumeEvent;
+            if(hour/2 != active_volume_bin){
+            //write previous volume to EEProm
+            EEProm_Write_Float(12,&volume2022);
+            active_volume_bin = hour/2;  
+            }
 			break;
 		}
 	} // End of main loop
