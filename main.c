@@ -90,7 +90,14 @@ void main(void)
  
     
     while (1)
-	{ //MAIN LOOP; repeats indefinitely
+	{ 
+        // we want to stop working if the battery is low and the sun is not up
+        if((batteryLevel()<3.0)&&(BcdToDec(getHourI2C()<6)||(BcdToDec(getHourI2C()>18)))){
+            // Go to sleep
+        }
+        else{
+        
+        //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
 		// Idle Handle Monitor Loop
 		// 2 axis of the accelerometer are constantly polled for
@@ -103,9 +110,6 @@ void main(void)
 		float angleAccumulated = 0;                                  // Loop until the handle starts moving or if there is water
 		while (handleMovement == 0)
 		{
-			
-            
-            ;
             hour = BcdToDec(getHourI2C());
             if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
                 //send noon message
@@ -151,6 +155,7 @@ void main(void)
 		upStrokePrime = 0;
      
 		upStroke = 0;                                                 // gets variable ready for new event
+        digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
 		{
             angleCurrent = getHandleAngle();                      //gets the latest 10-average angle
@@ -229,6 +234,7 @@ void main(void)
 			delayMs(upstrokeInterval);
 			leakDurationCounter++;
 		}
+        digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
 		switch (leakCondition){
 		case 1:
 			leakRate = leakRatePrevious;
@@ -359,6 +365,7 @@ void main(void)
             }
 			break;
 		}
+        }
 	} // End of main loop
 } // End of main program
 

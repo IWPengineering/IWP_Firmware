@@ -1146,7 +1146,8 @@ void sendTextMessage(char message[160]) // Tested 06-02-2014
  ********************************************************************/
 int readWaterSensor(void) // RB5 is one water sensor
 {
-    digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presnece sensor.
+    // turn on and off in the Main loop so the 555 has time to stabelize 
+   // digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
    
     delayMs(5);  //debug
     if (digitalPinStatus(waterPresenceSensorPin) == 1) {
@@ -1166,7 +1167,7 @@ int readWaterSensor(void) // RB5 is one water sensor
         pulseWidth = (currentICTime - prevICTime + 0x100000000);
     }
     
-    digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presnece sensor.
+    // digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
 
     //Check if this value is right
     return (pulseWidth <= pulseWidthThreshold);
