@@ -137,6 +137,7 @@ void turnOffSIM();
 void turnOnSIM();
 void tryToConnectToNetwork();
 int connectedToNetwork(void);
+void sendDebugMessage(char message[50], float value);
 void sendMessage(char message[160]);
 void sendTextMessage(char message[160]);
 int readWaterSensor(void);

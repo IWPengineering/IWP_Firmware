@@ -156,7 +156,7 @@ float angle10 = 0;
 //char phoneNumber[] = "+19783840645"; // Number for Jake Sargent
 //char phoneNumber[] = "+17177784498"; // Number for Upside Wireless
 // char phoneNumber[] = "+19107094602"; //Number for John Harro
-char phoneNumber[] = "+17176837803"; //Number for John Harro
+char phoneNumber[] = "+17176837803"; //Number for Randy Fish
 //char phoneNumber2[] = "+17173039306"; // Tony's number
 //char phoneNumber[] = "+13018737202"; // Number for Jacqui Young
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
@@ -648,19 +648,20 @@ void initialization(void) {
 
     //H2O sensor config
     pinDirectionIO(waterPresenceSensorOnOffPin, 0); //makes water presence sensor pin an output.
-    digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presnece sensor.
+    digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
 
     // From fona code (for enabling Texting)
     pinDirectionIO(pwrKeyPin, 0); //TRISBbits.TRISB6 = 0; //sets power key as an output (Pin 15)
     pinDirectionIO(simVioPin, 0); //TRISAbits.TRISA1 = 0; //sets Vio as an output (pin 3)
-    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-    if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
-        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn on Fona
-    }
-    while (digitalPinStatus(statusPin) == 0) { // Wait for Fona to power up
-    }
-    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-    turnOnSIM();
+    // *****  All of this is in turnOnSIM
+    //digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
+    //if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
+    //    digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn on Fona
+    //}
+    //while (digitalPinStatus(statusPin) == 0) { // Wait for Fona to power up
+    //}
+    //digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
+    // don't do this.  The SIM gets turned on when a message is sent.  turnOnSIM();
 
     //depth sensor I/O         
     depthSensorInUse = 0; // If Depth Sensor is in use, make a 1. Else make it zero.
@@ -669,19 +670,22 @@ void initialization(void) {
 
     batteryFloat = batteryLevel();
     active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
-  //  char initBatteryString[20];
-  //  initBatteryString[0] = 0;
-  //  floatToString(batteryFloat, initBatteryString);
-  //  char initialMessage[160];
-  //  initialMessage[0] = 0;
-  //  concat(initialMessage, "(\"t\":\"initialize\"");
-  //  concat(initialMessage, ",\"b\":");
-  //  concat(initialMessage, initBatteryString);
-  //  concat(initialMessage, ")");
+  
 
     //  DEBUG  - Comment these commands out if FONA does not have SIM Card
-    //tryToConnectToNetwork();
-    //sendTextMessage(initialMessage);
+    turnOnSIM();
+    char initBatteryString[20];
+    initBatteryString[0] = 0;
+    floatToString(batteryFloat, initBatteryString);
+    char initialMessage[160];
+    initialMessage[0] = 0;
+   // concat(initialMessage, "(\"t\":\"initialize\"");
+     concat(initialMessage, "(\"t\":\"From_RKF\"");
+    concat(initialMessage, ",\"b\":");
+    concat(initialMessage, initBatteryString);
+    concat(initialMessage, ")");
+ //   tryToConnectToNetwork();
+ //   sendTextMessage(initialMessage);
     //  DEBUG  - Comment these commands out if FONA does not have SIM Card
 
     angle2 = getHandleAngle();
@@ -1069,7 +1073,16 @@ int connectedToNetwork(void) //True when there is a network connection
     //Check if this value is right
     return (pulseDistance >= networkPulseWidthThreshold); // True, when there is a network connection.
 }
-
+void sendDebugMessage(char message[50], float value){
+    char debugMsg[150];
+    char debugValueString[20];
+    debugMsg[0] = 0;
+    concat(debugMsg, message);
+    floatToString(value, debugValueString); 
+    concat(debugMsg,debugValueString);
+    concat(debugMsg, "\n");
+    sendMessage(debugMsg);
+}
 /*********************************************************************
  * Function: sendMessage()
  * Input: String
@@ -1503,6 +1516,7 @@ void delayMs(int ms) {
 }
 
 //Returns the decimal value for the lower 8 bits in a 16 bit BCD (Binary Coded Decimal)
+
 
 /*********************************************************************
  * Function: getLowerBCDAsDecimal
@@ -1938,7 +1952,7 @@ void noonMessage(void) {
     concat(dataMessage, volume2224String);
     concat(dataMessage, ">))");
 
-    turnOnSIM();
+    turnOnSIM();  //?? this is also done at the start of the sendTexMessage function
     // Try to establish network connection
     tryToConnectToNetwork();
     delayMs(2000);

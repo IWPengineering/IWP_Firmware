@@ -71,7 +71,7 @@ void main(void)
 {
 	initialization();
 	waterPrimeTimeOut /= upstrokeInterval;
-	leakRateTimeOut /= upstrokeInterval;
+    leakRateTimeOut /= upstrokeInterval;
 	int handleMovement = 0; // Either 1 or no 0 if the handle moving upward
 	int timeOutStatus = 0; // Used to keep track of the water prime timeout
 	int hour = 0; // Hour of day
@@ -92,11 +92,20 @@ void main(void)
     while (1)
 	{ 
         // we want to stop working if the battery is low and the sun is not up
-        if((batteryLevel()<3.0)&&(BcdToDec(getHourI2C()<6)||(BcdToDec(getHourI2C()>18)))){
-            // Go to sleep
+        batteryFloat = batteryLevel();
+        hour = BcdToDec(getHourI2C());
+  //      if((batteryLevel()<3.0)&&(BcdToDec(getHourI2C()<6)||(BcdToDec(getHourI2C()>18)))){
+        if((batteryFloat < 3.0)&&((hour < 5)||(hour > 17))){
+            // Go to sleep - Can't use Timer to wake up as we did with Pump Minder
+            // our clock is the Fosc/2 = 4Mz FRC.  This is stopped during sleep so we would
+            // never wake up.  Look into switching to the LPFRC when wanting to sleep
+            // and then switch back to FRC when its time to wake up.
+            sendDebugMessage("We should be going to sleep ", batteryFloat);  //Debug
+
         }
         else{
-        
+        sendDebugMessage("\nTop of Main Loop ", 0);  //Debug
+
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
 		// Idle Handle Monitor Loop
@@ -149,6 +158,7 @@ void main(void)
 		// upper water sensor is checked to determine if the
 		// pump has been primed
 		/////////////////////////////////////////////////////////
+        sendDebugMessage("We are in the Priming Loop ", 0);  //Debug
 
 		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
@@ -175,16 +185,19 @@ void main(void)
         }
 
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
+        sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
+        sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug
 		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
 			longestPrime = upStrokePrimeMeters;
             EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
+            sendDebugMessage("We saved new Up Stroke Prime to EEProm ", 1);  //Debug
 		}
 		///////////////////////////////////////////////////////
 		// Volume Calculation loop
 		// Tracks the upStroke for the water being extracted
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
-
+        sendDebugMessage("We are in the Volume Loop ", 0);  //Debug
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
@@ -199,9 +212,11 @@ void main(void)
 			}
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				i++;
+                sendDebugMessage(".........",angleDelta);
 			}
 			else{
 				i = 0;
+                sendDebugMessage("____ ",angleDelta);
 			}                                                             //Reset i if handle is moving
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
 			delayMs(upstrokeInterval);                                         // Delay for a short time
@@ -235,6 +250,8 @@ void main(void)
 			leakDurationCounter++;
 		}
         digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
+        
+        sendDebugMessage("The Leak condition is ", leakCondition);  //Debug
 		switch (leakCondition){
 		case 1:
 			leakRate = leakRatePrevious;
@@ -250,7 +267,8 @@ void main(void)
             
             //We may get here if someone just bumps the handle.
 		}
-
+        sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug
+        sendDebugMessage("  - leak Rate Long = ", leakRateLong);  //Debug
 		if ((leakRate * 3600) > leakRateLong)
 		{
 			leakRateLong = leakRate * 3600;                                              //reports in L/hr
@@ -263,9 +281,11 @@ void main(void)
         {
             volumeEvent = 0; // we can't pump negative volume
         }
-
 		hour = BcdToDec(getHourI2C());                                          //organize flow into 2 hours bins
-               
+        sendDebugMessage("Volume Event = ", volumeEvent);  //Debug
+        sendDebugMessage("  for time slot ", hour);  //Debug
+
+       
 		switch (hour / 2)
 		{
 		case 0:
