@@ -37,11 +37,14 @@
 			     //clock input frequency greater than 8MHz)
 #pragma config SOSCSEL = SOSCHP // SOSC Power Selection Configuration bits (Secondary Oscillator configured for high-power operation)
 #pragma config FCKSM = CSDCMD // Clock Switching and Monitor Selection (Both Clock Switching and Fail-safe Clock Monitor are disabled)
+
 // FWDT
-#pragma config WDTPS = PS32768 // Watchdog Timer Postscale Select bits (1:32768)
-#pragma config FWPSA = PR128 // WDT Prescaler bit (WDT prescaler ratio of 1:128)
-#pragma config FWDTEN = OFF // Watchdog Timer Enable bits (WDT disabled in hardware; SWDTEN bit disabled)
-#pragma config WINDIS = ON // Windowed Watchdog Timer Disable bit (Windowed WDT enabled)
+// Enable the WDT to work both when asleep and awake.  Set the time out to a nominal 131 seconds
+#pragma config WDTPS = PS32768          // Watchdog Timer Postscale Select bits (1:32768)
+#pragma config FWPSA = PR128            // WDT Prescaler bit (WDT prescaler ratio of 1:128)
+#pragma config FWDTEN = ON              // Watchdog Timer Enable bits (WDT enabled in hardware)
+#pragma config WINDIS = OFF             // Windowed Watchdog Timer Disable bit (Standard WDT selected(windowed WDT disabled))
+
 // FPOR
 #pragma config BOREN = BOR3 // Brown-out Reset Enable bits (Brown-out Reset enabled in hardware, SBOREN bit disabled)
 #pragma config LVRCFG = OFF // (Low Voltage regulator is not available)
@@ -91,17 +94,16 @@ void main(void)
     
     while (1)
 	{ 
-        // we want to stop working if the battery is low and the sun is not up
+        ClearWatchDogTimer();     // If we get hung somewhere, the WDT should get us out    
+        
         batteryFloat = batteryLevel();
         hour = BcdToDec(getHourI2C());
-  //      if((batteryLevel()<3.0)&&(BcdToDec(getHourI2C()<6)||(BcdToDec(getHourI2C()>18)))){
-        if((batteryFloat < 3.0)&&((hour < 5)||(hour > 17))){
-            // Go to sleep - Can't use Timer to wake up as we did with Pump Minder
-            // our clock is the Fosc/2 = 4Mz FRC.  This is stopped during sleep so we would
-            // never wake up.  Look into switching to the LPFRC when wanting to sleep
-            // and then switch back to FRC when its time to wake up.
-            sendDebugMessage("We should be going to sleep ", batteryFloat);  //Debug
-
+        if((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
+            // If the battery level is too low to work without the sun, go to sleep
+            // shut down at an ODD time so that the volume pumped from 4-6PM will be saved to EEProm
+            // try to wake up at 5AM just because there is a lot of activity at this time 
+            // The WDT settings will put the PIC to sleep for about 131 seconds.  
+            Sleep();
         }
         else{
         sendDebugMessage("\nTop of Main Loop ", 0);  //Debug

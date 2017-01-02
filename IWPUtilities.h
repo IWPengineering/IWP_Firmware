@@ -128,6 +128,10 @@ extern char active_volume_bin;
 
 
 void initialization(void);
+void ClearWatchDogTimer(void);  // some user groups say using just ClrWdt() is 
+//                                 an assembly command that will cause the Compiler 
+//                                 not to optimize any function, like Main, that 
+//                                 it is a part of and so suggest this wrapper
 int longLength(long num);
 void longToString(long num, char *numString);
 int stringLength(char *string);
