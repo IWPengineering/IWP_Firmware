@@ -684,8 +684,8 @@ void initialization(void) {
     concat(initialMessage, ",\"b\":");
     concat(initialMessage, initBatteryString);
     concat(initialMessage, ")");
- //   tryToConnectToNetwork();
- //   sendTextMessage(initialMessage);
+    tryToConnectToNetwork();
+    sendTextMessage(initialMessage);
     //  DEBUG  - Comment these commands out if FONA does not have SIM Card
 
     angle2 = getHandleAngle();
@@ -1024,6 +1024,9 @@ void tryToConnectToNetwork() {
                 // Reset the network timeout
                 networkTimeout = 0;
                 networkTimeoutCount++;
+                // We don't want to have the WDT time out while trying to connect
+                // to the network
+                ClearWatchDogTimer();
                 // If we have tried to reset 5 times, we give up and exit
                 if (networkTimeoutCount == 5) {
                     keepTrying = 0;

@@ -43,6 +43,8 @@
 #pragma config WDTPS = PS32768          // Watchdog Timer Postscale Select bits (1:32768)
 #pragma config FWPSA = PR128            // WDT Prescaler bit (WDT prescaler ratio of 1:128)
 #pragma config FWDTEN = ON              // Watchdog Timer Enable bits (WDT enabled in hardware)
+// use this if you want to be able to turn WDT on and off 
+// #pragma config FWDTEN = SWON            // Watchdog Timer Enable bits (WDT controlled with the SWDTEN bit setting)
 #pragma config WINDIS = OFF             // Windowed Watchdog Timer Disable bit (Standard WDT selected(windowed WDT disabled))
 
 // FPOR
