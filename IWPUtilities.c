@@ -96,7 +96,7 @@ const int pulseWidthThreshold = 20; // The value to check the pulse width agains
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
 int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
-long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
+long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in "upstrokeInterval" millisecond intervals); 
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
 const float angleThresholdSmall = 0.1; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
@@ -684,8 +684,8 @@ void initialization(void) {
     concat(initialMessage, ",\"b\":");
     concat(initialMessage, initBatteryString);
     concat(initialMessage, ")");
-    tryToConnectToNetwork();
-    sendTextMessage(initialMessage);
+    // Debug  tryToConnectToNetwork();
+    // Debug  sendTextMessage(initialMessage);
     //  DEBUG  - Comment these commands out if FONA does not have SIM Card
 
     angle2 = getHandleAngle();

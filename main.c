@@ -216,11 +216,9 @@ void main(void)
 			}
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				i++;
-                sendDebugMessage(".........",angleDelta);
 			}
 			else{
 				i = 0;
-                sendDebugMessage("____ ",angleDelta);
 			}                                                             //Reset i if handle is moving
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
 			delayMs(upstrokeInterval);                                         // Delay for a short time
@@ -228,19 +226,28 @@ void main(void)
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////
+        sendDebugMessage("                 We are in the Leak Rate Loop ", 0);  //Debug
 		// Get the angle of the pump handle to measure against
 		int leakCondition = 3;  //Initializes leakCondition so that if the while loop breaks due to
                                 //no water at beginning of Leakage Rate Loop, then we jump to calculate leak rate.
-		anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
+        i = 0;  
+        anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
 		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 150 milliseconds of delay 
                                                                                 // if no water or no handle movement before entry.
-		while (readWaterSensor() && (leakDurationCounter < leakRateTimeOut)){
+        while (readWaterSensor()){
 			angleCurrent = getHandleAngle();                                //Get the current angle of the pump handle
 			angleDelta = angleCurrent - anglePrevious;                      //Calculate the change in angle of the pump handle
-			anglePrevious = angleCurrent;                                   // Update the previous angle for the next calculation
-											// If the handle moved more than 2 degrees, 
-											// we will consider that an intentional pumping action                                                                // intentional pump and break out of the loop (2 is in radians)
-			if (angleDelta > angleThresholdSmall){
+            anglePrevious = angleCurrent;                                   // Update the previous angle for the next calculation
+											                                                               // intentional pump and break out of the loop (2 is in radians)
+			// If the handle starts moving we will abandon calculating a new leak rate
+            //  Moving is the same criterion as stopping in volume calculation loop
+            if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
+				i=0;
+            }
+			else{
+				i++;
+ 			}             
+            if (i >= volumeLoopCounter){
 				leakCondition = 1;
 				break;
 			}
@@ -249,7 +256,6 @@ void main(void)
                                     //exceeding the leakRateTimeOut wait.
 				break;
 			}
-			leakCondition = 3;
 			delayMs(upstrokeInterval);
 			leakDurationCounter++;
 		}
@@ -269,7 +275,7 @@ void main(void)
 			leakRatePrevious = leakRate;
             break;
             
-            //We may get here if someone just bumps the handle.
+           
 		}
         sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug
         sendDebugMessage("  - leak Rate Long = ", leakRateLong);  //Debug
@@ -277,6 +283,7 @@ void main(void)
 		{
 			leakRateLong = leakRate * 3600;                                              //reports in L/hr
             EEProm_Write_Float(0,&leakRateLong);                                        // Save to EEProm
+            sendDebugMessage("Saved new longest leak rate to EEProm ", leakRateLong);  //Debug
 		}
 		upStrokeExtract = degToRad(upStrokeExtract);
 		volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
