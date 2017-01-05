@@ -123,6 +123,8 @@ extern int waterPresenceSensorOnOffPin;
 extern int GNDPin;
 extern int vcc2Pin;
 extern int debugCounter; // DEBUG DEBUG DEBUG DEBUG DEBUG
+extern int hour; // Hour of day
+extern int minute;  //minute of the day
 extern char active_volume_bin;
 
 
@@ -177,4 +179,6 @@ void EEProm_Write_Int(int addr, int newData);
 int EEProm_Read_Int(int addr);
 void EEProm_Read_Float(unsigned int ee_addr, void *obj_p);
 void EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
+void SaveVolumeToEEProm(void);
+void DebugReadEEProm(void);
 #endif	/* IWPUTILITIES_H */
