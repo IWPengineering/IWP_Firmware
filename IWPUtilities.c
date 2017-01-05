@@ -95,7 +95,7 @@ const int signedNumAdjustADC = 511; // Used to divide the total range of the out
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
-int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
+int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in "upstrokeInterval" millisecond intervals); 
 long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in "upstrokeInterval" millisecond intervals); 
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
@@ -177,6 +177,8 @@ float volume1820 = 0;
 float volume2022 = 0;
 float volume2224 = 0;
 float EEFloatData = 0;  // to be used when trying to write a float to EEProm EEFloatData = 123.456 then pass as &EEFloatData
+int hour = 0; // Hour of day
+int minute = 0;  //minute of the day
 //Pin assignments
 int mclrPin = 1;
 int depthSensorPin = 2;
@@ -653,15 +655,6 @@ void initialization(void) {
     // From fona code (for enabling Texting)
     pinDirectionIO(pwrKeyPin, 0); //TRISBbits.TRISB6 = 0; //sets power key as an output (Pin 15)
     pinDirectionIO(simVioPin, 0); //TRISAbits.TRISA1 = 0; //sets Vio as an output (pin 3)
-    // *****  All of this is in turnOnSIM
-    //digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-    //if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
-    //    digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn on Fona
-    //}
-    //while (digitalPinStatus(statusPin) == 0) { // Wait for Fona to power up
-    //}
-    //digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-    // don't do this.  The SIM gets turned on when a message is sent.  turnOnSIM();
 
     //depth sensor I/O         
     depthSensorInUse = 0; // If Depth Sensor is in use, make a 1. Else make it zero.
@@ -671,23 +664,6 @@ void initialization(void) {
     batteryFloat = batteryLevel();
     active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
   
-
-    //  DEBUG  - Comment these commands out if FONA does not have SIM Card
-    turnOnSIM();
-    char initBatteryString[20];
-    initBatteryString[0] = 0;
-    floatToString(batteryFloat, initBatteryString);
-    char initialMessage[160];
-    initialMessage[0] = 0;
-   // concat(initialMessage, "(\"t\":\"initialize\"");
-     concat(initialMessage, "(\"t\":\"From_RKF\"");
-    concat(initialMessage, ",\"b\":");
-    concat(initialMessage, initBatteryString);
-    concat(initialMessage, ")");
-    // Debug  tryToConnectToNetwork();
-    // Debug  sendTextMessage(initialMessage);
-    //  DEBUG  - Comment these commands out if FONA does not have SIM Card
-
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
     angle4 = getHandleAngle();
@@ -1124,12 +1100,14 @@ char intToAscii(unsigned int integer) {
  * Input: String
  * Output: None
  * Overview: sends a Text Message to which ever phone number is in the variable 'phoneNumber'
+ *           we expect to be in this routine for 15.5sec, however, each character
+ *           of each message takes some time that has not yet been calculated
  * Note: Library
  * TestDate: 06-02-2014
  ********************************************************************/
 void sendTextMessage(char message[160]) // Tested 06-02-2014
 {
-    turnOnSIM();
+ //   turnOnSIM();
     delayMs(10000);
     sendMessage("AT+CMGF=1\r\n"); //sets to text mode
     delayMs(250);
@@ -1143,7 +1121,7 @@ void sendTextMessage(char message[160]) // Tested 06-02-2014
     // of 26 to sendMessage function (line 62)
     // & the end of allowing us to send SMS message
     delayMs(5000); // Give it some time to send the message
-    turnOffSIM();
+ //   turnOffSIM();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1880,7 +1858,7 @@ void noonMessage(void) {
     EEProm_Read_Float(19, &volume1012); // Overwrite saved volume with today's value
     EEProm_Write_Float(7,&volume1012);
     //Clear slots for volume 1214-2224 to make sure they are zero in case there is no power to fill
-    EEFloatData = 0;
+    EEFloatData = 0.01;
     EEProm_Write_Float(8, &EEFloatData);
     EEProm_Write_Float(9, &EEFloatData);
     EEProm_Write_Float(10, &EEFloatData);
@@ -1966,7 +1944,7 @@ void noonMessage(void) {
 
     //        prevHour = getHourI2C();
     //        prevDay = getDateI2C();
-    pressReset();
+    // pressReset();
     ////////////////////////////////////////////////
     // Should we put the SIM back to sleep here?
     ////////////////////////////////////////////////
@@ -2235,3 +2213,117 @@ void EEProm_Read_Float(unsigned int ee_addr, void *obj_p)
  void ClearWatchDogTimer(void){
      ClrWdt();
  }
+ /*********************************************************************
+ * Function: SaveVolumeToEEProm(void)
+ * Input: none
+ * Output: none
+ * Overview: Volume is saved in 2hr long bins.  When a new one begins, the total
+  *          from the last bin should be saved from RAM to EEProm.
+ * Note: Library
+ * TestDate: not tested
+ ********************************************************************/
+void SaveVolumeToEEProm(void){
+    switch (hour / 2)
+		{
+		case 0:
+            EEProm_Write_Float(13,&volume2224);
+            active_volume_bin = hour/2;  
+			break;
+		case 1:
+            EEProm_Write_Float(14,&volume02);
+            active_volume_bin = hour/2;  
+			break;
+		case 2:
+            EEProm_Write_Float(15,&volume24);
+            active_volume_bin = hour/2;  
+ 			break;
+		case 3:
+            EEProm_Write_Float(16,&volume46);
+            active_volume_bin = hour/2;  
+			break;
+		case 4:
+            EEProm_Write_Float(17,&volume68);
+            active_volume_bin = hour/2;  
+			break;
+		case 5:
+            EEProm_Write_Float(18,&volume810);
+            active_volume_bin = hour/2;  
+			break;
+		case 6:
+            EEProm_Write_Float(19,&volume1012);
+            active_volume_bin = hour/2;  
+ 			break;
+		case 7:
+            EEProm_Write_Float(8,&volume1214);
+            active_volume_bin = hour/2;  
+			break;
+		case 8:
+            EEProm_Write_Float(9,&volume1416);
+            active_volume_bin = hour/2;  
+			break;
+		case 9:
+            EEProm_Write_Float(10,&volume1618);
+            active_volume_bin = hour/2;  
+			break;
+		case 10:
+            EEProm_Write_Float(11,&volume1820);
+            active_volume_bin = hour/2;  
+			break;
+		case 11:
+            EEProm_Write_Float(12,&volume2022);
+            active_volume_bin = hour/2;  
+			break;
+		}
+}
+/*********************************************************************
+ * Function: DebugReadEEProm(void)
+ * Input: none
+ * Output: none
+ * Overview: This function reads all of the EEProm dedicated to Priming, Leak
+ *           and the volume bins and sends them to the UART serial pins
+ *           where they can be viewed with a Protocol interface
+ * Note: Library
+ * TestDate: not tested
+ ********************************************************************/
+void DebugReadEEProm(void){
+    EEProm_Read_Float(0,&EEFloatData);
+    sendDebugMessage("Leak Rate = ", EEFloatData);  //Debug
+    EEProm_Read_Float(1,&EEFloatData);
+    sendDebugMessage("Longest Prime = ", EEFloatData);  //Debug
+    EEProm_Read_Float(2,&EEFloatData);
+    sendDebugMessage("Volume 02 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(3,&EEFloatData);
+    sendDebugMessage("Volume 24 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(4,&EEFloatData);
+    sendDebugMessage("Volume 46 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(5,&EEFloatData);
+    sendDebugMessage("Volume 68 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(6,&EEFloatData);
+    sendDebugMessage("Volume 810 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(7,&EEFloatData);
+    sendDebugMessage("Volume 1012 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(8,&EEFloatData);
+    sendDebugMessage("Volume 1214 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(9,&EEFloatData);
+    sendDebugMessage("Volume 1416 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(10,&EEFloatData);
+    sendDebugMessage("Volume 1618 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(11,&EEFloatData);
+    sendDebugMessage("Volume 1820 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(12,&EEFloatData);
+    sendDebugMessage("Volume 2022 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(13,&EEFloatData);
+    sendDebugMessage("Volume 2224 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(14,&EEFloatData);
+    sendDebugMessage("Today Volume 02 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(15,&EEFloatData);
+    sendDebugMessage("Today Volume 24 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(16,&EEFloatData);
+    sendDebugMessage("Today Volume 46 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(17,&EEFloatData);
+    sendDebugMessage("Today Volume 68 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(18,&EEFloatData);
+    sendDebugMessage("Today Volume 810 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(19,&EEFloatData);
+    sendDebugMessage("Today Volume 1012 = ", EEFloatData);  //Debug
+}

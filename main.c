@@ -79,7 +79,7 @@ void main(void)
     leakRateTimeOut /= upstrokeInterval;
 	int handleMovement = 0; // Either 1 or no 0 if the handle moving upward
 	int timeOutStatus = 0; // Used to keep track of the water prime timeout
-	int hour = 0; // Hour of day
+
 	float angleCurrent = 0; // Stores the current angle of the pump handle
 	float anglePrevious = 0; // Stores the last recoreded angle of the pump handle
 	float angleDelta = 0; // Stores the difference between the current and previous angles
@@ -95,21 +95,9 @@ void main(void)
  
     
     while (1)
-	{ 
-        ClearWatchDogTimer();     // If we get hung somewhere, the WDT should get us out    
-        
+	{          
         batteryFloat = batteryLevel();
-        hour = BcdToDec(getHourI2C());
-        if((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
-            // If the battery level is too low to work without the sun, go to sleep
-            // shut down at an ODD time so that the volume pumped from 4-6PM will be saved to EEProm
-            // try to wake up at 5AM just because there is a lot of activity at this time 
-            // The WDT settings will put the PIC to sleep for about 131 seconds.  
-            Sleep();
-        }
-        else{
-        sendDebugMessage("\nTop of Main Loop ", 0);  //Debug
-
+ 
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
 		// Idle Handle Monitor Loop
@@ -122,10 +110,29 @@ void main(void)
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		float angleAccumulated = 0;                                  // Loop until the handle starts moving or if there is water
 		while (handleMovement == 0)
-		{
+		{ 
+            ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
             hour = BcdToDec(getHourI2C());
+            // should we be asleep to save power?   
+            while((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
+            // If the battery level is too low to work without the sun, go to sleep
+            // shut down at an ODD time so that the volume pumped from 4-6PM will be saved to EEProm
+            // try to wake up at 5AM just because there is a lot of activity at this time 
+            // The WDT settings will put the PIC to sleep for about 131 seconds.  
+                if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
+                    turnOffSIM();             
+                }
+                sendDebugMessage("We are going to sleep ", minute);  //Debug
+                Sleep(); 
+                
+                hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
+            }
+            // Is it time to record volume from previous time bin to EEProm?
+            if(hour/2 != active_volume_bin){
+                SaveVolumeToEEProm();
+            }
+            // Is it time to report data from yesterday?        
             if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
-                //send noon message
                 batteryFloat = batteryLevel();
                 noonMessage();
                 noon_msg_sent = 1;                             // only want to send it once
@@ -134,12 +141,7 @@ void main(void)
                 noon_msg_sent = 0;
             }
             
-           // currentDay = getDateI2C();
-			//if (prevDay != currentDay){                          // it's a new day so send midNightMessage();
-			//	batteryFloat = batteryLevel();
-			//	midnightMessage();
-			//	prevDay = currentDay;
-			//}
+            // OK, go ahead and look for handle movement again
 			delayMs(upstrokeInterval);                            // Delay for a short time
 			float newAngle = getHandleAngle();
 			float deltaAngle = newAngle - anglePrevious;
@@ -206,8 +208,9 @@ void main(void)
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
-										//still for five loops
-			angleCurrent = getHandleAngle();                        //gets the latest 10-average angle
+							                                            //still for "volumeLoopCounter loops
+            ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
+            angleCurrent = getHandleAngle();                        //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;              //determines the amount of handle movement from last reading
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
 			if(angleDelta > 0){                                     //Determines direction of handle movement
@@ -292,7 +295,8 @@ void main(void)
         {
             volumeEvent = 0; // we can't pump negative volume
         }
-		hour = BcdToDec(getHourI2C());                                          //organize flow into 2 hours bins
+		// organize flow into 2 hours bins
+        // The hour was read at the start of the handle movement routine       
         sendDebugMessage("Volume Event = ", volumeEvent);  //Debug
         sendDebugMessage("  for time slot ", hour);  //Debug
 
@@ -301,102 +305,41 @@ void main(void)
 		{
 		case 0:
 			volume02 = volume02 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(13,&volume2224);
-            active_volume_bin = hour/2;  
-            }
-			break;
+  			break;
 		case 1:
 			volume24 = volume24 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(14,&volume02);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 2:
 			volume46 = volume46 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(15,&volume24);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 3:
 			volume68 = volume68 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(16,&volume46);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 4:
 			volume810 = volume810 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(17,&volume68);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 5:
 			volume1012 = volume1012 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(18,&volume810);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 6:
 			volume1214 = volume1214 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(19,&volume1012);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 7:
 			volume1416 = volume1416 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(8,&volume1214);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 8:
 			volume1618 = volume1618 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(9,&volume1416);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 9:
 			volume1820 = volume1820 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(10,&volume1618);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 10:
 			volume2022 = volume2022 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(11,&volume1820);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		case 11:
 			volume2224 = volume2224 + volumeEvent;
-            if(hour/2 != active_volume_bin){
-            //write previous volume to EEProm
-            EEProm_Write_Float(12,&volume2022);
-            active_volume_bin = hour/2;  
-            }
 			break;
 		}
-        }
 	} // End of main loop
 } // End of main program
 
