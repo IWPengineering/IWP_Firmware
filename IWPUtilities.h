@@ -122,10 +122,12 @@ extern int netLightPin;
 extern int waterPresenceSensorOnOffPin;
 extern int GNDPin;
 extern int vcc2Pin;
+// other global variables
 extern int debugCounter; // DEBUG DEBUG DEBUG DEBUG DEBUG
 extern int hour; // Hour of day
 extern int minute;  //minute of the day
 extern char active_volume_bin;
+extern char never_primed;  //set to 1 if we exit the priming loop because of timeout
 
 
 

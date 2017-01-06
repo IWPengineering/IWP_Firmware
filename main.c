@@ -93,10 +93,13 @@ void main(void)
 	int currentDay;
 	int prevDay = getDateI2C();
  
-    
+    sendDebugMessage("    JUST CAME OUT OF INITIALIZATION \n ", 0);  //Debug
     while (1)
 	{          
         batteryFloat = batteryLevel();
+        if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, turn it on so it is awake to be topped off
+            turnOnSIM();
+        }
  
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
@@ -122,20 +125,22 @@ void main(void)
                 if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
                     turnOffSIM();             
                 }
-                sendDebugMessage("We are going to sleep ", minute);  //Debug
                 Sleep(); 
+                sendDebugMessage("Going to sleep ", hour);  //Debug
                 
                 hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
             }
             // Is it time to record volume from previous time bin to EEProm?
             if(hour/2 != active_volume_bin){
                 SaveVolumeToEEProm();
+                sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);  //Debug
             }
             // Is it time to report data from yesterday?        
             if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
                 batteryFloat = batteryLevel();
                 noonMessage();
                 noon_msg_sent = 1;                             // only want to send it once
+                sendDebugMessage("Noon Message sent ", hour);  //Debug
             }
             if(hour != 12){
                 noon_msg_sent = 0;
@@ -165,10 +170,11 @@ void main(void)
 		// pump has been primed
 		/////////////////////////////////////////////////////////
         sendDebugMessage("We are in the Priming Loop ", 0);  //Debug
-
+        int i = 0; 
 		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
+        never_primed = 0;
      
 		upStroke = 0;                                                 // gets variable ready for new event
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
@@ -182,14 +188,24 @@ void main(void)
                                                              //accumlation var
 			}
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-				timeOutStatus++; //Timeout incremented for very small movement (pump handle is not moving/the person quit pumping)
+			//	timeOutStatus++; //Timeout incremented for very small movement (pump handle is not moving/the person quit pumping)
+                i++; // we want to stop if the user stops pumping              
 			}
 			else{
-				timeOutStatus = 0;
-			}                                                     //Reset i if handle is moving
+				// timeOutStatus = 0;
+                timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping
+                i=0;   // they are still trying
+			} 
+            if(i == 100){  // They quit trying for at least 1 second
+                never_primed = 1;
+                break;
+            }
 			delayMs(upstrokeInterval); 
         }
-
+        if(timeOutStatus >= waterPrimeTimeOut){
+            never_primed = 1;          
+        }
+        sendDebugMessage("The time spent trying to prime = ",timeOutStatus*10);
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
         sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
         sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug
@@ -203,10 +219,10 @@ void main(void)
 		// Tracks the upStroke for the water being extracted
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
-        sendDebugMessage("We are in the Volume Loop ", 0);  //Debug
+        sendDebugMessage("\n We are in the Volume Loop ", 0);  //Debug
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
-		int i = 0;                                                      //Index to keep track of no movement cycles
+		i = 0;                                                      //Index to keep track of no movement cycles
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 							                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
@@ -229,10 +245,13 @@ void main(void)
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////
-        sendDebugMessage("                 We are in the Leak Rate Loop ", 0);  //Debug
+        sendDebugMessage(" \n We are in the Leak Rate Loop ", 0);  //Debug
 		// Get the angle of the pump handle to measure against
 		int leakCondition = 3;  //Initializes leakCondition so that if the while loop breaks due to
                                 //no water at beginning of Leakage Rate Loop, then we jump to calculate leak rate.
+        if(never_primed == 1){
+            leakCondition = 4;   // there was never any water
+        }
         i = 0;  
         anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
 		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 150 milliseconds of delay 
@@ -267,19 +286,23 @@ void main(void)
         sendDebugMessage("The Leak condition is ", leakCondition);  //Debug
 		switch (leakCondition){
 		case 1:
-			leakRate = leakRatePrevious;
+//			leakRate = leakRatePrevious; // They started pumping again so can't calculate leak
+            leakRate = 0;
 			break;
 		case 2:
 			leakRate = 0;
-			leakRatePrevious = leakRate;
+			leakRatePrevious = leakRate;  // I don't think leakRatePrevious is ever used
 			break;
 		case 3:
 			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
-			leakRatePrevious = leakRate;
+			leakRatePrevious = leakRate;    // I don't think leakRatePrevious is ever used
+            break;           
+		
+        case 4:
+//            leakRate = leakRatePrevious;  // there was never any water so can't calculate leak
+            leakRate = 0;
             break;
-            
-           
-		}
+        }
         sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug
         sendDebugMessage("  - leak Rate Long = ", leakRateLong);  //Debug
 		if ((leakRate * 3600) > leakRateLong)

@@ -164,6 +164,7 @@ float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
 char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots is being updated
 char noon_msg_sent = 0;  //set to 1 when noon message has been sent
+char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
 float volume02 = 0; // Total Volume extracted from 0:00-2:00
 float volume24 = 0;
 float volume46 = 0;
@@ -1947,7 +1948,7 @@ void noonMessage(void) {
     concat(dataMessage, volume2224String);
     concat(dataMessage, ">))");
 
-    turnOnSIM();  //?? this is also done at the start of the sendTexMessage function
+    turnOnSIM();  
     // Try to establish network connection
     tryToConnectToNetwork();
     delayMs(2000);
