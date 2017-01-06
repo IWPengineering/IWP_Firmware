@@ -663,7 +663,7 @@ void initialization(void) {
 
     batteryFloat = batteryLevel();
     active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
-  
+    
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
     angle4 = getHandleAngle();
@@ -676,7 +676,21 @@ void initialization(void) {
     // If this is the first time the board is programmed, you need to set the 
     // RTCC to the proper values
     //void setTime(char sec, char min, char hr, char wkday, char date, char month, char year)
-   //setTime(0,57,12,6,24,12,16); //Saturday Dec 24th 12:57:00 PM
+    //setTime(0,57,12,6,24,12,16); //Saturday Dec 24th 12:57:00 PM
+
+    // We may be waking up because the battery was dead.  If that is the case,
+    // Restart Status, EEProm#20, will be zero and we want to continue using 
+    // the leakRateLong and longestPrime from EEProm. Otherwise, it will be a
+    // bogus number and we want to clear our EEProm memory locations
+    EEProm_Read_Float(20,&EEFloatData);
+    if(EEFloatData == 0){
+        EEProm_Read_Float(0,&leakRateLong);
+        EEProm_Read_Float(1,&longestPrime);
+    }
+    else{
+        ClearEEProm();
+    }
+        
 }
 
 void sendTimeMessage(void) {
@@ -2283,7 +2297,7 @@ void SaveVolumeToEEProm(void){
  *           and the volume bins and sends them to the UART serial pins
  *           where they can be viewed with a Protocol interface
  * Note: Library
- * TestDate: not tested
+ * TestDate: 1-4-2017
  ********************************************************************/
 void DebugReadEEProm(void){
     EEProm_Read_Float(0,&EEFloatData);
@@ -2326,4 +2340,39 @@ void DebugReadEEProm(void){
     sendDebugMessage("Today Volume 810 = ", EEFloatData);  //Debug
     EEProm_Read_Float(19,&EEFloatData);
     sendDebugMessage("Today Volume 1012 = ", EEFloatData);  //Debug
+}
+/*********************************************************************
+ * Function: ClearEEProm(void)
+ * Input: none
+ * Output: none
+ * Overview: This function writes a 0 to the first 21 float locations
+ *           in EEProm.  It should be called the first time a board
+ *           is programmed but NOT every time we Initialize since we don't want 
+ *           to lose data saved prior to shutting down because of lost power
+ * Note: Library
+ * TestDate: 1-5-2017
+ ********************************************************************/
+void ClearEEProm(void){
+    EEFloatData = 0;
+    EEProm_Write_Float(0, &EEFloatData);
+    EEProm_Write_Float(1, &EEFloatData);
+    EEProm_Write_Float(2, &EEFloatData);
+    EEProm_Write_Float(3, &EEFloatData);
+    EEProm_Write_Float(4, &EEFloatData);
+    EEProm_Write_Float(5, &EEFloatData);
+    EEProm_Write_Float(6, &EEFloatData);
+    EEProm_Write_Float(7, &EEFloatData);
+    EEProm_Write_Float(8, &EEFloatData);
+    EEProm_Write_Float(9, &EEFloatData);
+    EEProm_Write_Float(10, &EEFloatData);
+    EEProm_Write_Float(11, &EEFloatData);
+    EEProm_Write_Float(12, &EEFloatData);
+    EEProm_Write_Float(13, &EEFloatData);
+    EEProm_Write_Float(14, &EEFloatData);
+    EEProm_Write_Float(15, &EEFloatData);
+    EEProm_Write_Float(16, &EEFloatData);
+    EEProm_Write_Float(17, &EEFloatData);
+    EEProm_Write_Float(18, &EEFloatData);
+    EEProm_Write_Float(19, &EEFloatData); 
+    EEProm_Write_Float(20, &EEFloatData); 
 }

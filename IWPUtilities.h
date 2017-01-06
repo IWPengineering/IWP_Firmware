@@ -181,4 +181,5 @@ void EEProm_Read_Float(unsigned int ee_addr, void *obj_p);
 void EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
 void SaveVolumeToEEProm(void);
 void DebugReadEEProm(void);
+void ClearEEProm(void);
 #endif	/* IWPUTILITIES_H */
