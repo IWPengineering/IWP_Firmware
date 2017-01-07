@@ -165,6 +165,7 @@ float batteryFloat;
 char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots is being updated
 char noon_msg_sent = 0;  //set to 1 when noon message has been sent
 char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
+char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
 float volume02 = 0; // Total Volume extracted from 0:00-2:00
 float volume24 = 0;
 float volume46 = 0;
@@ -665,6 +666,7 @@ void initialization(void) {
     batteryFloat = batteryLevel();
     active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
     
+    
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
     angle4 = getHandleAngle();
@@ -1068,14 +1070,16 @@ int connectedToNetwork(void) //True when there is a network connection
     return (pulseDistance >= networkPulseWidthThreshold); // True, when there is a network connection.
 }
 void sendDebugMessage(char message[50], float value){
-    char debugMsg[150];
-    char debugValueString[20];
-    debugMsg[0] = 0;
-    concat(debugMsg, message);
-    floatToString(value, debugValueString); 
-    concat(debugMsg,debugValueString);
-    concat(debugMsg, "\n");
-    sendMessage(debugMsg);
+    if(print_debug_messages == 1){
+        char debugMsg[150];
+        char debugValueString[20];
+        debugMsg[0] = 0;
+        concat(debugMsg, message);
+        floatToString(value, debugValueString); 
+        concat(debugMsg,debugValueString);
+        concat(debugMsg, "\n");
+        sendMessage(debugMsg);
+    }
 }
 /*********************************************************************
  * Function: sendMessage()

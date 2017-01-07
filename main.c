@@ -92,8 +92,16 @@ void main(void)
 	float leakRate = 0; // Rate at which water is leaking from the rising main
 	int currentDay;
 	int prevDay = getDateI2C();
+    
+    //                    DEBUG
+    // If you want the debug messages to be sent to the TX pins 
+    // set the flag print_debug_messages to 1.  This will change some
+    // system timing since it takes time to form and send a serial message
+    // if the variable is a 0, the function will be called but will do nothing
+    print_debug_messages = 1;
+    //                     DEBUG
  
-    sendDebugMessage("    JUST CAME OUT OF INITIALIZATION \n ", 0);  //Debug
+    sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     while (1)
 	{          
         batteryFloat = batteryLevel();
@@ -116,6 +124,7 @@ void main(void)
 		{ 
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
             hour = BcdToDec(getHourI2C());
+
             // should we be asleep to save power?   
             while((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
             // If the battery level is too low to work without the sun, go to sleep
@@ -169,7 +178,7 @@ void main(void)
 		// upper water sensor is checked to determine if the
 		// pump has been primed
 		/////////////////////////////////////////////////////////
-        sendDebugMessage("We are in the Priming Loop ", 0);  //Debug
+        sendDebugMessage("\n\n We are in the Priming Loop ", 0);  //Debug
         int i = 0; 
 		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
@@ -245,7 +254,7 @@ void main(void)
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////
-        sendDebugMessage(" \n We are in the Leak Rate Loop ", 0);  //Debug
+        sendDebugMessage("\n We are in the Leak Rate Loop ", 0);  //Debug
 		// Get the angle of the pump handle to measure against
 		int leakCondition = 3;  //Initializes leakCondition so that if the while loop breaks due to
                                 //no water at beginning of Leakage Rate Loop, then we jump to calculate leak rate.
@@ -286,21 +295,20 @@ void main(void)
         sendDebugMessage("The Leak condition is ", leakCondition);  //Debug
 		switch (leakCondition){
 		case 1:
-//			leakRate = leakRatePrevious; // They started pumping again so can't calculate leak
-            leakRate = 0;
+			leakRate = leakRatePrevious; // They started pumping again so can't calculate a new leak rate, use the last one when calculating volume pumped
 			break;
 		case 2:
 			leakRate = 0;
-			leakRatePrevious = leakRate;  // I don't think leakRatePrevious is ever used
+			leakRatePrevious = leakRate;  
 			break;
 		case 3:
 			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
-			leakRatePrevious = leakRate;    // I don't think leakRatePrevious is ever used
+			leakRatePrevious = leakRate;    
             break;           
 		
         case 4:
 //            leakRate = leakRatePrevious;  // there was never any water so can't calculate leak
-            leakRate = 0;
+            leakRate = 0;  // there was never any water so we can't calculate a new leak rate, let previous value stay the previous value
             break;
         }
         sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug

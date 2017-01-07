@@ -128,6 +128,7 @@ extern int hour; // Hour of day
 extern int minute;  //minute of the day
 extern char active_volume_bin;
 extern char never_primed;  //set to 1 if we exit the priming loop because of timeout
+extern char print_debug_messages; //set to 1 when we want the debug messages to be sent to the Tx pin.
 
 
 
