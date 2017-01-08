@@ -72,7 +72,15 @@ void RTCCSet(void);
 int getMinuteOffset();
 char BcdToDec(char val);
 char DecToBcd(char val);
+ * 
+void EEProm_Write_Int(int addr, int newData);
+int EEProm_Read_Int(int addr);
+EEProm_Read_Float(unsigned int ee_addr, void *obj_p);
+EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
+void noonMessage(void);
  **********************************/
+
+int __attribute__ ((space(eedata))) eeData; // Global variable located in EEPROM
 
 const int xAxis = 11; // analog pin connected to x axis of accelerometer
 const int yAxis = 12; // analog pin connected to y axis of accelerometer
@@ -87,8 +95,8 @@ const int signedNumAdjustADC = 511; // Used to divide the total range of the out
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
-int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
-long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
+int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in "upstrokeInterval" millisecond intervals); 
+long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in "upstrokeInterval" millisecond intervals); 
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
 const float angleThresholdSmall = 0.1; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
@@ -147,12 +155,17 @@ float angle10 = 0;
 //char phoneNumber[] = "+233545823475"; // Number for the Black Phone Ghana trip 3
 //char phoneNumber[] = "+19783840645"; // Number for Jake Sargent
 //char phoneNumber[] = "+17177784498"; // Number for Upside Wireless
-char phoneNumber[] = "+19107094602"; //Number for John Harro
+// char phoneNumber[] = "+19107094602"; //Number for John Harro
+char phoneNumber[] = "+17176837803"; //Number for Randy Fish
 //char phoneNumber2[] = "+17173039306"; // Tony's number
 //char phoneNumber[] = "+13018737202"; // Number for Jacqui Young
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
+char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots is being updated
+char noon_msg_sent = 0;  //set to 1 when noon message has been sent
+char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
+char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
 float volume02 = 0; // Total Volume extracted from 0:00-2:00
 float volume24 = 0;
 float volume46 = 0;
@@ -165,6 +178,9 @@ float volume1618 = 0;
 float volume1820 = 0;
 float volume2022 = 0;
 float volume2224 = 0;
+float EEFloatData = 0;  // to be used when trying to write a float to EEProm EEFloatData = 123.456 then pass as &EEFloatData
+int hour = 0; // Hour of day
+int minute = 0;  //minute of the day
 //Pin assignments
 int mclrPin = 1;
 int depthSensorPin = 2;
@@ -613,13 +629,16 @@ void initialization(void) {
     // pinDirectionIO(sclI2CPin, 0);                                            //TRISBbits.TRISB8 = 0; // RB8 is an output
 
     // Timer control (for WPS)
-    T1CONbits.TCS = 0; // Source is Internal Clock (8MHz)
-    T1CONbits.TCKPS = 0b11; // Prescalar to 1:256
+    T1CONbits.TCS = 0; // Source is Internal Clock if FNOSC = FRC, Fosc/2 = 4Mhz
+    T1CONbits.TCKPS = 0b11; // Prescalar to 1:256 
+                            // if FNOSC = FRC, Timer Clock = 15.625khz
     T1CONbits.TON = 1; // Enable the timer (timer 1 is used for the water sensor)
 
     // Timer control (for getHandleAngle())
+    T2CONbits.TCS = 0; //Source is Internal Clock Fosc/2  if #pragma config FNOSC = FRC, Fosc/2 = 4Mhz
     T2CONbits.T32 = 0; // Using 16-bit timer2
-    T2CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this)
+    T2CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this) 
+                            // if FNOSC = FRC, Timer Clock = 15.625khz
     T2CONbits.TON = 1; // Starts 16-bit Timer2
 
     // UART config
@@ -633,19 +652,11 @@ void initialization(void) {
 
     //H2O sensor config
     pinDirectionIO(waterPresenceSensorOnOffPin, 0); //makes water presence sensor pin an output.
-    digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presnece sensor.
+    digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
 
     // From fona code (for enabling Texting)
     pinDirectionIO(pwrKeyPin, 0); //TRISBbits.TRISB6 = 0; //sets power key as an output (Pin 15)
     pinDirectionIO(simVioPin, 0); //TRISAbits.TRISA1 = 0; //sets Vio as an output (pin 3)
-    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-    if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
-        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn on Fona
-    }
-    while (digitalPinStatus(statusPin) == 0) { // Wait for Fona to power up
-    }
-    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-    turnOnSIM();
 
     //depth sensor I/O         
     depthSensorInUse = 0; // If Depth Sensor is in use, make a 1. Else make it zero.
@@ -653,19 +664,9 @@ void initialization(void) {
     initAdc();
 
     batteryFloat = batteryLevel();
-    char initBatteryString[20];
-    initBatteryString[0] = 0;
-    floatToString(batteryFloat, initBatteryString);
-    char initialMessage[160];
-    initialMessage[0] = 0;
-    concat(initialMessage, "(\"t\":\"initialize\"");
-    concat(initialMessage, ",\"b\":");
-    concat(initialMessage, initBatteryString);
-    concat(initialMessage, ")");
-
-    tryToConnectToNetwork();
-    sendTextMessage(initialMessage);
-
+    active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
+    
+    
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
     angle4 = getHandleAngle();
@@ -675,6 +676,24 @@ void initialization(void) {
     angle8 = getHandleAngle();
     angle9 = getHandleAngle();
     angle10 = getHandleAngle();
+    // If this is the first time the board is programmed, you need to set the 
+    // RTCC to the proper values
+    //void setTime(char sec, char min, char hr, char wkday, char date, char month, char year)
+    //setTime(0,57,12,6,24,12,16); //Saturday Dec 24th 12:57:00 PM
+
+    // We may be waking up because the battery was dead.  If that is the case,
+    // Restart Status, EEProm#20, will be zero and we want to continue using 
+    // the leakRateLong and longestPrime from EEProm. Otherwise, it will be a
+    // bogus number and we want to clear our EEProm memory locations
+    EEProm_Read_Float(20,&EEFloatData);
+    if(EEFloatData == 0){
+        EEProm_Read_Float(0,&leakRateLong);
+        EEProm_Read_Float(1,&longestPrime);
+    }
+    else{
+        ClearEEProm();
+    }
+        
 }
 
 void sendTimeMessage(void) {
@@ -998,6 +1017,9 @@ void tryToConnectToNetwork() {
                 // Reset the network timeout
                 networkTimeout = 0;
                 networkTimeoutCount++;
+                // We don't want to have the WDT time out while trying to connect
+                // to the network
+                ClearWatchDogTimer();
                 // If we have tried to reset 5 times, we give up and exit
                 if (networkTimeoutCount == 5) {
                     keepTrying = 0;
@@ -1047,7 +1069,18 @@ int connectedToNetwork(void) //True when there is a network connection
     //Check if this value is right
     return (pulseDistance >= networkPulseWidthThreshold); // True, when there is a network connection.
 }
-
+void sendDebugMessage(char message[50], float value){
+    if(print_debug_messages == 1){
+        char debugMsg[150];
+        char debugValueString[20];
+        debugMsg[0] = 0;
+        concat(debugMsg, message);
+        floatToString(value, debugValueString); 
+        concat(debugMsg,debugValueString);
+        concat(debugMsg, "\n");
+        sendMessage(debugMsg);
+    }
+}
 /*********************************************************************
  * Function: sendMessage()
  * Input: String
@@ -1086,12 +1119,14 @@ char intToAscii(unsigned int integer) {
  * Input: String
  * Output: None
  * Overview: sends a Text Message to which ever phone number is in the variable 'phoneNumber'
+ *           we expect to be in this routine for 15.5sec, however, each character
+ *           of each message takes some time that has not yet been calculated
  * Note: Library
  * TestDate: 06-02-2014
  ********************************************************************/
 void sendTextMessage(char message[160]) // Tested 06-02-2014
 {
-    turnOnSIM();
+ //   turnOnSIM();
     delayMs(10000);
     sendMessage("AT+CMGF=1\r\n"); //sets to text mode
     delayMs(250);
@@ -1105,7 +1140,7 @@ void sendTextMessage(char message[160]) // Tested 06-02-2014
     // of 26 to sendMessage function (line 62)
     // & the end of allowing us to send SMS message
     delayMs(5000); // Give it some time to send the message
-    turnOffSIM();
+ //   turnOffSIM();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1124,8 +1159,10 @@ void sendTextMessage(char message[160]) // Tested 06-02-2014
  ********************************************************************/
 int readWaterSensor(void) // RB5 is one water sensor
 {
-    digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presnece sensor.
-
+    // turn on and off in the Main loop so the 555 has time to stabelize 
+   // digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
+   
+    delayMs(5);  //debug
     if (digitalPinStatus(waterPresenceSensorPin) == 1) {
         while (digitalPinStatus(waterPresenceSensorPin)) {
         }; //make sure you start at the beginning of the positive pulse
@@ -1143,7 +1180,7 @@ int readWaterSensor(void) // RB5 is one water sensor
         pulseWidth = (currentICTime - prevICTime + 0x100000000);
     }
     
-    digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presnece sensor.
+    // digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
 
     //Check if this value is right
     return (pulseWidth <= pulseWidthThreshold);
@@ -1480,6 +1517,7 @@ void delayMs(int ms) {
 
 //Returns the decimal value for the lower 8 bits in a 16 bit BCD (Binary Coded Decimal)
 
+
 /*********************************************************************
  * Function: getLowerBCDAsDecimal
  * Input: int bcd
@@ -1746,7 +1784,193 @@ void midDayDepthRead(void) {
 
     }
 }
+/////////////// IN PROCESS //////////////
+void noonMessage(void) {
+    //Message assembly and sending; Use *floatToString() to send:
+    // Create storage for the various values to report
 
+    char longestPrimeString[20];
+    longestPrimeString[0] = 0;
+    char leakRateLongString[20];
+    leakRateLongString[0] = 0;
+    char batteryFloatString[20];
+    batteryFloatString[0] = 0;
+    char volume02String[20];
+    volume02String[0] = 0;
+    char volume24String[20];
+    volume24String[0] = 0;
+    char volume46String[20];
+    volume46String[0] = 0;
+    char volume68String[20];
+    volume68String[0] = 0;
+    char volume810String[20];
+    volume810String[0] = 0;
+    char volume1012String[20];
+    volume1012String[0] = 0;
+    char volume1214String[20];
+    volume1214String[0] = 0;
+    char volume1416String[20];
+    volume1416String[0] = 0;
+    char volume1618String[20];
+    volume1618String[0] = 0;
+    char volume1820String[20];
+    volume1820String[0] = 0;
+    char volume2022String[20];
+    volume2022String[0] = 0;
+    char volume2224String[20];
+    volume2224String[0] = 0;
+    // Read values from EEPROM and convert them to strings
+    EEProm_Read_Float(0, &leakRateLong);
+    floatToString(leakRateLong, leakRateLongString);
+    EEProm_Read_Float(1, &longestPrime);
+    floatToString(longestPrime, longestPrimeString);
+    
+    floatToString(batteryFloat, batteryFloatString); //latest battery voltage
+    
+    EEProm_Read_Float(2, &volume02);  // Read yesterday saved 0-2AM volume, convert to string
+    floatToString(volume02, volume02String);
+    EEProm_Read_Float(3, &volume24);  // Read yesterday saved 2-4AM volume, convert to string
+    floatToString(volume24, volume24String);
+    EEProm_Read_Float(4, &volume46);  // Read yesterday saved 4-6AM volume, convert to string
+    floatToString(volume46, volume46String);    
+    EEProm_Read_Float(5, &volume68);  // Read yesterday saved 6-8AM volume, convert to string
+    floatToString(volume68, volume68String);    
+    EEProm_Read_Float(6, &volume810);  // Read yesterday saved 8-10AM volume, convert to string
+    floatToString(volume810, volume810String);    
+    EEProm_Read_Float(7, &volume1012);  // Read yesterday saved 10-12AM volume, convert to string
+    floatToString(volume1012, volume1012String);   
+    EEProm_Read_Float(8, &volume1214);  // Read yesterday saved 12-14PM volume, convert to string
+    floatToString(volume1214, volume1214String);    
+    EEProm_Read_Float(9, &volume1416);  // Read yesterday saved 14-16PM volume, convert to string
+    floatToString(volume1416, volume1416String);    
+    EEProm_Read_Float(10, &volume1618);  // Read yesterday saved 16-18PM volume, convert to string
+    floatToString(volume1618, volume1618String);    
+    EEProm_Read_Float(11, &volume1820);  // Read yesterday saved 18-20PM volume, convert to string
+    floatToString(volume1820, volume1820String);    
+    EEProm_Read_Float(12, &volume2022);  // Read yesterday saved 20-22PM volume, convert to string
+    floatToString(volume2022, volume2022String);    
+    EEProm_Read_Float(13, &volume2224);  // Read yesterday saved 22-24PM volume, convert to string
+    floatToString(volume2224, volume2224String);
+    
+    long checkSum = longestPrime + leakRateLong + volume02 + volume24 + volume46 + volume68 + volume810 + volume1012 + volume1214 + volume1416 + volume1618 + volume1820 + volume2022 + volume2224;
+    char stringCheckSum[20];
+    floatToString(checkSum, stringCheckSum);
+    
+    
+    // Clear saved leakRateLong and longestPrime
+    leakRateLong = 0; //Clear local and saved value 
+    EEProm_Write_Float(0,&leakRateLong); 
+    longestPrime = 0;//Clear local and saved value
+    EEProm_Write_Float(1,&longestPrime);
+    // Move today's 0-12AM values into the yesterday positions
+    // There is no need to relocate data from 12-24PM since it has not yet been measured
+    EEProm_Read_Float(14, &volume02); // Overwrite saved volume with today's value
+    EEProm_Write_Float(2,&volume02);
+    EEProm_Read_Float(15, &volume24); // Overwrite saved volume with today's value
+    EEProm_Write_Float(3,&volume24);
+    EEProm_Read_Float(16, &volume46); // Overwrite saved volume with today's value
+    EEProm_Write_Float(4,&volume46);
+    EEProm_Read_Float(17, &volume68); // Overwrite saved volume with today's value
+    EEProm_Write_Float(5,&volume68);
+    EEProm_Read_Float(18, &volume810); // Overwrite saved volume with today's value
+    EEProm_Write_Float(6,&volume810);
+    EEProm_Read_Float(19, &volume1012); // Overwrite saved volume with today's value
+    EEProm_Write_Float(7,&volume1012);
+    //Clear slots for volume 1214-2224 to make sure they are zero in case there is no power to fill
+    EEFloatData = 0.01;
+    EEProm_Write_Float(8, &EEFloatData);
+    EEProm_Write_Float(9, &EEFloatData);
+    EEProm_Write_Float(10, &EEFloatData);
+    EEProm_Write_Float(11, &EEFloatData);
+    EEProm_Write_Float(12, &EEFloatData);
+    EEProm_Write_Float(13, &EEFloatData);
+    EEProm_Write_Float(14, &EEFloatData);
+    EEProm_Write_Float(15, &EEFloatData);
+    EEProm_Write_Float(16, &EEFloatData);
+    EEProm_Write_Float(17, &EEFloatData);
+    EEProm_Write_Float(18, &EEFloatData);
+    EEProm_Write_Float(19, &EEFloatData);
+    
+    
+    //will need more formating for JSON 5-30-2014
+    char dataMessage[160];
+    dataMessage[0] = 0;
+    concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
+    concat(dataMessage, leakRateLongString);
+    concat(dataMessage, ",\"p\":");
+    concat(dataMessage, longestPrimeString);
+    concat(dataMessage, ",\"b\":");
+    concat(dataMessage, batteryFloatString);
+    if (depthSensorInUse == 1) { // if you have a depth sensor
+        pinDirectionIO(depthSensorOnOffPin, 0); //makes depth sensor pin an output.
+        digitalPinSet(depthSensorOnOffPin, 1); //turns on the depth sensor.
+        delayMs(30000); // Wait 30 seconds for the depth sensor to power up
+        char maxDepthLevelString[20];
+        maxDepthLevelString[0] = 0;
+        char minDepthLevelString[20];
+        minDepthLevelString[0] = 0;
+        float currentDepth = readDepthSensor();
+        if (midDayDepth > currentDepth) {
+            floatToString(midDayDepth, maxDepthLevelString);
+            floatToString(currentDepth, minDepthLevelString);
+        } else {
+            floatToString(currentDepth, maxDepthLevelString);
+            floatToString(midDayDepth, minDepthLevelString);
+
+        }
+        concat(dataMessage, ",\"d\":<");
+        concat(dataMessage, maxDepthLevelString);
+        concat(dataMessage, ",");
+        concat(dataMessage, minDepthLevelString);
+        concat(dataMessage, ">");
+
+        digitalPinSet(depthSensorOnOffPin, 0); //turns off the depth sensor.
+    }
+    concat(dataMessage, ",\"v\":<");
+    concat(dataMessage, volume02String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume24String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume46String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume68String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume810String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1012String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1214String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1416String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1618String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1820String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume2022String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume2224String);
+    concat(dataMessage, ">))");
+
+    turnOnSIM();  
+    // Try to establish network connection
+    tryToConnectToNetwork();
+    delayMs(2000);
+    // Send off the data
+    sendTextMessage(dataMessage);
+    // sendMessage(dataMessage);
+    //sendMessage(" \r \n");
+
+    //        prevHour = getHourI2C();
+    //        prevDay = getDateI2C();
+    // pressReset();
+    ////////////////////////////////////////////////
+    // Should we put the SIM back to sleep here?
+    ////////////////////////////////////////////////
+    RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
+
+}
+/////////////// IN PROCESS //////////////
 void midnightMessage(void) {
     //Message assembly and sending; Use *floatToString() to send:
     char longestPrimeString[20];
@@ -1874,4 +2098,286 @@ void midnightMessage(void) {
     ////////////////////////////////////////////////
     RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
 
+}
+/*********************************************************************
+ * Function: EEProm_Write_Int(int addr, int newData)
+ * Input: addr - the location to write to relative to the start of EEPROM
+ *        newData - - Floating point value to write to EEPROM
+ * Output: none
+ * Overview: The value passed by newData is written to the location in EEPROM
+ *           which is multiplied by 2 to only use addresses with even values
+ *           and is then offset up from the start of EEPROM
+ * Note: Library
+ * TestDate: 12-26-2016
+ ********************************************************************/
+void EEProm_Write_Int(int addr, int newData){
+    unsigned int offset;
+    NVMCON = 0x4004;
+    // Set up a pointer to the EEPROM location to be erased
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (2* addr & 0x01ff); // Initizlize lower word of address
+    __builtin_tblwtl(offset, newData); // Write EEPROM data to write latch
+    asm volatile ("disi #5"); // Disable Interrupts For 5 Instructions
+    __builtin_write_NVM(); // Issue Unlock Sequence & Start Write Cycle
+    while(NVMCONbits.WR==1); // Optional: Poll WR bit to wait for
+    // write sequence to complete
+}
+/*********************************************************************
+ * Function: int EEProm_Read_Int(int addr);
+ * Input: addr - the location to read from relative to the start of EEPROM
+ * Output: int value read from EEPROM
+ * Overview: A single int is read from EEPROM start + offset and is returned
+ * Note: Library
+ * TestDate: 12-26-2016
+ ********************************************************************/
+int EEProm_Read_Int(int addr){
+    int data; // Data read from EEPROM
+    unsigned int offset;
+
+    // Set up a pointer to the EEPROM location to be erased
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (2* addr & 0x01ff); // Initialize lower word of address
+    data = __builtin_tblrdl(offset); // Write EEPROM data to write latch
+    return data;
+}
+/*********************************************************************
+ * Function: EEProm_Read_Float(unsigned int ee_addr, void *obj_p)
+ * Input: ee_addr - the location to read from relative to the start of EEPROM
+ *        *obj_p - the address of the variable to be updated (assumed to be a float)
+ * Output: none
+ * Overview: A single float is read from EEPROM start + offset.  This is done by
+ *           updating the contents of the float address provided, one int at a time
+ * Note: Library
+ * TestDate: 12-26-2016
+ ********************************************************************/
+
+
+void EEProm_Read_Float(unsigned int ee_addr, void *obj_p)
+ {
+     unsigned int *p = obj_p;  //point to the float to be updated
+     unsigned int offset;
+     
+     ee_addr = ee_addr*4;  // floats use 4 address locations
+
+     // Read and update the first half of the float
+    // Set up a pointer to the EEPROM location to be erased
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (ee_addr & 0x01ff); // Initialize lower word of address
+    *p = __builtin_tblrdl(offset); // Write EEPROM data to write latch
+      // First half read is complete
+    
+    p++;
+    ee_addr = ee_addr+2;
+      
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (ee_addr & 0x01ff); // Initialize lower word of address
+    *p = __builtin_tblrdl(offset); // Write EEPROM data to write latch
+      // second half read is complete
+      
+ }
+/*********************************************************************
+ * Function: EEProm_Write_Float(unsigned int ee_addr, void *obj_p)
+ * Input: ee_addr - the location to write to relative to the start of EEPROM
+ *                  it is assumed that you are referring to the # of the float 
+ *                  you want to write.  The first is 0, the next is 1 etc.
+ *        *obj_p - the address of the variable which contains the float
+ *                  to be written to EEPROM
+ * Output: none
+ * Overview: A single float is written to EEPROM start + offset.  This is done by
+ *           writing the contents of the float address provided, one int at a time
+ * Note: Library
+ * TestDate: 12-26-2016
+ ********************************************************************/
+ void EEProm_Write_Float(unsigned int ee_addr, void *obj_p)
+ {
+    unsigned int *p = obj_p;
+    unsigned int offset;
+    NVMCON = 0x4004;
+    ee_addr = ee_addr*4;  // floats use 4 address locations
+    
+    // Write the first half of the float
+     // Set up a pointer to the EEPROM location to be erased
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (ee_addr & 0x01ff); // Initizlize lower word of address
+    __builtin_tblwtl(offset, *p); // Write EEPROM data to write latch
+     asm volatile ("disi #5"); // Disable Interrupts For 5 Instructions
+    __builtin_write_NVM(); // Issue Unlock Sequence & Start Write Cycle
+    while(NVMCONbits.WR==1); // Optional: Poll WR bit to wait for
+    // first half of float write sequence to complete
+    
+    // Write the second half of the float
+    p++;
+    ee_addr = ee_addr + 2;
+    TBLPAG = __builtin_tblpage(&eeData); // Initialize EE Data page pointer
+    offset = __builtin_tbloffset(&eeData) + (ee_addr & 0x01ff); // Initizlize lower word of address
+    __builtin_tblwtl(offset, *p); // Write EEPROM data to write latch
+     asm volatile ("disi #5"); // Disable Interrupts For 5 Instructions
+    __builtin_write_NVM(); // Issue Unlock Sequence & Start Write Cycle
+    while(NVMCONbits.WR==1); // Optional: Poll WR bit to wait for
+    // second half of float write sequence to complete
+    
+ }
+ /*********************************************************************
+ * Function: ClearWatchDogTimer()
+ * Input: none
+ * Output: none
+ * Overview: You can use just ClrWdt() as a command.  However, I read in a forum 
+ *           http://www.microchip.com/forums/m122062.aspx
+ *           that since ClrWdt() expands to an asm command, the presence of the 
+  *          asm will stop the compiler from optimizing any routine that it is a 
+  *          part of.  Since I want to call this in Main, that would be a problem
+ * Note: Library
+ * TestDate: 1-2-2017
+ ********************************************************************/
+ void ClearWatchDogTimer(void){
+     ClrWdt();
+ }
+ /*********************************************************************
+ * Function: SaveVolumeToEEProm(void)
+ * Input: none
+ * Output: none
+ * Overview: Volume is saved in 2hr long bins.  When a new one begins, the total
+  *          from the last bin should be saved from RAM to EEProm.
+ * Note: Library
+ * TestDate: not tested
+ ********************************************************************/
+void SaveVolumeToEEProm(void){
+    switch (hour / 2)
+		{
+		case 0:
+            EEProm_Write_Float(13,&volume2224);
+            active_volume_bin = hour/2;  
+			break;
+		case 1:
+            EEProm_Write_Float(14,&volume02);
+            active_volume_bin = hour/2;  
+			break;
+		case 2:
+            EEProm_Write_Float(15,&volume24);
+            active_volume_bin = hour/2;  
+ 			break;
+		case 3:
+            EEProm_Write_Float(16,&volume46);
+            active_volume_bin = hour/2;  
+			break;
+		case 4:
+            EEProm_Write_Float(17,&volume68);
+            active_volume_bin = hour/2;  
+			break;
+		case 5:
+            EEProm_Write_Float(18,&volume810);
+            active_volume_bin = hour/2;  
+			break;
+		case 6:
+            EEProm_Write_Float(19,&volume1012);
+            active_volume_bin = hour/2;  
+ 			break;
+		case 7:
+            EEProm_Write_Float(8,&volume1214);
+            active_volume_bin = hour/2;  
+			break;
+		case 8:
+            EEProm_Write_Float(9,&volume1416);
+            active_volume_bin = hour/2;  
+			break;
+		case 9:
+            EEProm_Write_Float(10,&volume1618);
+            active_volume_bin = hour/2;  
+			break;
+		case 10:
+            EEProm_Write_Float(11,&volume1820);
+            active_volume_bin = hour/2;  
+			break;
+		case 11:
+            EEProm_Write_Float(12,&volume2022);
+            active_volume_bin = hour/2;  
+			break;
+		}
+}
+/*********************************************************************
+ * Function: DebugReadEEProm(void)
+ * Input: none
+ * Output: none
+ * Overview: This function reads all of the EEProm dedicated to Priming, Leak
+ *           and the volume bins and sends them to the UART serial pins
+ *           where they can be viewed with a Protocol interface
+ * Note: Library
+ * TestDate: 1-4-2017
+ ********************************************************************/
+void DebugReadEEProm(void){
+    EEProm_Read_Float(0,&EEFloatData);
+    sendDebugMessage("Leak Rate = ", EEFloatData);  //Debug
+    EEProm_Read_Float(1,&EEFloatData);
+    sendDebugMessage("Longest Prime = ", EEFloatData);  //Debug
+    EEProm_Read_Float(2,&EEFloatData);
+    sendDebugMessage("Volume 02 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(3,&EEFloatData);
+    sendDebugMessage("Volume 24 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(4,&EEFloatData);
+    sendDebugMessage("Volume 46 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(5,&EEFloatData);
+    sendDebugMessage("Volume 68 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(6,&EEFloatData);
+    sendDebugMessage("Volume 810 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(7,&EEFloatData);
+    sendDebugMessage("Volume 1012 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(8,&EEFloatData);
+    sendDebugMessage("Volume 1214 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(9,&EEFloatData);
+    sendDebugMessage("Volume 1416 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(10,&EEFloatData);
+    sendDebugMessage("Volume 1618 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(11,&EEFloatData);
+    sendDebugMessage("Volume 1820 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(12,&EEFloatData);
+    sendDebugMessage("Volume 2022 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(13,&EEFloatData);
+    sendDebugMessage("Volume 2224 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(14,&EEFloatData);
+    sendDebugMessage("Today Volume 02 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(15,&EEFloatData);
+    sendDebugMessage("Today Volume 24 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(16,&EEFloatData);
+    sendDebugMessage("Today Volume 46 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(17,&EEFloatData);
+    sendDebugMessage("Today Volume 68 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(18,&EEFloatData);
+    sendDebugMessage("Today Volume 810 = ", EEFloatData);  //Debug
+    EEProm_Read_Float(19,&EEFloatData);
+    sendDebugMessage("Today Volume 1012 = ", EEFloatData);  //Debug
+}
+/*********************************************************************
+ * Function: ClearEEProm(void)
+ * Input: none
+ * Output: none
+ * Overview: This function writes a 0 to the first 21 float locations
+ *           in EEProm.  It should be called the first time a board
+ *           is programmed but NOT every time we Initialize since we don't want 
+ *           to lose data saved prior to shutting down because of lost power
+ * Note: Library
+ * TestDate: 1-5-2017
+ ********************************************************************/
+void ClearEEProm(void){
+    EEFloatData = 0;
+    EEProm_Write_Float(0, &EEFloatData);
+    EEProm_Write_Float(1, &EEFloatData);
+    EEProm_Write_Float(2, &EEFloatData);
+    EEProm_Write_Float(3, &EEFloatData);
+    EEProm_Write_Float(4, &EEFloatData);
+    EEProm_Write_Float(5, &EEFloatData);
+    EEProm_Write_Float(6, &EEFloatData);
+    EEProm_Write_Float(7, &EEFloatData);
+    EEProm_Write_Float(8, &EEFloatData);
+    EEProm_Write_Float(9, &EEFloatData);
+    EEProm_Write_Float(10, &EEFloatData);
+    EEProm_Write_Float(11, &EEFloatData);
+    EEProm_Write_Float(12, &EEFloatData);
+    EEProm_Write_Float(13, &EEFloatData);
+    EEProm_Write_Float(14, &EEFloatData);
+    EEProm_Write_Float(15, &EEFloatData);
+    EEProm_Write_Float(16, &EEFloatData);
+    EEProm_Write_Float(17, &EEFloatData);
+    EEProm_Write_Float(18, &EEFloatData);
+    EEProm_Write_Float(19, &EEFloatData); 
+    EEProm_Write_Float(20, &EEFloatData); 
 }

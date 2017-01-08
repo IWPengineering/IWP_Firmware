@@ -75,6 +75,8 @@ extern int prevTimer2;
 //static char phoneNumber[] = "+233247398396"; // Number for the Black Phone
 extern char phoneNumber[]; // Number for Upside Wireless
 extern char phoneNumber2[]; // Tony's number
+extern char active_volume_bin;
+extern char noon_msg_sent;  //set to 1 when noon message has been sent
 extern float longestPrime; // total upstroke fo the longest priming event of the day
 extern float leakRateLong; // largest leak rate recorded for the day
 extern float batteryFloat; // batteryLevel before sends text message commences
@@ -90,6 +92,7 @@ extern float volume1618;
 extern float volume1820;
 extern float volume2022;
 extern float volume2224;
+extern float EEFloatData;
 //Pin assignments
 extern int mclrPin;
 extern int depthSensorPin;
@@ -119,11 +122,21 @@ extern int netLightPin;
 extern int waterPresenceSensorOnOffPin;
 extern int GNDPin;
 extern int vcc2Pin;
+// other global variables
 extern int debugCounter; // DEBUG DEBUG DEBUG DEBUG DEBUG
+extern int hour; // Hour of day
+extern int minute;  //minute of the day
+extern char active_volume_bin;
+extern char never_primed;  //set to 1 if we exit the priming loop because of timeout
+extern char print_debug_messages; //set to 1 when we want the debug messages to be sent to the Tx pin.
 
 
 
 void initialization(void);
+void ClearWatchDogTimer(void);  // some user groups say using just ClrWdt() is 
+//                                 an assembly command that will cause the Compiler 
+//                                 not to optimize any function, like Main, that 
+//                                 it is a part of and so suggest this wrapper
 int longLength(long num);
 void longToString(long num, char *numString);
 int stringLength(char *string);
@@ -133,6 +146,7 @@ void turnOffSIM();
 void turnOnSIM();
 void tryToConnectToNetwork();
 int connectedToNetwork(void);
+void sendDebugMessage(char message[50], float value);
 void sendMessage(char message[160]);
 void sendTextMessage(char message[160]);
 int readWaterSensor(void);
@@ -158,8 +172,17 @@ int getMinuteOffset();
 char BcdToDec(char val);
 char DecToBcd(char val);
 void midnightMessage(void);
+void noonMessage(void);
 void SoftwareReset(void);
 void delaySCL(void);
 void midDayDepthRead(void);
 void sendTimeMessage(void);
+
+void EEProm_Write_Int(int addr, int newData);
+int EEProm_Read_Int(int addr);
+void EEProm_Read_Float(unsigned int ee_addr, void *obj_p);
+void EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
+void SaveVolumeToEEProm(void);
+void DebugReadEEProm(void);
+void ClearEEProm(void);
 #endif	/* IWPUTILITIES_H */
