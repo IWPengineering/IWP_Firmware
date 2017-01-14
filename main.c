@@ -94,19 +94,30 @@ void main(void)
 	int prevDay = getDateI2C();
     
     //                    DEBUG
-    // If you want the debug messages to be sent to the TX pins 
-    // set the flag print_debug_messages to 1.  This will change some
-    // system timing since it takes time to form and send a serial message
-    // if the variable is a 0, the function will be called but will do nothing
-    print_debug_messages = 1;
+    // print_debug_messages controls the debug reporting
+    //   0 = send message only at noon to upside Wireless
+    //   1 = print debug messages to Tx but send only noon message to Upside
+    //   2 = print debug messages, send hour message after power up and every hour
+    //       to debug phone number.  Still sends noon message to Upside
+    
+    //   Note: selecting 1 or 2 will change some system timing since it takes 
+    //         time to form and send a serial message
+    print_debug_messages = 0;
+    
     //                     DEBUG
+    if(print_debug_messages >= 2){
+          hourMessage();
+    // DEBUG  
+    }
+  
+    
  
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     while (1)
 	{          
         batteryFloat = batteryLevel();
         if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, turn it on so it is awake to be topped off
-            turnOnSIM();
+           turnOnSIM();
         }
  
         //MAIN LOOP; repeats indefinitely
@@ -154,11 +165,23 @@ void main(void)
             if(hour != 12){
                 noon_msg_sent = 0;
             }
+            // If we are debugging at a pump we want to send the noon message every hour
+            if((print_debug_messages >= 2)&&(hour > prevHour)){             //it's the next hour and we are debugging at pump
+                //phoneNumber = DebugphoneNumber;                            // change phone number to the debug number
+
+                batteryFloat = batteryLevel();
+                noonMessage();
+                prevHour = hour;                             // only want to send it once
+                //phoneNumber = MainphoneNumber;                            // change phone number back to main number
+
+                sendDebugMessage("HOURLY Message sent ", hour);  //Debug
+            }
             
             // OK, go ahead and look for handle movement again
 			delayMs(upstrokeInterval);                            // Delay for a short time
 			float newAngle = getHandleAngle();
 			float deltaAngle = newAngle - anglePrevious;
+
 			if(deltaAngle < 0) {
 				deltaAngle *= -1;
 			}

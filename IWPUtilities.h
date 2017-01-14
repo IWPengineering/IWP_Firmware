@@ -54,7 +54,7 @@ extern int queueCount;
 extern int queueLength; //don't forget to change angleQueue to this number also
 extern float angleQueue[7];
 extern int prevDay;
-//extern int prevHour;
+extern int prevHour; // used during debug to send noon message every hour
 extern int prevDayDepthSensor;
 extern int invalid;
 extern int depthSensorInUse;
@@ -72,9 +72,11 @@ extern int prevTimer2;
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
-//static char phoneNumber[] = "+233247398396"; // Number for the Black Phone
-extern char phoneNumber[]; // Number for Upside Wireless
-extern char phoneNumber2[]; // Tony's number
+extern char MainphoneNumber[]; // Upside Wireless
+extern char DebugphoneNumber[]; // Number for the Black Phone
+//extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
+extern char phoneNumber[]; // Number Used to send text message report (daily or hourly)
+
 extern char active_volume_bin;
 extern char noon_msg_sent;  //set to 1 when noon message has been sent
 extern float longestPrime; // total upstroke fo the longest priming event of the day
@@ -149,6 +151,7 @@ int connectedToNetwork(void);
 void sendDebugMessage(char message[50], float value);
 void sendMessage(char message[160]);
 void sendTextMessage(char message[160]);
+void sendDebugTextMessage(char message[160]); // used for the hourly report to local phone
 int readWaterSensor(void);
 void initAdc(void);
 int readAdc(int channel);
@@ -173,6 +176,7 @@ char BcdToDec(char val);
 char DecToBcd(char val);
 void midnightMessage(void);
 void noonMessage(void);
+void hourMessage(void);
 void SoftwareReset(void);
 void delaySCL(void);
 void midDayDepthRead(void);
