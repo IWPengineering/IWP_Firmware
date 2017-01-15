@@ -2471,7 +2471,7 @@ void EEProm_Read_Float(unsigned int ee_addr, void *obj_p)
  * Overview: Volume is saved in 2hr long bins.  When a new one begins, the total
   *          from the last bin should be saved from RAM to EEProm.
  * Note: Library
- * TestDate: not tested
+ * TestDate: 1-4-2017
  ********************************************************************/
 void SaveVolumeToEEProm(void){
     switch (hour / 2)

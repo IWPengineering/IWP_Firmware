@@ -102,7 +102,7 @@ void main(void)
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 0;
+    print_debug_messages = 1;
     
     //                     DEBUG
     if(print_debug_messages >= 2){
@@ -127,10 +127,11 @@ void main(void)
 		// motion in the upward direction by comparing angles
 		////////////////////////////////////////////////////////////
 
-		anglePrevious = getHandleAngle();                            // Get the angle of the pump handle to measure against
+		anglePrevious = getHandleAngle();                            // Get the angle of the pump handle to measure against.  
+                                                                     // This is our reference when looking for sufficient movement to say the handle is actually moving.  
+                                                                     // "moving" is hard coded as 5 degrees.  We should make it a CONSTANT defined in IWPUtilities
 		float previousAverage = 0;
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
-		float angleAccumulated = 0;                                  // Loop until the handle starts moving or if there is water
 		while (handleMovement == 0)
 		{ 
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
@@ -170,7 +171,7 @@ void main(void)
                 //phoneNumber = DebugphoneNumber;                            // change phone number to the debug number
 
                 batteryFloat = batteryLevel();
-                noonMessage();
+                hourMessage();
                 prevHour = hour;                             // only want to send it once
                 //phoneNumber = MainphoneNumber;                            // change phone number back to main number
 
@@ -181,20 +182,15 @@ void main(void)
 			delayMs(upstrokeInterval);                            // Delay for a short time
 			float newAngle = getHandleAngle();
 			float deltaAngle = newAngle - anglePrevious;
-
 			if(deltaAngle < 0) {
 				deltaAngle *= -1;
 			}
-			anglePrevious = newAngle;
-			if (deltaAngle > angleThresholdSmall){ // prevents floating accelerometer values when it's not 
-                                                                 //actually moving (reading in degrees))
-				angleAccumulated += deltaAngle;
-			}
-
-			if (angleAccumulated > 5){                            // If the angle has changed, set the handleMovement flag
+            
+            if(deltaAngle > 5){                         // The needed 5 degree motion should be made a constant in IWPUtilities
 				handleMovement = 1;
 			}
 		}
+
 		/////////////////////////////////////////////////////////
 		// Priming Loop
 		// The total amount of upstroke is recorded while the
@@ -217,7 +213,7 @@ void main(void)
 			anglePrevious = angleCurrent;                         //Prepares anglePrevious for the next loop
 			if(angleDelta > 0){                                   //Determines direction of handle movement
 				upStrokePrime += angleDelta;                  //If the valve is moving upward, the movement is added to an
-                                                             //accumlation var
+                                                             //accumlation var (even if it was smaller than angleThresholdSmall)
 			}
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 			//	timeOutStatus++; //Timeout incremented for very small movement (pump handle is not moving/the person quit pumping)
@@ -230,6 +226,7 @@ void main(void)
 			} 
             if(i == 100){  // They quit trying for at least 1 second
                 never_primed = 1;
+                sendDebugMessage(" Stopped trying to prime", upStrokePrime);  //Debug
                 break;
             }
 			delayMs(upstrokeInterval); 
