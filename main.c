@@ -215,20 +215,19 @@ void main(void)
 				upStrokePrime += angleDelta;                  //If the valve is moving upward, the movement is added to an
                                                              //accumlation var (even if it was smaller than angleThresholdSmall)
 			}
+            // If they have stopped, pumping we should give up too
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-			//	timeOutStatus++; //Timeout incremented for very small movement (pump handle is not moving/the person quit pumping)
                 i++; // we want to stop if the user stops pumping              
 			}
 			else{
-				// timeOutStatus = 0;
-                timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping
                 i=0;   // they are still trying
 			} 
             if(i == 100){  // They quit trying for at least 1 second
                 never_primed = 1;
-                sendDebugMessage(" Stopped trying to prime", upStrokePrime);  //Debug
+                sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
                 break;
             }
+            timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping
 			delayMs(upstrokeInterval); 
         }
         if(timeOutStatus >= waterPrimeTimeOut){
@@ -238,6 +237,7 @@ void main(void)
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
         sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
         sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug
+        sendDebugMessage(" never primed status = ", never_primed);  //Debug
 		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
 			longestPrime = upStrokePrimeMeters;
             EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
@@ -276,10 +276,15 @@ void main(void)
 		///////////////////////////////////////////////////////
         sendDebugMessage("\n We are in the Leak Rate Loop ", 0);  //Debug
 		// Get the angle of the pump handle to measure against
-		int leakCondition = 3;  //Initializes leakCondition so that if the while loop breaks due to
-                                //no water at beginning of Leakage Rate Loop, then we jump to calculate leak rate.
+		int leakCondition = 3;  // Assume that we are going to be able to calculate a valid leak rate
+      
+        if(!readWaterSensor()){  // If there is already no water when we get here, something strange is happening, don't calculate leak
+            leakCondition = 4;
+             sendDebugMessage("There is no water as soon as we get here ", 0);  //Debug
+        }
         if(never_primed == 1){
             leakCondition = 4;   // there was never any water
+            sendDebugMessage("There never was any water ", 0);  //Debug
         }
         i = 0;  
         anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
@@ -317,18 +322,18 @@ void main(void)
 		case 1:
 			leakRate = leakRatePrevious; // They started pumping again so can't calculate a new leak rate, use the last one when calculating volume pumped
 			break;
-		case 2:
+		case 2:                          // Waited the max time and water was still there so leak rate = 0
 			leakRate = 0;
 			leakRatePrevious = leakRate;  
 			break;
-		case 3:
+		case 3:                         // The pump did prime but water leaked out in less than our max time to wait.  So calculate a new value
 			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
 			leakRatePrevious = leakRate;    
             break;           
 		
         case 4:
-//            leakRate = leakRatePrevious;  // there was never any water so can't calculate leak
-            leakRate = 0;  // there was never any water so we can't calculate a new leak rate, let previous value stay the previous value
+            leakRate = leakRatePrevious;  // there was no water at the start of this so we can't calculate a new leak
+//            leakRate = 0;  // there was never any water so we can't calculate a new leak rate, let previous value stay the previous value
             break;
         }
         sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug
