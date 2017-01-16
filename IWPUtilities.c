@@ -689,7 +689,8 @@ void initialization(void) {
     // If this is the first time the board is programmed, you need to set the 
     // RTCC to the proper values
     //void setTime(char sec, char min, char hr, char wkday, char date, char month, char year)
-    // setTime(0,10,11,6,13,01,17); //Friday Jan 13 11:10 AM
+    //setTime(0,10,11,6,13,01,17); //Friday Jan 13 11:10 AM
+    // setTime(0,11,18,1,15,01,17); //Sunday Jan 15 6:11 PM - my debug system
 
     // We may be waking up because the battery was dead.  If that is the case,
     // Restart Status, EEProm#20, will be zero and we want to continue using 
@@ -1078,7 +1079,7 @@ int connectedToNetwork(void) //True when there is a network connection
         pulseDistance = (currentICTime - prevICTime + 0x10000);
     }
     //Check if this value is right
-    return (pulseDistance >= networkPulseWidthThreshold); // True, when there is a network connection.
+    return (pulseDistance >= networkPulseWidthThreshold); // True, when there is a network connection. (pulses slower than 1.28sec)
 }
 void sendDebugMessage(char message[50], float value){
     if(print_debug_messages >= 1){
@@ -2084,9 +2085,9 @@ void noonMessage(void) {
     EEProm_Read_Float(13, &volume2224);  // Read yesterday saved 22-24PM volume, convert to string
     floatToString(volume2224, volume2224String);
     
-    long checkSum = longestPrime + leakRateLong + volume02 + volume24 + volume46 + volume68 + volume810 + volume1012 + volume1214 + volume1416 + volume1618 + volume1820 + volume2022 + volume2224;
-    char stringCheckSum[20];
-    floatToString(checkSum, stringCheckSum);
+  //  long checkSum = longestPrime + leakRateLong + volume02 + volume24 + volume46 + volume68 + volume810 + volume1012 + volume1214 + volume1416 + volume1618 + volume1820 + volume2022 + volume2224;
+  //  char stringCheckSum[20];
+  //  floatToString(checkSum, stringCheckSum);
     
     
     // Clear saved leakRateLong and longestPrime
@@ -2186,7 +2187,7 @@ void noonMessage(void) {
 
     turnOnSIM();  
     // Try to establish network connection
-    tryToConnectToNetwork();
+    tryToConnectToNetwork();  // even if we fail to connect, we will go on and send the message to send to the SIM
     delayMs(2000);
     // Send off the data
     sendTextMessage(dataMessage);
@@ -2200,6 +2201,7 @@ void noonMessage(void) {
     // Should we put the SIM back to sleep here?
     ////////////////////////////////////////////////
     RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
+               // RKF QUESTION - Why do we do this?  I don't think we use the internal RTCC for anything
 
 }
 /////////////// IN PROCESS //////////////

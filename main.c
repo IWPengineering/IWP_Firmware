@@ -102,7 +102,7 @@ void main(void)
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 1;
+    print_debug_messages = 0;
     
     //                     DEBUG
     if(print_debug_messages >= 2){
