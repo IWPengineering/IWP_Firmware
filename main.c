@@ -290,7 +290,7 @@ void main(void)
 			delayMs(upstrokeInterval);
 			leakDurationCounter++;
 		}
-        digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
+     //   digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
         
         sendDebugMessage("The Leak condition is ", leakCondition);  //Debug
 		switch (leakCondition){
