@@ -103,7 +103,8 @@ void main(void)
  
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     while (1)
-	{          
+	{
+        digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
         batteryFloat = batteryLevel();
         if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, turn it on so it is awake to be topped off
             turnOnSIM();
@@ -186,7 +187,7 @@ void main(void)
         never_primed = 0;
      
 		upStroke = 0;                                                 // gets variable ready for new event
-        digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
+
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
 		{
             angleCurrent = getHandleAngle();                      //gets the latest 10-average angle
