@@ -103,6 +103,7 @@ void main(void)
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
     print_debug_messages = 0;
+    int temp_debug_flag = print_debug_messages;
     
     //                     DEBUG
     if(print_debug_messages >= 2){
@@ -111,8 +112,11 @@ void main(void)
     }
   
     
- 
+    print_debug_messages = 1;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
+    sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
+    print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by ueser
+    
     while (1)
 	{          
         batteryFloat = batteryLevel();

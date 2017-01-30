@@ -93,6 +93,7 @@ const int alarmStartingMinute = 1; // The minimum minute that the alarm will go 
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
 const int signedNumAdjustADC = 511; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
+///const int pulseWidthThreshold = 130; // This is just for Zantele we see about 160hz, not when water is there.  Not sure what we would see with no water
 const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
 int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in "upstrokeInterval" millisecond intervals); 
@@ -690,7 +691,14 @@ void initialization(void) {
     // RTCC to the proper values
     //void setTime(char sec, char min, char hr, char wkday, char date, char month, char year)
     //setTime(0,10,11,6,13,01,17); //Friday Jan 13 11:10 AM
-    // setTime(0,11,18,1,15,01,17); //Sunday Jan 15 6:11 PM - my debug system
+    //  setTime(0,14,15,5,19,01,17); //Sunday Jan 15 6:11 PM - my debug system
+    //   setTime(0,30,11,1,16,01,17); //  YiWogu
+    // setTime(0,45,12,1,16,01,17); //  Kapachelo
+    //setTime(0,30,13,1,16,01,17); //  gbumgbum
+    ///setTime(0,03,15,1,16,01,17); //  Kpukpalibu
+////    setTime(0,07,14,1,17,01,17); //  fong should have been day 3
+/////       setTime(0,03,17,3,17,01,17); //  Guishigu
+/////      setTime(0,32,8,5,19,01,17); //  Zantele
 
     // We may be waking up because the battery was dead.  If that is the case,
     // Restart Status, EEProm#20, will be zero and we want to continue using 
