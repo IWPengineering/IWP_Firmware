@@ -94,19 +94,34 @@ void main(void)
 	int prevDay = getDateI2C();
     
     //                    DEBUG
-    // If you want the debug messages to be sent to the TX pins 
-    // set the flag print_debug_messages to 1.  This will change some
-    // system timing since it takes time to form and send a serial message
-    // if the variable is a 0, the function will be called but will do nothing
-    print_debug_messages = 1;
+    // print_debug_messages controls the debug reporting
+    //   0 = send message only at noon to upside Wireless
+    //   1 = print debug messages to Tx but send only noon message to Upside
+    //   2 = print debug messages, send hour message after power up and every hour
+    //       to debug phone number.  Still sends noon message to Upside
+    
+    //   Note: selecting 1 or 2 will change some system timing since it takes 
+    //         time to form and send a serial message
+    print_debug_messages = 0;
+    int temp_debug_flag = print_debug_messages;
+    
     //                     DEBUG
- 
+    if(print_debug_messages >= 2){
+          hourMessage();
+    // DEBUG  
+    }
+  
+    
+    print_debug_messages = 1;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
+    sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
+    print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by ueser
+    
     while (1)
 	{          
         batteryFloat = batteryLevel();
         if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, turn it on so it is awake to be topped off
-            turnOnSIM();
+           turnOnSIM();
         }
  
         //MAIN LOOP; repeats indefinitely
@@ -116,10 +131,11 @@ void main(void)
 		// motion in the upward direction by comparing angles
 		////////////////////////////////////////////////////////////
 
-		anglePrevious = getHandleAngle();                            // Get the angle of the pump handle to measure against
+		anglePrevious = getHandleAngle();                            // Get the angle of the pump handle to measure against.  
+                                                                     // This is our reference when looking for sufficient movement to say the handle is actually moving.  
+                                                                     // "moving" is hard coded as 5 degrees.  We should make it a CONSTANT defined in IWPUtilities
 		float previousAverage = 0;
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
-		float angleAccumulated = 0;                                  // Loop until the handle starts moving or if there is water
 		while (handleMovement == 0)
 		{ 
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
@@ -154,6 +170,17 @@ void main(void)
             if(hour != 12){
                 noon_msg_sent = 0;
             }
+            // If we are debugging at a pump we want to send the noon message every hour
+            if((print_debug_messages >= 2)&&(hour > prevHour)){             //it's the next hour and we are debugging at pump
+                //phoneNumber = DebugphoneNumber;                            // change phone number to the debug number
+
+                batteryFloat = batteryLevel();
+                hourMessage();
+                prevHour = hour;                             // only want to send it once
+                //phoneNumber = MainphoneNumber;                            // change phone number back to main number
+
+                sendDebugMessage("HOURLY Message sent ", hour);  //Debug
+            }
             
             // OK, go ahead and look for handle movement again
 			delayMs(upstrokeInterval);                            // Delay for a short time
@@ -162,16 +189,12 @@ void main(void)
 			if(deltaAngle < 0) {
 				deltaAngle *= -1;
 			}
-			anglePrevious = newAngle;
-			if (deltaAngle > angleThresholdSmall){ // prevents floating accelerometer values when it's not 
-                                                                 //actually moving (reading in degrees))
-				angleAccumulated += deltaAngle;
-			}
-
-			if (angleAccumulated > 5){                            // If the angle has changed, set the handleMovement flag
+            
+            if(deltaAngle > 5){                         // The needed 5 degree motion should be made a constant in IWPUtilities
 				handleMovement = 1;
 			}
 		}
+
 		/////////////////////////////////////////////////////////
 		// Priming Loop
 		// The total amount of upstroke is recorded while the
@@ -194,21 +217,21 @@ void main(void)
 			anglePrevious = angleCurrent;                         //Prepares anglePrevious for the next loop
 			if(angleDelta > 0){                                   //Determines direction of handle movement
 				upStrokePrime += angleDelta;                  //If the valve is moving upward, the movement is added to an
-                                                             //accumlation var
+                                                             //accumlation var (even if it was smaller than angleThresholdSmall)
 			}
+            // If they have stopped, pumping we should give up too
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-			//	timeOutStatus++; //Timeout incremented for very small movement (pump handle is not moving/the person quit pumping)
                 i++; // we want to stop if the user stops pumping              
 			}
 			else{
-				// timeOutStatus = 0;
-                timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping
                 i=0;   // they are still trying
 			} 
             if(i == 100){  // They quit trying for at least 1 second
                 never_primed = 1;
+                sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
                 break;
             }
+            timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping
 			delayMs(upstrokeInterval); 
         }
         if(timeOutStatus >= waterPrimeTimeOut){
@@ -218,6 +241,7 @@ void main(void)
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
         sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
         sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug
+        sendDebugMessage(" never primed status = ", never_primed);  //Debug
 		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
 			longestPrime = upStrokePrimeMeters;
             EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
@@ -256,10 +280,15 @@ void main(void)
 		///////////////////////////////////////////////////////
         sendDebugMessage("\n We are in the Leak Rate Loop ", 0);  //Debug
 		// Get the angle of the pump handle to measure against
-		int leakCondition = 3;  //Initializes leakCondition so that if the while loop breaks due to
-                                //no water at beginning of Leakage Rate Loop, then we jump to calculate leak rate.
+		int leakCondition = 3;  // Assume that we are going to be able to calculate a valid leak rate
+      
+        if(!readWaterSensor()){  // If there is already no water when we get here, something strange is happening, don't calculate leak
+            leakCondition = 4;
+             sendDebugMessage("There is no water as soon as we get here ", 0);  //Debug
+        }
         if(never_primed == 1){
             leakCondition = 4;   // there was never any water
+            sendDebugMessage("There never was any water ", 0);  //Debug
         }
         i = 0;  
         anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
@@ -297,18 +326,18 @@ void main(void)
 		case 1:
 			leakRate = leakRatePrevious; // They started pumping again so can't calculate a new leak rate, use the last one when calculating volume pumped
 			break;
-		case 2:
+		case 2:                          // Waited the max time and water was still there so leak rate = 0
 			leakRate = 0;
 			leakRatePrevious = leakRate;  
 			break;
-		case 3:
+		case 3:                         // The pump did prime but water leaked out in less than our max time to wait.  So calculate a new value
 			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
 			leakRatePrevious = leakRate;    
             break;           
 		
         case 4:
-//            leakRate = leakRatePrevious;  // there was never any water so can't calculate leak
-            leakRate = 0;  // there was never any water so we can't calculate a new leak rate, let previous value stay the previous value
+            leakRate = leakRatePrevious;  // there was no water at the start of this so we can't calculate a new leak
+//            leakRate = 0;  // there was never any water so we can't calculate a new leak rate, let previous value stay the previous value
             break;
         }
         sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug
