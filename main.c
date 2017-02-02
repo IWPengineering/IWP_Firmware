@@ -220,7 +220,20 @@ void main(void)
 			break;
 		case 2:
 			leakRate = 0;
-			le
+			leakRatePrevious = leakRate;
+			break;
+		case 3:
+			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
+			leakRatePrevious = leakRate;
+            break;
+		}
+
+		if ((leakRate * 3600) > leakRateLong)
+		{
+			leakRateLong = leakRate * 3600;                                 //reports in L/hr
+		}
+		upStrokeExtract = degToRad(upStrokeExtract);
+		volumeEvent = (MKII * upStrokeExtract);
 		volumeEvent -= (leakRate * (extractionDuration * upstrokeInterval) / 1000.0);
         if(volumeEvent < 0)
         {
