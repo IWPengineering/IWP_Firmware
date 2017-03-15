@@ -302,12 +302,12 @@ void main(void)
 			// If the handle starts moving we will abandon calculating a new leak rate
             //  Moving is the same criterion as stopping in volume calculation loop
             if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-				i=0;
+				i=0; //Handle Not moving
             }
 			else{
-				i++;
+				i++; //Handle Moving
  			}             
-            if (i >= volumeLoopCounter){
+            if (i >= volumeLoopCounter){ //Has the handle been moving for 150ms?
 				leakCondition = 1;
 				break;
 			}
