@@ -83,7 +83,6 @@ void main(void)
 	float angleCurrent = 0; // Stores the current angle of the pump handle
 	float anglePrevious = 0; // Stores the last recoreded angle of the pump handle
 	float angleDelta = 0; // Stores the difference between the current and previous angles
-	float upStroke = 0; // 0 if there is no upstroke, otherwise stores the delta angle
 	float upStrokePrime = 0; // Stores the sum of the upstrokes for calculating the prime
 	float upStrokeExtract = 0; // Stores the sum of the upstrokes for calculating volume
 	float volumeEvent = 0; // Stores the volume extracted
@@ -92,6 +91,7 @@ void main(void)
 	float leakRate = 0; // Rate at which water is leaking from the rising main
 	int currentDay;
 	int prevDay = getDateI2C();
+    noon_msg_sent = 0; // Start with the assumption that the noon message has not been sent
     
     //                    DEBUG
     // print_debug_messages controls the debug reporting
@@ -102,7 +102,7 @@ void main(void)
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 0;
+    print_debug_messages = 1;
     int temp_debug_flag = print_debug_messages;
     
     //                     DEBUG
@@ -116,11 +116,21 @@ void main(void)
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by ueser
-    
+ 
     while (1)
-	{          
+	{     
+        // DEBUG //////
+   //     DebugReadEEProm();
+            
+   //         hour = hour+1;  ///// DEBUG
+   //         if (hour == 24){
+   //             hour = 0;
+   //         }
+
+        // DEBUG
+        
         batteryFloat = batteryLevel();
-        if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, turn it on so it is awake to be topped off
+        if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, try to turn it on so it is awake to be topped off
            turnOnSIM();
         }
  
@@ -133,8 +143,7 @@ void main(void)
 
 		anglePrevious = getHandleAngle();                            // Get the angle of the pump handle to measure against.  
                                                                      // This is our reference when looking for sufficient movement to say the handle is actually moving.  
-                                                                     // "moving" is hard coded as 5 degrees.  We should make it a CONSTANT defined in IWPUtilities
-		float previousAverage = 0;
+                                                                     // the "moving" threshold is defined by handleMovementThreshold in IWPUtilities
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		while (handleMovement == 0)
 		{ 
@@ -150,9 +159,9 @@ void main(void)
                 if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
                     turnOffSIM();             
                 }
-                Sleep(); 
                 sendDebugMessage("Going to sleep ", hour);  //Debug
-                
+                Sleep(); 
+                               
                 hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
             }
             // Is it time to record volume from previous time bin to EEProm?
@@ -163,11 +172,17 @@ void main(void)
             // Is it time to report data from yesterday?        
             if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
                 batteryFloat = batteryLevel();
-                noonMessage();
-                noon_msg_sent = 1;                             // only want to send it once
-                sendDebugMessage("Noon Message sent ", hour);  //Debug
+                noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                sendDebugMessage("   \n The noon message effort was a ", noon_msg_sent);  //Debug
+                if(noon_msg_sent){
+                    sendDebugMessage("Noon Message sent ", hour);  //Debug
+                }
             }
-            if(hour != 12){
+            if((hour == 13)&&(noon_msg_sent == 0)){             //The noon message was not able to be sent, reset things for today
+                ResetMsgVariables();
+                noon_msg_sent = 1;  //this will be cleared at 14:00 (2PM)
+            }
+            if((hour != 12)&&(hour !=13)){
                 noon_msg_sent = 0;
             }
             // If we are debugging at a pump we want to send the noon message every hour
@@ -190,7 +205,7 @@ void main(void)
 				deltaAngle *= -1;
 			}
             
-            if(deltaAngle > 5){                         // The needed 5 degree motion should be made a constant in IWPUtilities
+            if(deltaAngle > handleMovementThreshold){            // The total movement of the handle from rest has been exceeded
 				handleMovement = 1;
 			}
 		}
@@ -208,7 +223,6 @@ void main(void)
 		upStrokePrime = 0;
         never_primed = 0;
      
-		upStroke = 0;                                                 // gets variable ready for new event
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
 		{
@@ -253,6 +267,8 @@ void main(void)
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
         sendDebugMessage("\n We are in the Volume Loop ", 0);  //Debug
+        upStrokeExtract = 0;                                                 // gets variable ready for new volume event
+        sendDebugMessage("starting extract handle degrees ", upStrokeExtract);  //Debug
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		i = 0;                                                      //Index to keep track of no movement cycles
@@ -348,8 +364,12 @@ void main(void)
             EEProm_Write_Float(0,&leakRateLong);                                        // Save to EEProm
             sendDebugMessage("Saved new longest leak rate to EEProm ", leakRateLong);  //Debug
 		}
+        sendDebugMessage("handle movement in degrees ", upStrokeExtract);  //Debug
 		upStrokeExtract = degToRad(upStrokeExtract);
+        sendDebugMessage("handle movement in radians ", upStrokeExtract);  //Debug       
 		volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
+        sendDebugMessage("Liters Pumped ", volumeEvent);  //Debug
+        
 		volumeEvent -= (leakRate * ((extractionDurationCounter * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
         if(volumeEvent < 0)
         {
