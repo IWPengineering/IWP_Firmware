@@ -267,7 +267,7 @@ void main(void)
 										//accumlation var
 			}
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-				i++;
+				i++; //increase i while handle is stationary
 			}
 			else{
 				i = 0;
