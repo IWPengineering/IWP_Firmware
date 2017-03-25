@@ -126,7 +126,7 @@ extern int waterPresenceSensorOnOffPin;
 extern int GNDPin;
 extern int vcc2Pin;
 // other global variables
-extern int debugCounter; // DEBUG DEBUG DEBUG DEBUG DEBUG
+extern float debugCounter; // DEBUG DEBUG DEBUG DEBUG DEBUG
 extern int hour; // Hour of day
 extern int minute;  //minute of the day
 extern char active_volume_bin;
