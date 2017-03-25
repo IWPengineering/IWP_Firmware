@@ -92,6 +92,8 @@ void main(void)
 	int currentDay;
 	int prevDay = getDateI2C();
     noon_msg_sent = 0; // Start with the assumption that the noon message has not been sent
+    debugCounter = 0;  //DEBUG variable to track how many times it takes to send the message
+    int local_debug_hour = 1;  //just used to debug things
     
     //                    DEBUG
     // print_debug_messages controls the debug reporting
@@ -102,12 +104,12 @@ void main(void)
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 1;
+    print_debug_messages = 2;
     int temp_debug_flag = print_debug_messages;
     
     //                     DEBUG
     if(print_debug_messages >= 2){
-          hourMessage();
+  // DEBUG        hourMessage();
     // DEBUG  
     }
   
@@ -116,7 +118,7 @@ void main(void)
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by ueser
- 
+
     while (1)
 	{     
         // DEBUG //////
@@ -169,32 +171,48 @@ void main(void)
                 SaveVolumeToEEProm();
                 sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);  //Debug
             }
-            // Is it time to report data from yesterday?        
+            // Is it time to report data from yesterday?    
+            
             if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
                 batteryFloat = batteryLevel();
                 noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
-                sendDebugMessage("   \n The noon message effort was a ", noon_msg_sent);  //Debug
+                if(noon_msg_sent == 0){
+                    debugCounter++;
+                }
+                sendDebugMessage("   \n The noon message effort was a ", debugCounter);  //Debug
                 if(noon_msg_sent){
-                    sendDebugMessage("Noon Message sent ", hour);  //Debug
+                    sendDebugMessage("Noon Message sent ", debugCounter);  //Debug
+                    debugCounter = 0;  //Debug
                 }
             }
             if((hour == 13)&&(noon_msg_sent == 0)){             //The noon message was not able to be sent, reset things for today
                 ResetMsgVariables();
                 noon_msg_sent = 1;  //this will be cleared at 14:00 (2PM)
             }
-            if((hour != 12)&&(hour !=13)){
+            if((hour != 12)&&(hour !=13)){ 
                 noon_msg_sent = 0;
             }
+            
             // If we are debugging at a pump we want to send the noon message every hour
-            if((print_debug_messages >= 2)&&(hour > prevHour)){             //it's the next hour and we are debugging at pump
+            if((print_debug_messages >= 2)&&(hour != prevHour)){             //it's the next hour and we are debugging at pump
                 //phoneNumber = DebugphoneNumber;                            // change phone number to the debug number
-
+                phoneNumber[0]=0;
+                concat(phoneNumber, DebugphoneNumber);
+                
                 batteryFloat = batteryLevel();
-                hourMessage();
-                prevHour = hour;                             // only want to send it once
-                //phoneNumber = MainphoneNumber;                            // change phone number back to main number
-
-                sendDebugMessage("HOURLY Message sent ", hour);  //Debug
+                noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                if(noon_msg_sent == 0){
+                    debugCounter++;
+                }
+                if(noon_msg_sent){
+                    debugCounter = 0;  //Debug
+                    prevHour = hour;                             // only want to send it once
+                    noon_msg_sent = 0;  //set up for a noon message
+                }
+               
+                //Put the phone number back to Upside 
+                phoneNumber[0]=0;
+                concat(phoneNumber, MainphoneNumber);
             }
             
             // OK, go ahead and look for handle movement again

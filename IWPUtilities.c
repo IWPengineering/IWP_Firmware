@@ -154,7 +154,7 @@ float angle10 = 0;
 // ****************************************************************************
 //char DebugphoneNumber[] = "0548345382"; // Number for the Black Phone - MOVED to kpachelo
 //char DebugphoneNumber[] = "0548982327"; // Number for Immanuel programmed in as debug for kpachelo
-char DebugphoneNumber[] = "0543519828"; // Number for Black Phone starting 1-13-2017
+char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
 char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
 // Debug, need to try this before using it  char* phoneNumber;
@@ -177,6 +177,7 @@ char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots 
 char noon_msg_sent = 0;  //set to 1 when noon message has been sent
 char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
 char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
+float debugCounter = 0;  // DEBUG used as a variable for various things while debugging 
 float volume02 = 0; // Total Volume extracted from 0:00-2:00
 float volume24 = 0;
 float volume46 = 0;
@@ -699,8 +700,8 @@ void initialization(void) {
 ////    setTime(0,07,14,1,17,01,17); //  fong should have been day 3
 /////       setTime(0,03,17,3,17,01,17); //  Guishigu
 /////      setTime(0,32,8,5,19,01,17); //  Zantele
-   setTime(0,31,18,4,22,02,17); //  Indoor system 2/18/2017
- //      setTime(0,57,16,4,01,03,17); //  Outdoor system 3/1/2017
+//  setTime(0,45,16,4,15,03,17); //  Indoor system 2/18/2017
+   //  setTime(0,03,15,6,24,03,17); //  Outdoor system 3/23/2017
     active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
     prevHour = active_volume_bin *2;  //We use previous hour in debug to know if we should send hour message to local phone
     
@@ -1073,7 +1074,7 @@ int connectedToNetwork(void) //True when there is a network connection
   
     // This is function should only be called once we know the FONA is on.  
     // If the FONA is on, the NET light will blink so we should not get stuck here
-    // waiting for 1's and 0's.  Just to be safe, leave it you wait too long for
+    // waiting for 1's and 0's.  Just to be safe, leave if you wait too long for
     // the initial high or low
     
     // The timing in this routine assumes that Timer 1 is clocked at 15.625khz
@@ -1083,7 +1084,7 @@ int connectedToNetwork(void) //True when there is a network connection
     // Make sure you start at the beginning of the positive pulse
     TMR1 = 0;
     if (digitalPinStatus(netLightPin) == 1) //(PORTBbits.RB14 == 1)
-    {
+    { // Wait until the light turns off
         while (digitalPinStatus(netLightPin)) {
             if(TMR1 > 2000){
                 return success;   //waited longer than 128ms (high should be 64ms)
@@ -1105,11 +1106,11 @@ int connectedToNetwork(void) //True when there is a network connection
     // Wait for the pulse to go high again
     while (digitalPinStatus(netLightPin) == 0) {
     }; 
-    if(TMR1 < 20000){ // network pulsing should be 864ms, we allow up to 1.28sec
+    if(TMR1 > 20000){ // still looking for network pulsing should be 864ms, we allow up to 1.28sec
         success = 1;  
     }
     
-    return success;  // True, when there is a network connection. (pulses faster than 1.28sec)
+    return success;  // True, when there is a network connection. (pulses slower than 1.28sec)
                      // spec says connection flashes every 864ms and no connection is every 3064ms.
 }
 void sendDebugMessage(char message[50], float value){
@@ -2108,6 +2109,11 @@ int noonMessage(void) {
     volume2022String[0] = 0;
     char volume2224String[20];
     volume2224String[0] = 0;
+    // Debug
+    char debugString[20];
+    debugString[0]=0;
+    floatToString(debugCounter,debugString);
+    // Debug
     // Read values from EEPROM and convert them to strings
     EEProm_Read_Float(0, &EEFloatData);
     floatToString(EEFloatData, leakRateLongString);
@@ -2148,7 +2154,15 @@ int noonMessage(void) {
         //will need more formating for JSON 5-30-2014
     char dataMessage[160];
     dataMessage[0] = 0;
-    concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
+    if(hour != 12){
+        concat(dataMessage, "(\"t\":");
+        concat(dataMessage,debugString);
+        concat(dataMessage,",\"d\",\"d\":(\"l\":");
+    }
+    else{
+        concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
+    }
+    
     concat(dataMessage, leakRateLongString);
     concat(dataMessage, ",\"p\":");
     concat(dataMessage, longestPrimeString);
@@ -2218,7 +2232,9 @@ int noonMessage(void) {
             
         // Now that the message has been sent, we can update our EEPROM
         // Clear RAM and EEPROM associated with message variables
-            ResetMsgVariables();
+            if(hour == 12){
+                ResetMsgVariables();
+            }
         }
     }
     
