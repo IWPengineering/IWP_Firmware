@@ -46,6 +46,7 @@ extern long leakRateTimeOut; // Equivalent to 18 seconds (in 50 millisecond inte
 extern const int decimalAccuracy; // Number of decimal places to use when converting floats to strings
 extern const float angleThresholdSmall; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
 extern const float angleThresholdLarge; //total angle movement to accumulate before identifying movement as intentional pumping
+extern const float handleMovementThreshold; //When the handle moves more then this number of degrees from rest, it is time to calculate Priming
 extern const float PI;
 extern const float upstrokeToMeters;
 extern const int minimumAngleDelta;
@@ -144,9 +145,9 @@ void longToString(long num, char *numString);
 int stringLength(char *string);
 void concat(char *dest, const char *src);
 void floatToString(float myValue, char *myString);
-void turnOffSIM();
-void turnOnSIM();
-void tryToConnectToNetwork();
+int turnOffSIM();
+int turnOnSIM();
+int tryToConnectToNetwork();
 int connectedToNetwork(void);
 void sendDebugMessage(char message[50], float value);
 void sendMessage(char message[160]);
@@ -168,14 +169,13 @@ int getLowerBCDAsDecimal(int bcd);
 int getUpperBCDAsDecimal(int bcd);
 int getTimeHour(void);
 long timeStamp(void);
-void pressReset();
+void ResetMsgVariables();
 int translate(char digit);
 void RTCCSet(void);
 int getMinuteOffset();
 char BcdToDec(char val);
 char DecToBcd(char val);
-void midnightMessage(void);
-void noonMessage(void);
+int noonMessage(void);
 void hourMessage(void);
 void SoftwareReset(void);
 void delaySCL(void);

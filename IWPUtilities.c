@@ -101,6 +101,7 @@ long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in "upstrokeInterval" m
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
 const float angleThresholdSmall = 0.1; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
+const float handleMovementThreshold = 5.0; // When the handle has moved this many degrees from rest, we start calculating priming 
 //roughly based on calculations from India Mark II sustainability report that 
 //67.6 strokes/minute average pumper
 //25.4 degrees/pk-pk movement
@@ -642,7 +643,7 @@ void initialization(void) {
     T1CONbits.TCS = 0; // Source is Internal Clock if FNOSC = FRC, Fosc/2 = 4Mhz
     T1CONbits.TCKPS = 0b11; // Prescalar to 1:256 
                             // if FNOSC = FRC, Timer Clock = 15.625khz
-    T1CONbits.TON = 1; // Enable the timer (timer 1 is used for the water sensor)
+    T1CONbits.TON = 1; // Enable the timer (timer 1 is used for the water sensor and checking for network)
 
     // Timer control (for getHandleAngle())
     T2CONbits.TCS = 0; //Source is Internal Clock Fosc/2  if #pragma config FNOSC = FRC, Fosc/2 = 4Mhz
@@ -674,8 +675,6 @@ void initialization(void) {
     initAdc();
 
     batteryFloat = batteryLevel();
-    active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
-    prevHour = active_volume_bin *2;  //We use previous hour in debug to know if we should send hour message to local phone
     
     
     angle2 = getHandleAngle();
@@ -690,6 +689,7 @@ void initialization(void) {
     // If this is the first time the board is programmed, you need to set the 
     // RTCC to the proper values
     //void setTime(char sec, char min, char hr, char wkday, char date, char month, char year)
+    //        external RTCC expects day of the week to be 1-7, internal RTCC expects 0-6 lets call Sunday 1
     //setTime(0,10,11,6,13,01,17); //Friday Jan 13 11:10 AM
     //  setTime(0,14,15,5,19,01,17); //Sunday Jan 15 6:11 PM - my debug system
     //   setTime(0,30,11,1,16,01,17); //  YiWogu
@@ -699,7 +699,11 @@ void initialization(void) {
 ////    setTime(0,07,14,1,17,01,17); //  fong should have been day 3
 /////       setTime(0,03,17,3,17,01,17); //  Guishigu
 /////      setTime(0,32,8,5,19,01,17); //  Zantele
-
+   setTime(0,31,18,4,22,02,17); //  Indoor system 2/18/2017
+ //      setTime(0,57,16,4,01,03,17); //  Outdoor system 3/1/2017
+    active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
+    prevHour = active_volume_bin *2;  //We use previous hour in debug to know if we should send hour message to local phone
+    
     // We may be waking up because the battery was dead.  If that is the case,
     // Restart Status, EEProm#20, will be zero and we want to continue using 
     // the leakRateLong and longestPrime from EEProm. Otherwise, it will be a
@@ -947,21 +951,32 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
 /*********************************************************************
  * Function: turnOffSIM
  * Input: None
- * Output: None
+ * Output: NSIM_OFF  this is a 1 if the SIM turned OFF and 0 if not
  * Overview: Turns of the SIM900
  * Note: Pic Dependent
  * TestDate: Not tested as of 03-05-2015
  ********************************************************************/
-void turnOffSIM() {
-    //	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
+int turnOffSIM() {
+    int SIM_OFF = 0;  // Assume the SIM is not off
+    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
+    if (digitalPinStatus(statusPin) == 1) { //Checks see if the Fona is on pin
+        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
+        delayMs(2000);
+    }
+    if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
+        SIM_OFF = 1;
+    }
+    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned on later (pin 15)
+
+    return SIM_OFF;//	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
     //		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn off Fona
     //	}
-    if (digitalPinStatus(statusPin) == 1) {
-        digitalPinSet(pwrKeyPin, 0);
-    }
-    while (digitalPinStatus(statusPin) == 1) {
-    } // Wait for Fona to power off
-    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
+    //if (digitalPinStatus(statusPin) == 1) {
+    //    digitalPinSet(pwrKeyPin, 0);
+    //}
+    //while (digitalPinStatus(statusPin) == 1) {
+    //} // Wait for Fona to power off
+    //digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
 
 
     // Turn off SIM800
@@ -975,21 +990,25 @@ void turnOffSIM() {
 /*********************************************************************
  * Function: turnOnSIM
  * Input: None
- * Output: None
+ * Output: SIM_ON  this is a 1 if the SIM turned on and 0 if not
  * Overview: Turns on SIM900
  * Note: Pic Dependent
  * TestDate: Not tested as of 03-05-2015
+ * delayMs(int ms)
  ********************************************************************/
-void turnOnSIM() {
+int turnOnSIM() {
+    int SIM_ON = 0;  // Assume the SIM is not on
     digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
     if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
-        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn on Fona
+        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
+        delayMs(2000);
     }
-    while (digitalPinStatus(statusPin) == 0) {
-    } // Wait for Fona to power up
+    if (digitalPinStatus(statusPin) != 0) { //Checks see if the Fona is off pin
+        SIM_ON = 1;
+    }
     digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
 
-
+    return SIM_ON;
     //	while (digitalPinStatus(statusPin) == 0) // While STATUS light is not on (SIM900 is off)
     //	{
     //		digitalPinSet(pwrKeyPin, 1); // Hold in PWRKEY button
@@ -1002,14 +1021,13 @@ void turnOnSIM() {
  * Function: tryToConnectToNetwork
  * Input: None
  * Output: None
- * Overview: This function test for network status and attemps to connect to the
- * network. If no netork is found in a minute, the SIM is reset in order
- * to connect agian.
- * Note: Check connection to network
- * TestDate: Not tested as of 03-05-2015
+ * Overview: This function tests for network status and attempts to connect to the
+ * network. If no network is after 7 attempts (between 20sec and 45sec), 
+ * a zero is returned indicating that connection to the network failed
+ * TestDate: Not tested as of 03-14-2017
  ********************************************************************/
-void tryToConnectToNetwork() {
-    int networkTimeoutCount = 0; // Stores the number of times we reset the SIM
+int tryToConnectToNetwork() {
+    int success = 0; // assume we were unable to connect to the network
     int networkTimeout = 0; // Stores the number of times we did not have connection
     int networkConnectionCount = 0; // Stores the number of times we have detected a connection
     int keepTrying = 1; // A flag used to keep trying to connect to the network
@@ -1022,72 +1040,77 @@ void tryToConnectToNetwork() {
             // 4 consecutive connections means we can exit the loop
             if (networkConnectionCount == 4) {
                 keepTrying = 0;
+                success = 1;  // we have a network connection
             }
         } else {
             // If we have no network, reset the counter
             networkConnectionCount = 0;
             // Increase the network timeout
             networkTimeout++;
-            // We tried to connect for 1 minute, so restart the SIM900
-            if (networkTimeout > 60) {
-                turnOffSIM();
-                delayMs(3000);
-                turnOnSIM();
-                delayMs(3000);
-                // Reset the network timeout
-                networkTimeout = 0;
-                networkTimeoutCount++;
-                // We don't want to have the WDT time out while trying to connect
-                // to the network
-                ClearWatchDogTimer();
-                // If we have tried to reset 5 times, we give up and exit
-                if (networkTimeoutCount == 5) {
+            // Each attempt to connect takes 3-6sec if there is no network.  We will try 7 times
+            if (networkTimeout > 7) {
                     keepTrying = 0;
-                }
             }
         }
     }
+    return success;
 }
 
 /*********************************************************************
  * Function: connectedToNetwork
  * Input: None
- * Output: pulseDistance
- * Overview: True when there is a network connection
- * Note: Pic Dependent
+ * Output: 1 if network connected 0 if not
+ * Overview: Measures the time from NETLight High to next High
+ *           Spec says this should be 864ms if there is a network
+ *           and 3064 if there is not.  We call anything less than 1.28sec 
+ *           a valid connection
+ *           If there is no network, we are in this routine between 3-6 seconds
+ * Note: Timer speed dependent
  * TestDate: Not tested as of 03-05-2015
  ********************************************************************/
 int connectedToNetwork(void) //True when there is a network connection
 {
+  
+    // This is function should only be called once we know the FONA is on.  
+    // If the FONA is on, the NET light will blink so we should not get stuck here
+    // waiting for 1's and 0's.  Just to be safe, leave it you wait too long for
+    // the initial high or low
+    
+    // The timing in this routine assumes that Timer 1 is clocked at 15.625khz
+
+    int success = 0;
+    
     // Make sure you start at the beginning of the positive pulse
+    TMR1 = 0;
     if (digitalPinStatus(netLightPin) == 1) //(PORTBbits.RB14 == 1)
     {
         while (digitalPinStatus(netLightPin)) {
-        }; //(PORTBbits.RB14) {}; // TODO: Isn't this a great way to get stuck in a while loop?
+            if(TMR1 > 2000){
+                return success;   //waited longer than 128ms (high should be 64ms)
+            }
+        }; //(PORTBbits.RB14) {}; 
     }
     // Wait for rising edge
-    while ((digitalPinStatus(netLightPin) == 0)) {
-    }; //PORTBbits.RB14 == 0) {}; // TODO: Isn't this a great way to get stuck in a while loop?
-    // Reset the timer
     TMR1 = 0;
-    // Get time at start of positive pulse
-    int prevICTime = TMR1;
+    while ((digitalPinStatus(netLightPin) == 0)) {
+         if(TMR1 > 55000){
+                return success;   //waited longer than 3.5seconds (low should be 3sec when no network)
+            }
+    }; //PORTBbits.RB14 == 0) {}; 
+    // no need to exit if it takes too long to get a high or low, if we are here, the light is flashing
+    TMR1 = 0;  // Get time at start of positive pulse
     // Wait for the pulse to go low
     while (digitalPinStatus(netLightPin)) {
-    }; // TODO: Same as above
+    }; 
     // Wait for the pulse to go high again
     while (digitalPinStatus(netLightPin) == 0) {
-    }; // TODO: Same as above
-    // Get time at end of second positive pulse
-    int currentICTime = TMR1;
-    long pulseDistance = 0;
-    if (currentICTime >= prevICTime) {
-        pulseDistance = (currentICTime - prevICTime);
-    } else {
-        pulseDistance = (currentICTime - prevICTime + 0x10000);
+    }; 
+    if(TMR1 < 20000){ // network pulsing should be 864ms, we allow up to 1.28sec
+        success = 1;  
     }
-    //Check if this value is right
-    return (pulseDistance >= networkPulseWidthThreshold); // True, when there is a network connection. (pulses slower than 1.28sec)
+    
+    return success;  // True, when there is a network connection. (pulses faster than 1.28sec)
+                     // spec says connection flashes every 864ms and no connection is every 3064ms.
 }
 void sendDebugMessage(char message[50], float value){
     if(print_debug_messages >= 1){
@@ -1168,7 +1191,7 @@ void sendDebugTextMessage(char message[160])
  * Input: String
  * Output: None
  * Overview: sends a Text Message to which ever phone number is in the variable 'phoneNumber'
- *           we expect to be in this routine for 15.5sec, however, each character
+ *           we expect to be in this routine for 10.5sec, however, each character
  *           of each message takes some time that has not yet been calculated
  * Note: Library
  * TestDate: 06-02-2014
@@ -1188,7 +1211,8 @@ void sendTextMessage(char message[160]) // Tested 06-02-2014
     sendMessage("\x1A"); // method 2: sending hexidecimal representation
     // of 26 to sendMessage function (line 62)
     // & the end of allowing us to send SMS message
-    delayMs(5000); // Give it some time to send the message
+    //
+    // we don't turn off the SIM so no need to delay to give it some time to send the message
  //   turnOffSIM();
 }
 
@@ -1634,7 +1658,7 @@ int getTimeHour(void) //to determine what volume variable to use;
     return hourDecimal;
 }
 
-/* First, retrieve time string from the SIM 900
+/* First, retrieve time string from the SIM 900 (I think this is reading the PIC RTCC not the SIM 900 rkf)
 Then, parse the string into separate strings for each time partition
 Next, translate each time partition, by digit, into a binary string
 Finally, piece together strings (16bytes) and write them to the RTCC */
@@ -1677,23 +1701,46 @@ long timeStamp(void) {
  * Note: Previously used to reset the RTCC, but currently does not.
  * TestDate: 06-17-2014
  ********************************************************************/
-void pressReset() //Tested 06-17-2014
+void ResetMsgVariables() //Not Tested
 {
-    //Variable reset (all the variable of the message)
-    longestPrime = 0;
-    leakRateLong = 0;
-    volume02 = 0;
-    volume24 = 0;
-    volume46 = 0;
-    volume68 = 0;
-    volume810 = 0;
-    volume1012 = 0;
-    volume1214 = 0;
-    volume1416 = 0;
-    volume1618 = 0;
-    volume1820 = 0;
-    volume2022 = 0;
-    volume2224 = 0;
+    // Move today's 0-12AM values into the yesterday positions
+    // There is no need to relocate data from 12-24PM since it has not yet been measured
+    // This should only be done if the message was able to be sent
+        EEProm_Read_Float(14, &EEFloatData); // Overwrite saved volume with today's value
+        EEProm_Write_Float(2,&EEFloatData);
+        EEProm_Read_Float(15, &EEFloatData); // Overwrite saved volume with today's value
+        EEProm_Write_Float(3,&EEFloatData);
+        EEProm_Read_Float(16, &EEFloatData); // Overwrite saved volume with today's value
+        EEProm_Write_Float(4,&EEFloatData);
+        EEProm_Read_Float(17, &EEFloatData); // Overwrite saved volume with today's value
+        EEProm_Write_Float(5,&EEFloatData);
+        EEProm_Read_Float(18, &EEFloatData); // Overwrite saved volume with today's value
+        EEProm_Write_Float(6,&EEFloatData);
+        EEProm_Read_Float(19, &EEFloatData); // Overwrite saved volume with today's value
+        EEProm_Write_Float(7,&EEFloatData);
+    // Clear saved leakRateLong and longestPrime
+        leakRateLong = 0; //Clear local and saved value 
+        EEProm_Write_Float(0,&leakRateLong); 
+        longestPrime = 0;//Clear local and saved value
+        EEProm_Write_Float(1,&longestPrime);
+        
+    // The RAM location for each volume bin was cleared when the value was saved to EEPROM
+    
+      //Clear slots for volume 1214-2224 to make sure they are zero in case there is no power to fill
+    EEFloatData = 0.01;
+    EEProm_Write_Float(8, &EEFloatData);
+    EEProm_Write_Float(9, &EEFloatData);
+    EEProm_Write_Float(10, &EEFloatData);
+    EEProm_Write_Float(11, &EEFloatData);
+    EEProm_Write_Float(12, &EEFloatData);
+    EEProm_Write_Float(13, &EEFloatData);
+    EEProm_Write_Float(14, &EEFloatData);
+    EEProm_Write_Float(15, &EEFloatData);
+    EEProm_Write_Float(16, &EEFloatData);
+    EEProm_Write_Float(17, &EEFloatData);
+    EEProm_Write_Float(18, &EEFloatData);
+    EEProm_Write_Float(19, &EEFloatData);
+    
     //getTime(); //Reset RTCC
 }
 
@@ -1736,7 +1783,7 @@ int translate(char digit) {
  * Function: RTCCSet()
  * Input: None
  * Output: None
- * Overview: Get time string from SIM900
+ * Overview: Get time string from SIM900 (actually external RTCC MCP7490N - rkf)
  * Note: Pic Dependent
  * TestDate: 06-02-2014
  ********************************************************************/
@@ -2026,10 +2073,11 @@ void hourMessage(void) {
 
 
 /////////////// IN PROCESS //////////////
-void noonMessage(void) {
+int noonMessage(void) {
     //Message assembly and sending; Use *floatToString() to send:
     // Create storage for the various values to report
-
+    int success = 0;  // variable used to see if various FONA operations worked
+    int noon_msg_sent = 0;  // assume the message is not sent
     char longestPrimeString[20];
     longestPrimeString[0] = 0;
     char leakRateLongString[20];
@@ -2061,79 +2109,43 @@ void noonMessage(void) {
     char volume2224String[20];
     volume2224String[0] = 0;
     // Read values from EEPROM and convert them to strings
-    EEProm_Read_Float(0, &leakRateLong);
-    floatToString(leakRateLong, leakRateLongString);
-    EEProm_Read_Float(1, &longestPrime);
-    floatToString(longestPrime, longestPrimeString);
+    EEProm_Read_Float(0, &EEFloatData);
+    floatToString(EEFloatData, leakRateLongString);
+    EEProm_Read_Float(1, &EEFloatData);
+    floatToString(EEFloatData, longestPrimeString);
     
     floatToString(batteryFloat, batteryFloatString); //latest battery voltage
     
-    EEProm_Read_Float(2, &volume02);  // Read yesterday saved 0-2AM volume, convert to string
-    floatToString(volume02, volume02String);
-    EEProm_Read_Float(3, &volume24);  // Read yesterday saved 2-4AM volume, convert to string
-    floatToString(volume24, volume24String);
-    EEProm_Read_Float(4, &volume46);  // Read yesterday saved 4-6AM volume, convert to string
-    floatToString(volume46, volume46String);    
-    EEProm_Read_Float(5, &volume68);  // Read yesterday saved 6-8AM volume, convert to string
-    floatToString(volume68, volume68String);    
-    EEProm_Read_Float(6, &volume810);  // Read yesterday saved 8-10AM volume, convert to string
-    floatToString(volume810, volume810String);    
-    EEProm_Read_Float(7, &volume1012);  // Read yesterday saved 10-12AM volume, convert to string
-    floatToString(volume1012, volume1012String);   
-    EEProm_Read_Float(8, &volume1214);  // Read yesterday saved 12-14PM volume, convert to string
-    floatToString(volume1214, volume1214String);    
-    EEProm_Read_Float(9, &volume1416);  // Read yesterday saved 14-16PM volume, convert to string
-    floatToString(volume1416, volume1416String);    
-    EEProm_Read_Float(10, &volume1618);  // Read yesterday saved 16-18PM volume, convert to string
-    floatToString(volume1618, volume1618String);    
-    EEProm_Read_Float(11, &volume1820);  // Read yesterday saved 18-20PM volume, convert to string
-    floatToString(volume1820, volume1820String);    
-    EEProm_Read_Float(12, &volume2022);  // Read yesterday saved 20-22PM volume, convert to string
-    floatToString(volume2022, volume2022String);    
-    EEProm_Read_Float(13, &volume2224);  // Read yesterday saved 22-24PM volume, convert to string
-    floatToString(volume2224, volume2224String);
+    EEProm_Read_Float(2, &EEFloatData);  // Read yesterday saved 0-2AM volume, convert to string
+    floatToString(EEFloatData, volume02String);
+    EEProm_Read_Float(3, &EEFloatData);  // Read yesterday saved 2-4AM volume, convert to string
+    floatToString(EEFloatData, volume24String);
+    EEProm_Read_Float(4, &EEFloatData);  // Read yesterday saved 4-6AM volume, convert to string
+    floatToString(EEFloatData, volume46String);    
+    EEProm_Read_Float(5, &EEFloatData);  // Read yesterday saved 6-8AM volume, convert to string
+    floatToString(EEFloatData, volume68String);    
+    EEProm_Read_Float(6, &EEFloatData);  // Read yesterday saved 8-10AM volume, convert to string
+    floatToString(EEFloatData, volume810String);    
+    EEProm_Read_Float(7, &EEFloatData);  // Read yesterday saved 10-12AM volume, convert to string
+    floatToString(EEFloatData, volume1012String);   
+    EEProm_Read_Float(8, &EEFloatData);  // Read yesterday saved 12-14PM volume, convert to string
+    floatToString(EEFloatData, volume1214String);    
+    EEProm_Read_Float(9, &EEFloatData);  // Read yesterday saved 14-16PM volume, convert to string
+    floatToString(EEFloatData, volume1416String);    
+    EEProm_Read_Float(10, &EEFloatData);  // Read yesterday saved 16-18PM volume, convert to string
+    floatToString(EEFloatData, volume1618String);    
+    EEProm_Read_Float(11, &EEFloatData);  // Read yesterday saved 18-20PM volume, convert to string
+    floatToString(EEFloatData, volume1820String);    
+    EEProm_Read_Float(12, &EEFloatData);  // Read yesterday saved 20-22PM volume, convert to string
+    floatToString(EEFloatData, volume2022String);    
+    EEProm_Read_Float(13, &EEFloatData);  // Read yesterday saved 22-24PM volume, convert to string
+    floatToString(EEFloatData, volume2224String);
     
   //  long checkSum = longestPrime + leakRateLong + volume02 + volume24 + volume46 + volume68 + volume810 + volume1012 + volume1214 + volume1416 + volume1618 + volume1820 + volume2022 + volume2224;
   //  char stringCheckSum[20];
   //  floatToString(checkSum, stringCheckSum);
     
-    
-    // Clear saved leakRateLong and longestPrime
-    leakRateLong = 0; //Clear local and saved value 
-    EEProm_Write_Float(0,&leakRateLong); 
-    longestPrime = 0;//Clear local and saved value
-    EEProm_Write_Float(1,&longestPrime);
-    // Move today's 0-12AM values into the yesterday positions
-    // There is no need to relocate data from 12-24PM since it has not yet been measured
-    EEProm_Read_Float(14, &volume02); // Overwrite saved volume with today's value
-    EEProm_Write_Float(2,&volume02);
-    EEProm_Read_Float(15, &volume24); // Overwrite saved volume with today's value
-    EEProm_Write_Float(3,&volume24);
-    EEProm_Read_Float(16, &volume46); // Overwrite saved volume with today's value
-    EEProm_Write_Float(4,&volume46);
-    EEProm_Read_Float(17, &volume68); // Overwrite saved volume with today's value
-    EEProm_Write_Float(5,&volume68);
-    EEProm_Read_Float(18, &volume810); // Overwrite saved volume with today's value
-    EEProm_Write_Float(6,&volume810);
-    EEProm_Read_Float(19, &volume1012); // Overwrite saved volume with today's value
-    EEProm_Write_Float(7,&volume1012);
-    //Clear slots for volume 1214-2224 to make sure they are zero in case there is no power to fill
-    EEFloatData = 0.01;
-    EEProm_Write_Float(8, &EEFloatData);
-    EEProm_Write_Float(9, &EEFloatData);
-    EEProm_Write_Float(10, &EEFloatData);
-    EEProm_Write_Float(11, &EEFloatData);
-    EEProm_Write_Float(12, &EEFloatData);
-    EEProm_Write_Float(13, &EEFloatData);
-    EEProm_Write_Float(14, &EEFloatData);
-    EEProm_Write_Float(15, &EEFloatData);
-    EEProm_Write_Float(16, &EEFloatData);
-    EEProm_Write_Float(17, &EEFloatData);
-    EEProm_Write_Float(18, &EEFloatData);
-    EEProm_Write_Float(19, &EEFloatData);
-    
-    
-    //will need more formating for JSON 5-30-2014
+        //will need more formating for JSON 5-30-2014
     char dataMessage[160];
     dataMessage[0] = 0;
     concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
@@ -2193,152 +2205,34 @@ void noonMessage(void) {
     concat(dataMessage, volume2224String);
     concat(dataMessage, ">))");
 
-    turnOnSIM();  
-    // Try to establish network connection
-    tryToConnectToNetwork();  // even if we fail to connect, we will go on and send the message to send to the SIM
-    delayMs(2000);
-    // Send off the data
-    sendTextMessage(dataMessage);
-    // sendMessage(dataMessage);
-    //sendMessage(" \r \n");
-
-    //        prevHour = getHourI2C();
-    //        prevDay = getDateI2C();
-    // pressReset();
+    success = turnOnSIM();  // returns 1 if the SIM powered up)
+    sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
+    if(success == 1){ 
+       // Try to establish network connection
+        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+        sendDebugMessage("   \n Connect to network was a ", success);  //Debug
+        if(success == 1){
+        // Send off the data
+            sendTextMessage(dataMessage);  
+            noon_msg_sent = 1;
+            
+        // Now that the message has been sent, we can update our EEPROM
+        // Clear RAM and EEPROM associated with message variables
+            ResetMsgVariables();
+        }
+    }
+    
+    return noon_msg_sent;
+   
+  
     ////////////////////////////////////////////////
     // Should we put the SIM back to sleep here?
     ////////////////////////////////////////////////
+    
+    
+    
     RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
                // RKF QUESTION - Why do we do this?  I don't think we use the internal RTCC for anything
-
-}
-/////////////// IN PROCESS //////////////
-void midnightMessage(void) {
-    //Message assembly and sending; Use *floatToString() to send:
-    char longestPrimeString[20];
-    longestPrimeString[0] = 0;
-    char leakRateLongString[20];
-    leakRateLongString[0] = 0;
-    char batteryFloatString[20];
-    batteryFloatString[0] = 0;
-    char volume02String[20];
-    volume02String[0] = 0;
-    char volume24String[20];
-    volume24String[0] = 0;
-    char volume46String[20];
-    volume46String[0] = 0;
-    char volume68String[20];
-    volume68String[0] = 0;
-    char volume810String[20];
-    volume810String[0] = 0;
-    char volume1012String[20];
-    volume1012String[0] = 0;
-    char volume1214String[20];
-    volume1214String[0] = 0;
-    char volume1416String[20];
-    volume1416String[0] = 0;
-    char volume1618String[20];
-    volume1618String[0] = 0;
-    char volume1820String[20];
-    volume1820String[0] = 0;
-    char volume2022String[20];
-    volume2022String[0] = 0;
-    char volume2224String[20];
-    volume2224String[0] = 0;
-    floatToString(leakRateLong, leakRateLongString);
-    floatToString(longestPrime, longestPrimeString);
-    floatToString(batteryFloat, batteryFloatString);
-    floatToString(volume02, volume02String);
-    floatToString(volume24, volume24String);
-    floatToString(volume46, volume46String);
-    floatToString(volume68, volume68String);
-    floatToString(volume810, volume810String);
-    floatToString(volume1012, volume1012String);
-    floatToString(volume1214, volume1214String);
-    floatToString(volume1416, volume1416String);
-    floatToString(volume1618, volume1618String);
-    floatToString(volume1820, volume1820String);
-    floatToString(volume2022, volume2022String);
-    floatToString(volume2224, volume2224String);
-    long checkSum = longestPrime + leakRateLong + volume02 + volume24 + volume46 + volume68 + volume810 + volume1012 + volume1214 + volume1416 + volume1618 + volume1820 + volume2022 + volume2224;
-    char stringCheckSum[20];
-    floatToString(checkSum, stringCheckSum);
-    //will need more formating for JSON 5-30-2014
-    char dataMessage[160];
-    dataMessage[0] = 0;
-    concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
-    concat(dataMessage, leakRateLongString);
-    concat(dataMessage, ",\"p\":");
-    concat(dataMessage, longestPrimeString);
-    concat(dataMessage, ",\"b\":");
-    concat(dataMessage, batteryFloatString);
-    if (depthSensorInUse == 1) { // if you have a depth sensor
-        pinDirectionIO(depthSensorOnOffPin, 0); //makes depth sensor pin an output.
-        digitalPinSet(depthSensorOnOffPin, 1); //turns on the depth sensor.
-        delayMs(30000); // Wait 30 seconds for the depth sensor to power up
-        char maxDepthLevelString[20];
-        maxDepthLevelString[0] = 0;
-        char minDepthLevelString[20];
-        minDepthLevelString[0] = 0;
-        float currentDepth = readDepthSensor();
-        if (midDayDepth > currentDepth) {
-            floatToString(midDayDepth, maxDepthLevelString);
-            floatToString(currentDepth, minDepthLevelString);
-        } else {
-            floatToString(currentDepth, maxDepthLevelString);
-            floatToString(midDayDepth, minDepthLevelString);
-
-        }
-        concat(dataMessage, ",\"d\":<");
-        concat(dataMessage, maxDepthLevelString);
-        concat(dataMessage, ",");
-        concat(dataMessage, minDepthLevelString);
-        concat(dataMessage, ">");
-
-        digitalPinSet(depthSensorOnOffPin, 0); //turns off the depth sensor.
-    }
-    concat(dataMessage, ",\"v\":<");
-    concat(dataMessage, volume02String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume24String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume46String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume68String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume810String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1012String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1214String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1416String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1618String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1820String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume2022String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume2224String);
-    concat(dataMessage, ">))");
-
-    turnOnSIM();
-    // Try to establish network connection
-    tryToConnectToNetwork();
-    delayMs(2000);
-    // Send off the data
-    sendTextMessage(dataMessage);
-    // sendMessage(dataMessage);
-    //sendMessage(" \r \n");
-
-    //        prevHour = getHourI2C();
-    //        prevDay = getDateI2C();
-    pressReset();
-    ////////////////////////////////////////////////
-    // Should we put the SIM back to sleep here?
-    ////////////////////////////////////////////////
-    RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
 
 }
 /*********************************************************************
@@ -2488,50 +2382,62 @@ void SaveVolumeToEEProm(void){
 		{
 		case 0:
             EEProm_Write_Float(13,&volume2224);
+            volume2224 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		case 1:
             EEProm_Write_Float(14,&volume02);
+            volume02 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		case 2:
             EEProm_Write_Float(15,&volume24);
+            volume24 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
  			break;
 		case 3:
             EEProm_Write_Float(16,&volume46);
+            volume46 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		case 4:
             EEProm_Write_Float(17,&volume68);
+            volume68 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		case 5:
             EEProm_Write_Float(18,&volume810);
+            volume810 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		case 6:
             EEProm_Write_Float(19,&volume1012);
+            volume1012 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
  			break;
 		case 7:
             EEProm_Write_Float(8,&volume1214);
+            volume1214 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		case 8:
             EEProm_Write_Float(9,&volume1416);
+            volume1416 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		case 9:
             EEProm_Write_Float(10,&volume1618);
+            volume1618 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		case 10:
             EEProm_Write_Float(11,&volume1820);
+            volume1820 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		case 11:
             EEProm_Write_Float(12,&volume2022);
+            volume2022 = 0;  //Clear for the next days readings
             active_volume_bin = hour/2;  
 			break;
 		}

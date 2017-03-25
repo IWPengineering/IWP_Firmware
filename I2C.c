@@ -591,7 +591,7 @@ void setTime(char sec, char min, char hr, char wkday, char date, char month, cha
     char BCDyear = DecToBcd(year);
     BCDsec = BCDsec | 0x80; // add turn on oscilator bit
     BCDhr = BCDhr & 0b10111111; // makes 24 hr time
-    BCDwkday = BCDwkday | 0b00001000; // the 0 says the external battery backup supply is enabled.
+    BCDwkday = BCDwkday | 0b00001000; // the 1 in this bit says the external battery backup supply is enabled.
     // To enable: Flip bits and OR it to turn on (NOT CURRENTLY ENABLED).
     if (leapYear == 0)
     {
