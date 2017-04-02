@@ -178,6 +178,7 @@ char DecToBcd(char val);
 int noonMessage(void);
 void hourMessage(void);
 void SoftwareReset(void);
+
 void delaySCL(void);
 void midDayDepthRead(void);
 void sendTimeMessage(void);

@@ -118,7 +118,7 @@ void main(void)
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by ueser
-
+    
     while (1)
 	{     
         // DEBUG //////
