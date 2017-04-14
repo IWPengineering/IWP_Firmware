@@ -174,7 +174,7 @@ float longestPrime = 0; // total upstroke fo the longest priming event of the da
 float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
 char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots is being updated
-char noon_msg_sent = 0;  //set to 1 when noon message has been sent
+int noon_msg_sent = 0;  //set to 1 when noon message has been sent
 char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
 char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
 float debugCounter = 0;  // DEBUG used as a variable for various things while debugging 
@@ -192,6 +192,7 @@ float volume2022 = 0;
 float volume2224 = 0;
 float EEFloatData = 0;  // to be used when trying to write a float to EEProm EEFloatData = 123.456 then pass as &EEFloatData
 int hour = 0; // Hour of day
+int TimeSinceLastHourCheck = 0;  // we check this when we have gone around the no pumping loop enough times that 1 minute has gone by
 int minute = 0;  //minute of the day
 //Pin assignments
 int mclrPin = 1;
@@ -654,13 +655,16 @@ void initialization(void) {
     T2CONbits.TON = 1; // Starts 16-bit Timer2
 
     // UART config
-    //U1BRG = 51;
-    U1BRG = 16; // Set baud to 9600, FCY = 8MHz (#pragma config FNOSC = FRC)
-    U1STA = 0;
-    U1MODE = 0x8000; //enable UART for 8 bit data//no parity, 1 stop bit
-    //U1MODEbits.BRGH = 0;
-    U1MODEbits.BRGH = 1;
-    U1STAbits.UTXEN = 1; //enable transmit
+//    U1MODE = 0x8000;  
+    U1MODEbits.BRGH = 0;  // Use the standard BRG speed
+    U1BRG = 25;           // set baud to 9600, assumes FCY=4Mhz (FNOSC = FRC)
+    U1MODEbits.PDSEL = 0; // 8 bit data, no parity
+    U1MODEbits.STSEL = 0; // 1 stop bit
+    U1MODEbits.UARTEN = 1; // Turn on the UART
+    U1STA = 0;            // clear Status and Control Register 
+    U1STAbits.UTXEN = 1;  // enable transmit
+
+           
 
     //H2O sensor config
     pinDirectionIO(waterPresenceSensorOnOffPin, 0); //makes water presence sensor pin an output.
@@ -700,10 +704,12 @@ void initialization(void) {
 ////    setTime(0,07,14,1,17,01,17); //  fong should have been day 3
 /////       setTime(0,03,17,3,17,01,17); //  Guishigu
 /////      setTime(0,32,8,5,19,01,17); //  Zantele
-//  setTime(0,45,16,4,15,03,17); //  Indoor system 2/18/2017
+ // setTime(0,07,14,3,11,04,17); //  Indoor system 2/18/2017
    //  setTime(0,03,15,6,24,03,17); //  Outdoor system 3/23/2017
-    active_volume_bin = BcdToDec(getHourI2C())/2;  //Which volume bin are we starting with
-    prevHour = active_volume_bin *2;  //We use previous hour in debug to know if we should send hour message to local phone
+
+    hour = BcdToDec(getHourI2C());
+    active_volume_bin = hour/2;  //Which volume bin are we starting with
+    prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
     
     // We may be waking up because the battery was dead.  If that is the case,
     // Restart Status, EEProm#20, will be zero and we want to continue using 
@@ -1136,14 +1142,11 @@ void sendDebugMessage(char message[50], float value){
 void sendMessage(char message[160]) {
     int stringIndex = 0;
     int delayIndex;
-    U1BRG = 25; //set baud to 9600, assumes FCY=4Mhz/19200
-    U1STA = 0;
-    U1MODE = 0x8000; //enable UART for 8 bit data
-    //no parity, 1 stop bit
+   
     U1STAbits.UTXEN = 1; //enable transmit
     while (stringIndex < stringLength(message)) { // Tom - while not equal null
         if (U1STAbits.UTXBF == 0) {
-            U1TXREG = message[stringIndex];
+             U1TXREG = message[stringIndex];
             stringIndex++;
             for (delayIndex = 0; delayIndex < 1000; delayIndex++) {
             }
@@ -2078,7 +2081,7 @@ int noonMessage(void) {
     //Message assembly and sending; Use *floatToString() to send:
     // Create storage for the various values to report
     int success = 0;  // variable used to see if various FONA operations worked
-    int noon_msg_sent = 0;  // assume the message is not sent
+                      // which means we either did (1) or did not (0) send the message
     char longestPrimeString[20];
     longestPrimeString[0] = 0;
     char leakRateLongString[20];
@@ -2109,11 +2112,11 @@ int noonMessage(void) {
     volume2022String[0] = 0;
     char volume2224String[20];
     volume2224String[0] = 0;
-    // Debug
+    // ///////////// Debug
     char debugString[20];
     debugString[0]=0;
     floatToString(debugCounter,debugString);
-    // Debug
+    /////////////// Debug
     // Read values from EEPROM and convert them to strings
     EEProm_Read_Float(0, &EEFloatData);
     floatToString(EEFloatData, leakRateLongString);
@@ -2227,9 +2230,7 @@ int noonMessage(void) {
         sendDebugMessage("   \n Connect to network was a ", success);  //Debug
         if(success == 1){
         // Send off the data
-            sendTextMessage(dataMessage);  
-            noon_msg_sent = 1;
-            
+            sendTextMessage(dataMessage);              
         // Now that the message has been sent, we can update our EEPROM
         // Clear RAM and EEPROM associated with message variables
             if(hour == 12){
@@ -2238,7 +2239,7 @@ int noonMessage(void) {
         }
     }
     
-    return noon_msg_sent;
+    return success;  // this will be a 1 if we were able to connect to the network.  We assume that we sent the message
    
   
     ////////////////////////////////////////////////

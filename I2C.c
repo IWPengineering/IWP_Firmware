@@ -40,7 +40,7 @@ void SoftwareReset(void) {
     pinDirectionIO(sdaI2CPin, 1); // input
     if ((digitalPinStatus(sclI2CPin) == 1) && (digitalPinStatus(sdaI2CPin) == 0))
     {
-        pinDirectionIO(sdaI2CPin, 0); // make SDA an input
+        pinDirectionIO(sdaI2CPin, 0); // make SDA an output
         digitalPinSet(sdaI2CPin, 0); // set SDA
         while ((pulsesCreated < 9) && digitalPinStatus(sdaI2CPin) == 0)
         { //PORTBbits.RB9 == 0){
@@ -473,19 +473,18 @@ int turnOffClockOscilator(void) {
     while ((TMR1<10)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
     
     //Tell External RTCC that we are going to WRITE to it
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
     I2C1TRN = 0xde; //Load Device Address for RTCC + Write Command into I2C1 Transmit buffer
+    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
       
     //Specify that you are writing to the register for Seconds
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     I2C1TRN = 0x00; //address reg. for sec
-
-    //Write to the SECONDS register 0 seconds and ?????
     while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
+
+    //Write to the SECONDS register 0 seconds and MSB = 0 which turns off oscillator
     I2C1TRN = 0x00; //Turn off oscillator since MSB = 0
+    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
 
     //StopI2C 
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     I2C1CONbits.PEN = 1; //Generate Stop Condition
     while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)){ } //Wait for Stop
 
@@ -561,7 +560,7 @@ int getHourI2C_old(void) {
     if (invalid == 0xFF)
     {
         invalid = 0;
-        hr = getHourI2C();
+        hr = getHourI2C_old();
     }
     hr = hr & 0x3f; // removes unused bits
     //hr = BcdToDec(hr); // converts hr to a decimal number
@@ -578,58 +577,61 @@ int getHourI2C_old(void) {
  * Note: None
  ********************************************************************/
 int getHourI2C(void) {
-    int hr = hour; // If we don't get a valid reading from the external RTCC, we return our last valid hour value
+    int hr = 0;
     
-    // NEED TO TEST THIS WITH A WORKING BOARD TO FIND OUT HOW LONG THIS SHOULD TAKE.
-    int MaxTime = 15;  //number of Timer1 cycles expected for this whole function.  This is used to
-                     //quit trying if things hang.
-    TMR1 = 0;  
+
+    int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
+                     //quit trying if things hang. (usually takes about 410us)
+ 
     
     configI2c(); // sets up I2C
-      
+    TMR1 = 0;  
+         
     I2C1CONbits.SEN = 1; //Generate Start COndition
     while ((TMR1<MaxTime)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
     
     //Write I2C Address indicating a WRITE operation
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
     I2C1TRN = 0xde; //Load Device Address for RTCC + Write Command into I2C1 Transmit buffer
+    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
   // should check for an ACK'
     
      
     //Write I2C - specify the hour register on MCP7490N
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     I2C1TRN = 0x02; //address reg. for sec
+    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT));  //PIC is transmitting. 
      // should check for an ACK'
     
     // We want to change over to READING so we need to command a Restart
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     I2C1CONbits.RSEN = 1; //Generate Restart
-    while ((TMR1 < MaxTime) && (I2C1CONbits.RSEN)){ } //Wait for restart
+    while ((TMR1 < MaxTime) && (I2C1CONbits.RSEN)); //Wait for restart
     
      //Write I2C Address indicating a READ operation
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
-    I2C1TRN = 0xdf; //Load Device Address for RTCC + Read Command into I2C1 Transmit buffer
+     I2C1TRN = 0xdf; //Load Device Address for RTCC + Read Command into I2C1 Transmit buffer
+     while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)); //Wait for bus to be idle 
   // should check for an ACK'
-    
-
+     
     //Now read the value for the current hour
-    I2C1CONbits.ACKDT = 1; // Prepares to send NACK
-    I2C1CONbits.RCEN = 1; // Gives control of clock to Slave device
-    while ((TMR1<MaxTime)&&(!I2C1STATbits.RBF)){ } // Waits for register to fill up
+    I2C1CONbits.ACKDT = 1; // Prepares to send NACK (we only want 1 byte from RTCC)
+    I2C1CONbits.RCEN = 1; // Enable receive mode
+    while ((TMR1<MaxTime)&&(!I2C1STATbits.RBF));  // Waits for register to fill up
 
-    I2C1CONbits.ACKEN = 1; // Sends NACK or ACK set above
-    while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN)){ } // Waits till ACK is sent (hardware reset)
+    I2C1CONbits.ACKEN = 1; // Send the NACK set above.  This absence of a ACK' tells slave we don't want any more data
+    while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN));  // Waits till ACK is sent (hardware reset)
+    hr = I2C1RCV & 0x3f; //removes unused bits, expecting BCD in the range of 0 - 23
   
     // Generate a STOP 
     I2C1CONbits.PEN = 1; //Generate Stop Condition
-    while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)){ } //Wait for Stop
+    while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)); //Wait for Stop
+    // How do we know that the value we just got makes sense?
     
     
-    if((TMR1 < MaxTime)&&((I2C1RCV & 0x3f) < 25)){
-        hr = I2C1RCV & 0x3f; //removes unused bits
+    if((TMR1 > MaxTime)||(hr > 0x24)){  //something went wrong (BCD 24)
+        hr = (hour/10 *16)+(hour % 10); // If the read was unsuccessful, return the last known hour
+                                        // Remember the returned value is supposed to be in BCD
     }
-    return hr;  // returns the time in hr as a decimal value.  
-                // If the read was unsuccessful, return the last known hour
+    
+    return hr; 
+                
 }
 
 int getYearI2C(void) {
@@ -778,16 +780,15 @@ int setTime(char sec, char min, char hr, char wkday, char date, char month, char
     while ((TMR1<MaxTime)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
     
     //Tell External RTCC that we are writing to it
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
     I2C1TRN = 0xde; //Load Device Address for RTCC + Write Command into I2C1 Transmit buffer
+    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//PIC is transmitting
 
     //Point to the RTCC register for MINUTES
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     I2C1TRN = 0x01; //address register for minutes
+    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting.  
     
     //Write Data
     // Internal register pointer increments automatically no no need to send register address each time
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     I2C1TRN = BCDmin; //Load Minutes  
     while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     I2C1TRN = BCDhr; //Load hour
@@ -814,19 +815,18 @@ int setTime(char sec, char min, char hr, char wkday, char date, char month, char
     while ((TMR1<MaxTime)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
     
     //Tell External RTCC that we are writing to it
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
     I2C1TRN = 0xde; //Load Device Address for RTCC + Write Command into I2C1 Transmit buffer
+    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
 
     //Point to the RTCC register for SECONDS
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     I2C1TRN = 0x00; //address register for seconds
     while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     
     BCDsec = BCDsec | 0x80; // setting the MSB of the seconds register in the MCP7940 turns on the oscillator
     I2C1TRN = BCDsec; //Load seconds and turn oscillator on
+    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting.
     
     // Generate a STOP
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){} //PIC is transmitting. 
     I2C1CONbits.PEN = 1; //Generate Stop Condition
     while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)){ } //Wait for Stop
     

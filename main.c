@@ -81,7 +81,7 @@ void main(void)
 	int timeOutStatus = 0; // Used to keep track of the water prime timeout
 
 	float angleCurrent = 0; // Stores the current angle of the pump handle
-	float anglePrevious = 0; // Stores the last recoreded angle of the pump handle
+	float anglePrevious = 0; // Stores the last recorded angle of the pump handle
 	float angleDelta = 0; // Stores the difference between the current and previous angles
 	float upStrokePrime = 0; // Stores the sum of the upstrokes for calculating the prime
 	float upStrokeExtract = 0; // Stores the sum of the upstrokes for calculating volume
@@ -90,7 +90,7 @@ void main(void)
 	float upStrokePrimeMeters = 0; // Stores the upstroke in meters
 	float leakRate = 0; // Rate at which water is leaking from the rising main
 	int currentDay;
-	int prevDay = getDateI2C();
+	/////int prevDay = getDateI2C();
     noon_msg_sent = 0; // Start with the assumption that the noon message has not been sent
     debugCounter = 0;  //DEBUG variable to track how many times it takes to send the message
     int local_debug_hour = 1;  //just used to debug things
@@ -104,38 +104,24 @@ void main(void)
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 2;
+    print_debug_messages = 1;
     int temp_debug_flag = print_debug_messages;
     
-    //                     DEBUG
-    if(print_debug_messages >= 2){
-  // DEBUG        hourMessage();
-    // DEBUG  
-    }
-  
+    
     
     print_debug_messages = 1;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
-    print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by ueser
+    TimeSinceLastHourCheck = 0;
+    print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     
     while (1)
-	{     
-        // DEBUG //////
-   //     DebugReadEEProm();
-            
-   //         hour = hour+1;  ///// DEBUG
-   //         if (hour == 24){
-   //             hour = 0;
-   //         }
-
-        // DEBUG
-        
+	{      
         batteryFloat = batteryLevel();
         if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, try to turn it on so it is awake to be topped off
            turnOnSIM();
         }
- 
+
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
 		// Idle Handle Monitor Loop
@@ -150,7 +136,11 @@ void main(void)
 		while (handleMovement == 0)
 		{ 
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
-            hour = BcdToDec(getHourI2C());
+            TimeSinceLastHourCheck++;
+            if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
+                hour = BcdToDec(getHourI2C());
+                TimeSinceLastHourCheck = 0;
+            }
 
             // should we be asleep to save power?   
             while((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
@@ -209,7 +199,7 @@ void main(void)
                     prevHour = hour;                             // only want to send it once
                     noon_msg_sent = 0;  //set up for a noon message
                 }
-               
+                sendDebugMessage("   \n We tried to send the hourly message ", debugCounter);  //Debug               
                 //Put the phone number back to Upside 
                 phoneNumber[0]=0;
                 concat(phoneNumber, MainphoneNumber);
@@ -222,7 +212,6 @@ void main(void)
 			if(deltaAngle < 0) {
 				deltaAngle *= -1;
 			}
-            
             if(deltaAngle > handleMovementThreshold){            // The total movement of the handle from rest has been exceeded
 				handleMovement = 1;
 			}
@@ -240,6 +229,8 @@ void main(void)
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
+        hour = BcdToDec(getHourI2C()); //Update the time so we know where to save this pumping event
+        TimeSinceLastHourCheck = 0;
      
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
