@@ -57,6 +57,7 @@
 /*
  Public Functions
  */
+void SoftwareResetRKF(void);
 unsigned int IdleI2C(void);
 unsigned int StartI2C(void);
 unsigned int StopI2C(void);
@@ -66,16 +67,19 @@ void AckI2C(void);
 void configI2c(void);
 void WriteI2C(unsigned char byte);
 unsigned int ReadI2C(void);
-void turnOffClockOscilator(void);
+void turnOffClockOscilator_old(void);
+int turnOffClockOscilator(void);
 int getSecondI2C(void);
 int getMinuteI2C(void);
+int getHourI2C_old(void);
 int getHourI2C(void);
 int getYearI2C(void);
 int getMonthI2C(void);
 int getWkdayI2C(void);
 int getDateI2C(void);
-void setTime(char sec, char min, char hr, char wkday,
+void setTime_old(char sec, char min, char hr, char wkday,
         char date, char month, char year);
+int setTime(char sec, char min, char hr, char wkday, char date, char month, char year);
 
 /*
  Private Functions
