@@ -104,7 +104,7 @@ void main(void)
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 1;
+    print_debug_messages = 2;
     int temp_debug_flag = print_debug_messages;
     
     
@@ -165,7 +165,7 @@ void main(void)
             
             if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
                 batteryFloat = batteryLevel();
-                noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                    noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
                 if(noon_msg_sent == 0){
                     debugCounter++;
                 }
@@ -173,6 +173,7 @@ void main(void)
                 if(noon_msg_sent){
                     sendDebugMessage("Noon Message sent ", debugCounter);  //Debug
                     debugCounter = 0;  //Debug
+                    prevHour = hour; // without this, in debug = 2 mode, we send the noon message in the hourly deubug function.
                 }
             }
             if((hour == 13)&&(noon_msg_sent == 0)){             //The noon message was not able to be sent, reset things for today
@@ -186,8 +187,8 @@ void main(void)
             // If we are debugging at a pump we want to send the noon message every hour
             if((print_debug_messages >= 2)&&(hour != prevHour)){             //it's the next hour and we are debugging at pump
                 //phoneNumber = DebugphoneNumber;                            // change phone number to the debug number
-                phoneNumber[0]=0;
-                concat(phoneNumber, DebugphoneNumber);
+                // DEBUG WEB SITE  phoneNumber[0]=0;
+                // DEBUG WEB SITE  concat(phoneNumber, DebugphoneNumber);
                 
                 batteryFloat = batteryLevel();
                 noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
@@ -201,8 +202,8 @@ void main(void)
                 }
                 sendDebugMessage("   \n We tried to send the hourly message ", debugCounter);  //Debug               
                 //Put the phone number back to Upside 
-                phoneNumber[0]=0;
-                concat(phoneNumber, MainphoneNumber);
+                // DEBUG WEB SITE  phoneNumber[0]=0;
+                // DEBUG WEB SITE  concat(phoneNumber, MainphoneNumber);
             }
             
             // OK, go ahead and look for handle movement again

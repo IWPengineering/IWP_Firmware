@@ -1138,6 +1138,13 @@ void sendDebugMessage(char message[50], float value){
  * Overview: Transmits the given characters along serial lines
  * Note: Library, Pic Dependent, sendTextMessage() uses this
  * TestDate: 06-02-2014
+ * Note:  4/23/2017.  change this so to use a WHILE loop waiting for UTXBF but 
+ *                    put a secondary check using one of the timers so we don't 
+ *                    hang if there is a problem with the UART comms
+ * 
+ *                    Is there any way that the SIM would not get our message?
+ *                    how do we know that everything was received since it does 
+ *                    not ACK/NACK
  ********************************************************************/
 void sendMessage(char message[160]) {
     int stringIndex = 0;
@@ -2157,14 +2164,14 @@ int noonMessage(void) {
         //will need more formating for JSON 5-30-2014
     char dataMessage[160];
     dataMessage[0] = 0;
-    if(hour != 12){
-        concat(dataMessage, "(\"t\":");
-        concat(dataMessage,debugString);
-        concat(dataMessage,",\"d\",\"d\":(\"l\":");
-    }
-    else{
+    // DEBUG WEB SITE  if(hour != 12){
+        // DEBUG WEB SITE  concat(dataMessage, "(\"t\":");
+        // DEBUG WEB SITE  concat(dataMessage,debugString);
+        // DEBUG WEB SITE  concat(dataMessage,",\"d\",\"d\":(\"l\":");
+    // DEBUG WEB SITE  }
+    // DEBUG WEB SITE  else{
         concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
-    }
+    // DEBUG WEB SITE  }
     
     concat(dataMessage, leakRateLongString);
     concat(dataMessage, ",\"p\":");
@@ -2248,7 +2255,7 @@ int noonMessage(void) {
     
     
     
-    RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
+ // Taken out 4/24/17 RKF   RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
                // RKF QUESTION - Why do we do this?  I don't think we use the internal RTCC for anything
 
 }
