@@ -112,7 +112,10 @@ const float handleMovementThreshold = 5.0; // When the handle has moved this man
 const float angleThresholdLarge = 5.0; //total angle movement to accumulate before identifying movement as intentional pumping
 const float upstrokeToMeters = 0.01287;
 const int minimumAngleDelta = 10;
-const float batteryLevelConstant = 0.476; //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476
+//const float batteryLevelConstant = 0.476; //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476
+const float batteryLevelConstant = 8.86; // this is the average value s I'm puttig in in Yiwogu
+//This number is used to convert fraction of full range to a voltage Vcc(Batt_Level/V_Batt) 
+//                                          Nominal value is 8.748 (Vin = 3.6 and resistor divider values are exact)
 const int secondI2Cvar = 0x00;
 const int minuteI2Cvar = 0x01;
 const int hourI2Cvar = 0x02;
@@ -154,7 +157,9 @@ float angle10 = 0;
 // ****************************************************************************
 //char DebugphoneNumber[] = "0548345382"; // Number for the Black Phone - MOVED to kpachelo
 //char DebugphoneNumber[] = "0548982327"; // Number for Immanuel programmed in as debug for kpachelo
-char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
+//char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
+char DebugphoneNumber[] = "+17177784498"; // Upside 
+///char DebugphoneNumber[] = "+18458007595"; //Number for Paul Zwert cell phone
 char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
 // Debug, need to try this before using it  char* phoneNumber;
@@ -175,6 +180,7 @@ float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
 char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots is being updated
 int noon_msg_sent = 0;  //set to 1 when noon message has been sent
+int hour_msg_sent = 0;  //set to 1 when the hourly message has been sent
 char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
 char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
 float debugCounter = 0;  // DEBUG used as a variable for various things while debugging 
@@ -193,6 +199,7 @@ float volume2224 = 0;
 float EEFloatData = 0;  // to be used when trying to write a float to EEProm EEFloatData = 123.456 then pass as &EEFloatData
 int hour = 0; // Hour of day
 int TimeSinceLastHourCheck = 0;  // we check this when we have gone around the no pumping loop enough times that 1 minute has gone by
+int TimeSinceLastBatteryCheck = 0; // we only check the battery every 20min when sleeping
 int minute = 0;  //minute of the day
 //Pin assignments
 int mclrPin = 1;
@@ -704,7 +711,8 @@ void initialization(void) {
 ////    setTime(0,07,14,1,17,01,17); //  fong should have been day 3
 /////       setTime(0,03,17,3,17,01,17); //  Guishigu
 /////      setTime(0,32,8,5,19,01,17); //  Zantele
- // setTime(0,07,14,3,11,04,17); //  Indoor system 2/18/2017
+ //     (sec, min, hr, wkday, date, month, year)  
+ //setTime(0,18,13,6,7,07,17); //  Indoor system 7/7/2017
    //  setTime(0,03,15,6,24,03,17); //  Outdoor system 3/23/2017
 
     hour = BcdToDec(getHourI2C());
@@ -722,6 +730,9 @@ void initialization(void) {
     }
     else{
         ClearEEProm();
+        // Only set the time if this is the first time the system is coming alive
+         //   (sec, min, hr, wkday, date, month, year)
+        setTime(0,45,12,17,8,6,17); //  Bittner system 7/13/2017 
     }
     // Debug - not sure about this so wait until I can try it
     //char* phoneNumber = DebugphoneNumber;
@@ -1510,8 +1521,10 @@ float batteryLevel(void)//this has not been tested
 
     // V = adcVal / maxAdcVal * 1 / (voltage divider values) * VCC
     realVoltage = adcAvg / 1024;
-    realVoltage *= 2.43;
-    realVoltage *= 3.6;
+    //realVoltage *= 8.879; // Unique to each board
+    realVoltage *= batteryLevelConstant;  // Unique to each board
+    // mod  realVoltage *= 2.43;
+    // mod  realVoltage *= 3.6;
     //realVoltage = adcAvg / 1024 * 1 / (100 / 243) * 3.6;
 
     //floatToString(battVoltage, voltageAvgFloatString);
@@ -2085,6 +2098,7 @@ void hourMessage(void) {
 
 /////////////// IN PROCESS //////////////
 int noonMessage(void) {
+    
     //Message assembly and sending; Use *floatToString() to send:
     // Create storage for the various values to report
     int success = 0;  // variable used to see if various FONA operations worked
@@ -2164,14 +2178,15 @@ int noonMessage(void) {
         //will need more formating for JSON 5-30-2014
     char dataMessage[160];
     dataMessage[0] = 0;
-    // DEBUG WEB SITE  if(hour != 12){
-        // DEBUG WEB SITE  concat(dataMessage, "(\"t\":");
-        // DEBUG WEB SITE  concat(dataMessage,debugString);
-        // DEBUG WEB SITE  concat(dataMessage,",\"d\",\"d\":(\"l\":");
-    // DEBUG WEB SITE  }
-    // DEBUG WEB SITE  else{
+  // Debug for Scott  if(hour != 12){
+      if(hour == 120){
+      concat(dataMessage, "(\"t\":");
+      concat(dataMessage,debugString);
+      concat(dataMessage,",\"d\",\"d\":(\"l\":");
+    }
+    else{
         concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
-    // DEBUG WEB SITE  }
+    }
     
     concat(dataMessage, leakRateLongString);
     concat(dataMessage, ",\"p\":");
