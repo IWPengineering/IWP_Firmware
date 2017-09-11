@@ -80,6 +80,7 @@ extern char phoneNumber[]; // Number Used to send text message report (daily or 
 
 extern char active_volume_bin;
 extern int noon_msg_sent;  //set to 1 when noon message has been sent
+extern int hour_msg_sent;  //set to 1 when hourly message has been sent
 extern float longestPrime; // total upstroke fo the longest priming event of the day
 extern float leakRateLong; // largest leak rate recorded for the day
 extern float batteryFloat; // batteryLevel before sends text message commences
@@ -129,6 +130,7 @@ extern int vcc2Pin;
 extern float debugCounter; // DEBUG DEBUG DEBUG DEBUG DEBUG
 extern int hour; // Hour of day
 extern int TimeSinceLastHourCheck; //we check this when we have gone around the no pumping loop enough times that 1 minute has gone by
+extern int TimeSinceLastBatteryCheck; // we check the battery when we are sleeping because of low battery every 10 times we wake up.
 extern int minute;  //minute of the day
 extern char active_volume_bin;
 extern char never_primed;  //set to 1 if we exit the priming loop because of timeout

@@ -104,20 +104,22 @@ void main(void)
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 2;
+    print_debug_messages = 1;
     int temp_debug_flag = print_debug_messages;
     
     
     
-    print_debug_messages = 1;                                        //// We always want to print this out
+    print_debug_messages = 2;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
+    sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     
     while (1)
-	{      
-        batteryFloat = batteryLevel();
+	{     
+       batteryFloat = batteryLevel();
+       
         if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, try to turn it on so it is awake to be topped off
            turnOnSIM();
         }
@@ -143,7 +145,10 @@ void main(void)
             }
 
             // should we be asleep to save power?   
-            while((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
+            // while((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
+            while((batteryFloat < 3.3)&& (hour != 12)){
+                // Only work under 3.3V if it is noon and we want to send a message
+                // 
             // If the battery level is too low to work without the sun, go to sleep
             // shut down at an ODD time so that the volume pumped from 4-6PM will be saved to EEProm
             // try to wake up at 5AM just because there is a lot of activity at this time 
@@ -155,6 +160,13 @@ void main(void)
                 Sleep(); 
                                
                 hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
+                TimeSinceLastBatteryCheck++; // only check the battery every 10th time you wake up (approx 20min)
+                // check the battery every 20 min
+                if(TimeSinceLastBatteryCheck > 10){
+                    batteryFloat = batteryLevel();
+                    TimeSinceLastBatteryCheck = 0;
+                    
+                }
             }
             // Is it time to record volume from previous time bin to EEProm?
             if(hour/2 != active_volume_bin){
@@ -165,7 +177,7 @@ void main(void)
             
             if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
                 batteryFloat = batteryLevel();
-                    noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
                 if(noon_msg_sent == 0){
                     debugCounter++;
                 }
@@ -187,23 +199,23 @@ void main(void)
             // If we are debugging at a pump we want to send the noon message every hour
             if((print_debug_messages >= 2)&&(hour != prevHour)){             //it's the next hour and we are debugging at pump
                 //phoneNumber = DebugphoneNumber;                            // change phone number to the debug number
-                // DEBUG WEB SITE  phoneNumber[0]=0;
-                // DEBUG WEB SITE  concat(phoneNumber, DebugphoneNumber);
+                phoneNumber[0]=0;
+                concat(phoneNumber, DebugphoneNumber);
                 
                 batteryFloat = batteryLevel();
-                noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
-                if(noon_msg_sent == 0){
+                hour_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                if(hour_msg_sent == 0){
                     debugCounter++;
                 }
-                if(noon_msg_sent){
+                if(hour_msg_sent){
                     debugCounter = 0;  //Debug
                     prevHour = hour;                             // only want to send it once
-                    noon_msg_sent = 0;  //set up for a noon message
+                    hour_msg_sent = 0;  //set up for next hourly message
                 }
                 sendDebugMessage("   \n We tried to send the hourly message ", debugCounter);  //Debug               
                 //Put the phone number back to Upside 
-                // DEBUG WEB SITE  phoneNumber[0]=0;
-                // DEBUG WEB SITE  concat(phoneNumber, MainphoneNumber);
+                phoneNumber[0]=0;
+                concat(phoneNumber, MainphoneNumber);
             }
             
             // OK, go ahead and look for handle movement again
@@ -347,6 +359,13 @@ void main(void)
 		}
         digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
         
+        
+        if (upStrokeExtract < 900){  // If someone has not pumped at least 10 liters we don't want to measure leak rate
+                                     // this is to prevent a splash from a slug of water hitting the WPS and being interpreted as leak
+                                     // when it is just receeding back down the pipe when momentum goes away.
+                                     //  upStrokeExtractis in degrees at this point
+            leakCondition = 5;
+        }
         sendDebugMessage("The Leak condition is ", leakCondition);  //Debug
 		switch (leakCondition){
 		case 1:
@@ -365,6 +384,10 @@ void main(void)
             leakRate = leakRatePrevious;  // there was no water at the start of this so we can't calculate a new leak
 //            leakRate = 0;  // there was never any water so we can't calculate a new leak rate, let previous value stay the previous value
             break;
+        
+        case 5:
+			leakRate = leakRatePrevious; // They started pumping again so can't calculate a new leak rate, use the last one when calculating volume pumped
+			break;
         }
         sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug
         sendDebugMessage("  - leak Rate Long = ", leakRateLong);  //Debug
