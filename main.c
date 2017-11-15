@@ -123,6 +123,51 @@ void main(void)
         if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, try to turn it on so it is awake to be topped off
            turnOnSIM();
         }
+       /////////////// THIS IS JUST A DEBUG ROUTINE FOR ME TO WORK WITH FONA //////////////
+       while (1){
+           batteryFloat = 1;
+           readSMSMessage(3);
+           readSMSMessage(3);
+           batteryFloat = 1;
+           readSMSMessage(4);
+           batteryFloat = 1;
+           readSMSMessage(3);
+           batteryFloat = 1;
+           readSMSMessage(6);
+           batteryFloat = 1;
+           batteryFloat = 1;
+           hour = 0;
+//           noonMessage(); 
+           interpretSMSmessage();
+           interpretSMSmessage();
+           noon_msg_sent = noonMessage(); 
+           batteryFloat = 2;
+           noon_msg_sent = noonMessage(); 
+           batteryFloat = 3;
+           noon_msg_sent = noonMessage(); 
+           readSMSMessage(1);
+           ClearReceiveTextMessages(2, 0);
+           readSMSMessage(1);
+           batteryFloat = 4;
+           noon_msg_sent = noonMessage(); 
+           readSMSMessage(1);
+  //         ClearReceiveTextMessages(3, 0);
+  //         readSMSMessage();
+  //         noon_msg_sent = noonMessage(); 
+  //         readSMSMessage();
+  //         readSMSMessage();
+  //         readSMSMessage();
+  //         readSMSMessage();
+  //         readSMSMessage();
+  //         readSMSMessage();
+  //         readSMSMessage();
+           //ClearReceiveTextMessages(1,4);  // Tell the FONA to clear all messages 
+         //  char dataMessage[160];
+         //   dataMessage[0] = 0;
+         //   concat(dataMessage, "(\"t\":");
+         //   sendTextMessage(dataMessage); 
+       }
+       /////////////// THIS IS JUST A DEBUG ROUTINE FOR ME TO WORK WITH FONA //////////////    
 
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////

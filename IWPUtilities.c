@@ -6,6 +6,7 @@
 #include <math.h>
 #include <xc.h>
 #include <string.h>
+#include <p24FV32KA302.h>
 
 /*********************************
 Table of Contents
@@ -160,8 +161,16 @@ float angle10 = 0;
 //char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
 char DebugphoneNumber[] = "+17177784498"; // Upside 
 ///char DebugphoneNumber[] = "+18458007595"; //Number for Paul Zwert cell phone
-char MainphoneNumber[]="+17177784498"; // Upside Wireless
-char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
+//char MainphoneNumber[]="+17177784498"; // Upside Wireless
+char MainphoneNumber[]="+17176837803"; // Randy
+char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS message default to mine
+//char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
+//char phoneNumber []="+17176837803"; // Randy
+char* phoneNumber = MainphoneNumber; // Randy
+char FONAmsgStatus[11]; //Message REC/STO, UNREAD/READ, UNSENT/SENT
+char ReceiveTextMsg[280]; //This is the string used to buffer up a message read from the FONA
+int NumCharInTextMsg = 0; //Keeps track of the number of characters in the received text string
+char ReceiveTextMsgFlag = 0; //Set to 1 when a complete text message has been received
 // Debug, need to try this before using it  char* phoneNumber;
 
 //char phoneNumber[] = "+2330548345382"; // Number for the Black Phone
@@ -639,7 +648,7 @@ int vcc2Pin = 28;
  * TestDate: 06-03-14
  ********************************************************************/
 void initialization(void) {
-    ////------------Sets up all ports as digial inputs-----------------------
+    ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
     ANSA = 0; // Make PORTA digital I/O
     TRISA = 0xFFFF; // Make PORTA all inputs
@@ -667,10 +676,21 @@ void initialization(void) {
     U1BRG = 25;           // set baud to 9600, assumes FCY=4Mhz (FNOSC = FRC)
     U1MODEbits.PDSEL = 0; // 8 bit data, no parity
     U1MODEbits.STSEL = 0; // 1 stop bit
-    U1MODEbits.UARTEN = 1; // Turn on the UART
+    
+                           // The Tx and Rx PINS are enabled as the default 
     U1STA = 0;            // clear Status and Control Register 
     U1STAbits.UTXEN = 1;  // enable transmit
-
+                          // no need to enable receive.  The default is that a 
+                          // receive interrupt will be generated when any character
+                          // is received and transferred to the receive buffer
+    U1STAbits.URXISEL =0; // generate an interrupt each time a character is received
+    IFS0bits.U1RXIF = 0;  // clear the Rx interrupt flag
+    _U1RXIF = 0;  
+   // IEC0bits.U1RXIE = 1;  // enable Rx interrupts
+   // _U1RXIE = 1;
+    U1MODEbits.UARTEN = 1; // Turn on the UART
+    ReceiveTextMsg[0] = 0;  // Start with an empty string
+    ReceiveTextMsgFlag = 0;
            
 
     //H2O sensor config
@@ -1174,11 +1194,171 @@ void sendMessage(char message[160]) {
         }
     }
 }
+/*********************************************************************
+ * Function: wasMessageSent
+ * Input: msgNum - integer from 1 - 30 indicating which message status to check
+ * Output: 0 if the last SMS message is still in the FONA waiting to be sent
+ *               this is indicated by it being marked as STO UNSENT
+ *         1 if the last SMS message was sent by the FONA
+ *               this is indicated by it being marked as STO SENT
+ * Overview: Reads the contents of message location #1 this is where all 
+ *           sent messages are expected to be.  If the message is marked as STO UNSENT
+ *           return a 0
+ *           If it is marked as STO SENT, clear location #1 and return a 1
+ * TestDate: Not Tested
+ * Note:  Being Written
+ ********************************************************************/
+int wasMessageSent(int msgNum){
+    int message_sent = 0;
+    readSMSMessage(msgNum);
+ 
+    char CmdMatch[]="STO SENT";
+    if(strcmp(CmdMatch, FONAmsgStatus)==0){
+        //the message was sent
+        message_sent = 1;
+    }
+    else{
+        //the message was not sent
+    }
+        
+    
+    return message_sent;    
+}
+/*********************************************************************
+ * Function: readMessage()
+ * Input: integer between 1-30 indicating which message to read
+ * Output: None - the global array ReceiveTextMsg should have the message string in it.
+ * Overview: Reads a single text message from the FONA and puts it into 
+ *           the string ReceiveTextMsg
+ *           ReceiveTextMsgFlag = 1 when a complete message has been received
+ * Note: Library, Pic Dependent
+ * TestDate: Not Tested
+ * Note:  Not yet written
+ ********************************************************************/
+void readSMSMessage(int msgNum) {
+    
+    IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+    U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+                         // This clears the RXREG FIFO
+    IEC0bits.U1RXIE = 1;  // enable Rx interrupts
 
-char intToAscii(unsigned int integer) {
-    return (char) (integer + 48);
+    // AT+CMGF=1  //set the mode to text
+    NumCharInTextMsg = 0; //Point to the start of the Text Message String
+    ReceiveTextMsgFlag = 0; //clear for the next message
+    
+    sendMessage("AT+CMGF=1\r\n"); //sets to text mode
+    while(ReceiveTextMsgFlag<1){  } // Read the echo from the FONA
+    ReceiveTextMsgFlag = 0; //clear for the next message
+    while(ReceiveTextMsgFlag<1){  } // Read the OK from the FONA
+           
+    // Send the command to the FONA to read a text message
+    // AT+CMGR=1
+    
+    IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+    U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+                         // This clears the RXREG FIFO
+    NumCharInTextMsg = 0; // Point to the start of the Text Message String
+    ReceiveTextMsgFlag = 0; //clear for the next message
+  // Debug  sendMessage("AT+CPMS=\"SM\"\r\n");
+    
+    char localMsg[160];
+    localMsg[0] = 0;
+    char msg_val[3];
+    itoa(msg_val, msgNum, 10);
+    concat(localMsg,"AT+CMGR=");
+    concat(localMsg,msg_val);
+    concat(localMsg,"\r\n");   
+    sendMessage(localMsg); //Read message at index msgNum
+    while(ReceiveTextMsgFlag<1){  } // Read the command echo from the FONA
+
+    
+    // There is about 17ms between the end of the echo of the command until 
+    // The FONA responds with what you asked for
+    // First we will get information about the message followed by a CR
+    ReceiveTextMsgFlag = 0; //clear for the next message
+    while(ReceiveTextMsgFlag<1){  } // Read the first line from the FONA
+    
+    // Here is where I'd like to read the phone number that sent the message
+    // and the status of the message
+    //command echo then +CMGR: "REC READ","+85291234567",,"
+    char *MsgPtr;
+    int msgLength=strlen(ReceiveTextMsg);
+    FONAmsgStatus[0]=0;  //Reset the Fona Message Status array
+    MsgPtr = ReceiveTextMsg+7;// Skip over the " in the echo of the original command
+    while((*MsgPtr != '\"')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+        MsgPtr++;
+    }
+    MsgPtr++;
+    while((*MsgPtr !='\"')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+        //strncpy(FONAmsgStatus, MsgPtr,1);
+        strncat(FONAmsgStatus, MsgPtr,1);
+        MsgPtr++;
+    }
+   
+   // MsgPtr = ReceiveTextMsg+14; //skip over the + at the start
+    while((*MsgPtr != '+')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+        MsgPtr++;
+    }
+    strncpy(SendingPhoneNumber,MsgPtr,12);        
+    NumCharInTextMsg = 0; //Point to the start of the Text Message String
+    ReceiveTextMsgFlag = 0; //clear for the next message
+    // Then the message itself is received.  
+    while(ReceiveTextMsgFlag<1){  } // Read the second line from the FONA
+    // The ReceiveTextMsg array should now have the message
+    IEC0bits.U1RXIE = 0;  // disable Rx interrupts
 }
 
+/*********************************************************************
+ * Function: interpretSMSmessage()
+ * Input: None
+ * Output: None
+ * Overview: Parses the ReceiveTextMsg character array 
+ *           Depending upon the message, different actions are taken.
+ * Currently Understood Messages
+ *      AW_T indicates a time to use to update the RTCC.
+ *              AW_T:sec,min,hr,wkday,date,month,year
+ * Note: Library
+ * TestDate: no tested
+ ********************************************************************/
+void interpretSMSmessage(void){
+    int success = 0;
+    char MsgPart[3];
+    char CmdMatch[]="AW_T";
+    if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
+        strncpy(MsgPart,ReceiveTextMsg+11,2);
+        char newhr = atoi(MsgPart); // does it work to convert the 2 string characters to a single decimal value
+        setTime(0,45,newhr,5,3,11,17);
+        hour = BcdToDec(getHourI2C());
+        
+        // Now we want to reply to the sender telling it what we just did
+        
+            // Send off the data
+
+        
+        success = turnOnSIM();  // returns 1 if the SIM powered up)
+        sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
+        if(success == 1){ 
+       // Try to establish network connection
+            success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+            sendDebugMessage("   \n Connect to network was a ", success);  //Debug
+            if(success == 1){
+            // Send off the data
+                phoneNumber = SendingPhoneNumber;
+                // Need to make dataMessage
+                char localMsg[160];
+                localMsg[0] = 0;
+                char hour_val[3];
+                itoa(hour_val, hour, 10);
+                concat(localMsg,"Changed hour to ");
+                concat(localMsg, hour_val);
+                sendTextMessage(localMsg); 
+                phoneNumber = MainphoneNumber;            
+            }
+        }
+        
+        
+    }    
+}
 /*********************************************************************
  * Function: sendDebugTextMessage()
  * Input: String
@@ -1209,6 +1389,49 @@ void sendDebugTextMessage(char message[160])
 }
 
 /*********************************************************************
+ * Function: void ClearReceiveTextMessages(int MsgNum, int ClrMode);
+ * Inputs: 
+ *  MsgNum -  There are up to 30 messages saved on the SIM, specify 1-30
+ *  ClrMode - 5 different ways to clear messages
+ *  0 = Delete only the SMS message stored at the location MsgNum from the message storage area. 
+ *  1 = Ignore the value of MsgNum and delete all SMS messages whose status is 
+ *      "received read" from the message storage area.
+ *  2 = Ignore the value of MsgNum and delete all SMS messages whose status is 
+ *      "received read" or "stored sent" from the message storage area.
+ *  3 = Ignore the value of MsgNum and delete all SMS messages whose status is 
+ *      "received read", "stored unsent" or "stored sent" from the message storage area.
+ *  4 = Ignore the value of MsgNum and delete all SMS messages from the message storage area.
+ * 
+ * Output: None
+ * Overview: sends the command to the FONA board which clears its buffer of 
+ *           messages.  This includes messages that have not yet been read
+ * Note: Library
+ * TestDate: not yet tested
+ ********************************************************************/
+void ClearReceiveTextMessages(int MsgNum, int ClrMode) 
+{
+    char MsgNumString[20];
+    char ClrModeString[20];
+    char MessageString[20];
+    longToString(MsgNum, MsgNumString);
+    longToString(ClrMode, ClrModeString);
+    //AT+CMGF=1  //set the mode to text
+    sendMessage("AT+CMGF=1\r\n"); //sets to text mode
+    delayMs(250);  // Delay while the FONA replies OK
+    //AT+CPMS="SM" //Specifies that we are working with the message storage on the SIM card
+    sendMessage("AT+CPMS=\"SM\"\r\n"); 
+     delayMs(250);  // Delay while the FONA replies with the number of messages already in storage
+    // AT+CMGD=MsgNum,ClrMode  This is the delete command 
+         
+    concat(MessageString, "AT+CMGD=");
+    concat(MessageString, MsgNumString);
+    concat(MessageString, ",");
+    concat(MessageString, ClrModeString);
+    concat(MessageString, "\r\n");
+    sendMessage(MessageString); 
+     delayMs(250);// Delay while the FONA replies OK
+}
+/*********************************************************************
  * Function: sendTextMessage()
  * Input: String
  * Output: None
@@ -1221,7 +1444,7 @@ void sendDebugTextMessage(char message[160])
 void sendTextMessage(char message[160]) // Tested 06-02-2014
 {
  //   turnOnSIM();
-    delayMs(10000);
+    // delayMs(10000);  FONA is already ON so no need to wait
     sendMessage("AT+CMGF=1\r\n"); //sets to text mode
     delayMs(250);
     sendMessage("AT+CMGS=\""); //beginning of allowing us to send SMS message
@@ -2252,6 +2475,7 @@ int noonMessage(void) {
         sendDebugMessage("   \n Connect to network was a ", success);  //Debug
         if(success == 1){
         // Send off the data
+            phoneNumber = MainphoneNumber;  
             sendTextMessage(dataMessage);              
         // Now that the message has been sent, we can update our EEPROM
         // Clear RAM and EEPROM associated with message variables
@@ -2567,4 +2791,20 @@ void ClearEEProm(void){
     EEProm_Write_Float(18, &EEFloatData);
     EEProm_Write_Float(19, &EEFloatData); 
     EEProm_Write_Float(20, &EEFloatData); 
+}
+
+void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART data interrupt
+  // Here is where we put the code to read a character from the Receive data buffer
+  // and concatenate it onto a receive message string.
+    
+    while(U1STAbits.URXDA){
+        ReceiveTextMsg[NumCharInTextMsg]=U1RXREG;
+        if(ReceiveTextMsg[NumCharInTextMsg] == 0x0A){//is this a line feed.
+            ReceiveTextMsgFlag++;
+        }
+        NumCharInTextMsg++;
+        ReceiveTextMsg[NumCharInTextMsg]=0;
+    }
+    // Always reset the interrupt flag
+    IFS0bits.U1RXIF = 0; 
 }

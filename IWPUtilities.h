@@ -75,9 +75,13 @@ extern int prevTimer2;
 // ****************************************************************************
 extern char MainphoneNumber[]; // Upside Wireless
 extern char DebugphoneNumber[]; // Number for the Black Phone
+extern char SendingPhoneNumber[]; //Number for the phone that sent the system a message
 //extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
-extern char phoneNumber[]; // Number Used to send text message report (daily or hourly)
-
+extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
+extern char FONAmsgStatus[]; //A string indicating if the message has been sent/read
+extern char ReceiveTextMsg[];  //String used to hold text messages received from FONA
+extern int NumCharInTextMsg; //Number of characters in the received text message 
+extern char ReceiveTextMsgFlag; // Set to 1 when a complete text message has been received
 extern char active_volume_bin;
 extern int noon_msg_sent;  //set to 1 when noon message has been sent
 extern int hour_msg_sent;  //set to 1 when hourly message has been sent
@@ -154,7 +158,11 @@ int tryToConnectToNetwork();
 int connectedToNetwork(void);
 void sendDebugMessage(char message[50], float value);
 void sendMessage(char message[160]);
+int wasMessageSent(int msgNum);
+void readSMSMessage(int msgNum);
+void interpretSMSmessage(void);  // This function checks to see what command was received via SMS
 void sendTextMessage(char message[160]);
+void ClearReceiveTextMessages(int MsgNum, int ClrMode);
 void sendDebugTextMessage(char message[160]); // used for the hourly report to local phone
 int readWaterSensor(void);
 void initAdc(void);
