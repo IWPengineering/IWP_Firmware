@@ -579,7 +579,7 @@ int getHourI2C_old(void) {
 int getHourI2C(void) {
     int hr = 0;
     
-
+    
     int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
                      //quit trying if things hang. (usually takes about 410us)
  
@@ -628,6 +628,9 @@ int getHourI2C(void) {
     if((TMR1 > MaxTime)||(hr > 0x24)){  //something went wrong (BCD 24)
         hr = (hour/10 *16)+(hour % 10); // If the read was unsuccessful, return the last known hour
                                         // Remember the returned value is supposed to be in BCD
+    }
+    else if (extRtccTalked != 1) { // if the max time didn't elapsed, the RTCC talked so set the bit
+        extRtccTalked = 1;
     }
     
     return hr; 

@@ -17,6 +17,7 @@
 #include <string.h>
 
 
+
 // ****************************************************************************
 // *** PIC24F32KA302 Configuration Bit Settings *******************************
 // ****************************************************************************
@@ -108,7 +109,7 @@ void main(void)
     print_debug_messages = 1;
     int temp_debug_flag = print_debug_messages;
     
-    
+
     
     print_debug_messages = 2;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
@@ -143,9 +144,27 @@ void main(void)
             TimeSinceLastHourCheck++;
             if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
                 hour = BcdToDec(getHourI2C());
+                minute = BcdToDec(getMinuteI2C());
+                internalHour = BcdToDec(getTimeHour());
+                internalMinute = BcdToDec(getTimeMinute());
                 TimeSinceLastHourCheck = 0;
             }
+            
+            //NEEDS REVIEW**********************************************************
+            // updates either the internal or external clock if one has lost time
+            // the external clock is preferred
+            //if (((hour - internalHour) > 1) || ((hour - internalHour) < -1)) {
+            if ((hour != internalHour) && (minute != internalMinute)){
+                // supposing the internal clock lost the time
+                if (((minute - internalMinute) >= 3) || ((minute - internalMinute) <= -3) ) {
+                    setInternalRTCC(0, minute, hour, 17, 8, 6, 17);
+                    internalHour == hour;
+                } 
+            }
 
+            // checks for clock drift and if there is, sets the internal to match the external
+            
+            
             // should we be asleep to save power?   
             // while((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
             while((batteryFloat < 3.3)&& (hour != 12)){
@@ -158,6 +177,11 @@ void main(void)
                 if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
                     turnOffSIM();             
                 }
+                if (sleepHrStatus != 1){
+                    sleepHrStatus = 1;
+                    EEProm_Write_Float(21,&sleepHrStatus);                      // Save to EEProm
+                }
+                    
                 sendDebugMessage("Going to sleep ", hour);  //Debug
                 Sleep(); 
                                
@@ -219,6 +243,37 @@ void main(void)
                 phoneNumber[0]=0;
                 concat(phoneNumber, MainphoneNumber);
             }
+            
+            // For Boards to send hourly diagnostic messages
+            if((diagnostic == 1)&&(hour != prevHour)){             //it's the next hour and we are debugging at pump
+                phoneNumber[0]=0;
+                concat(phoneNumber, DebugphoneNumber);
+                
+                if (debugDiagnosticCounter == 0) {
+                    timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
+                }
+                
+                batteryFloat = batteryLevel();
+                diagnostic_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                if(diagnostic_msg_sent == 0){
+                    debugDiagnosticCounter++;
+                }
+                if(diagnostic_msg_sent){
+                    debugDiagnosticCounter = 0;  //Debug
+                    prevHour = hour;                             // only want to send it once
+                    diagnostic_msg_sent = 0;  //set up for next hourly message
+                    extRtccReset = 0; // reset the external clock was reset bit
+                    extRtccTalked = 0; // reset the external clock talked bit
+                    sleepHrStatus = 0; // reset the slept during that hour
+                    EEProm_Write_Float(21,&sleepHrStatus);                      // Save to EEProm
+                    
+                }
+                sendDebugMessage("   \n We tried to send the hourly diagnostic message ", debugDiagnosticCounter);  //Debug               
+                //Put the phone number back to Upside 
+                phoneNumber[0]=0;
+                concat(phoneNumber, MainphoneNumber);
+            }
+            
             
             // OK, go ahead and look for handle movement again
 			delayMs(upstrokeInterval);                            // Delay for a short time
