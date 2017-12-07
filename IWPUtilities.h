@@ -38,7 +38,7 @@ extern const int alarmStartingMinute; // The minimum minute that the alarm will 
 extern const int alarmMinuteMax; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
 extern const int signedNumAdjustADC; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
 extern const int pulseWidthThreshold; // The value to check the pulse width against (2048)
-extern const int networkPulseWidthThreshold; // The value to check the pulse width against (about 20000)
+
 extern const int upstrokeInterval; // The number of milliseconds to delay before reading the upstroke
 extern int waterPrimeTimeOut; // Equivalent to 7 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
 extern long leakRateTimeOut; // Equivalent to 18 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
@@ -73,6 +73,10 @@ extern int prevTimer2;
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
+
+extern char active_volume_bin;
+extern float longestPrime; // total upstroke fo the longest priming event of the day
+=======
 extern char MainphoneNumber[]; // Upside Wireless
 extern char DebugphoneNumber[]; // Number for the Black Phone
 //extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
@@ -92,6 +96,7 @@ extern char active_volume_bin;
 extern int noon_msg_sent;  //set to 1 when noon message has been sent
 extern int hour_msg_sent;  //set to 1 when hourly message has been sent
 extern float longestPrime; // total upstroke for the longest priming event of the day
+
 extern float leakRateLong; // largest leak rate recorded for the day
 extern float batteryFloat; // batteryLevel before sends text message commences
 extern float volume02; // Total Volume extracted from 0:00-2:00
@@ -110,6 +115,7 @@ extern float EEFloatData;
 //Pin assignments
 extern int mclrPin;
 extern int depthSensorPin;
+extern int depthSensorOnOffPin;
 extern int simVioPin;
 extern int Pin4;
 extern int Pin5;
@@ -147,6 +153,9 @@ extern char never_primed;  //set to 1 if we exit the priming loop because of tim
 extern char print_debug_messages; //set to 1 when we want the debug messages to be sent to the Tx pin.
 
 
+// ****************************************************************************
+// *** Function Prototypes ****************************************************
+// ****************************************************************************
 
 void initialization(void);
 void ClearWatchDogTimer(void);  // some user groups say using just ClrWdt() is 
@@ -158,22 +167,11 @@ void longToString(long num, char *numString);
 int stringLength(char *string);
 void concat(char *dest, const char *src);
 void floatToString(float myValue, char *myString);
-int turnOffSIM();
-int turnOnSIM();
-int tryToConnectToNetwork();
-int connectedToNetwork(void);
-void sendDebugMessage(char message[50], float value);
-void sendMessage(char message[160]);
-void sendTextMessage(char message[160]);
-void sendDebugTextMessage(char message[160]); // used for the hourly report to local phone
 int readWaterSensor(void);
+float readDepthSensor(void); 
 void initAdc(void);
 int readAdc(int channel);
 float getHandleAngle();
-void initializeQueue(float value);
-void pushToQueue(float value);
-float queueAverage();
-float queueDifference();
 float batteryLevel(void);
 
 float degToRad(float degrees);
@@ -188,14 +186,18 @@ void RTCCSet(void);
 int getMinuteOffset();
 char BcdToDec(char val);
 char DecToBcd(char val);
+
+
+=======
 int noonMessage(void);
 int diagnosticMessage(void);
 void hourMessage(void);
+
 void SoftwareReset(void);
 
 void delaySCL(void);
 void midDayDepthRead(void);
-void sendTimeMessage(void);
+
 
 void EEProm_Write_Int(int addr, int newData);
 int EEProm_Read_Int(int addr);

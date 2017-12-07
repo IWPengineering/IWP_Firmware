@@ -1,11 +1,13 @@
 #include "IWPUtilities.h"
 #include "Pin_Manager.h"
+#include "FONAUtilities.h"
 #include "I2C.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <xc.h>
 #include <string.h>
+#include <p24FV32KA302.h>
 
 /*********************************
 Table of Contents
@@ -23,13 +25,8 @@ void longToString(long num, char *numString);
 int stringLength(char *string);
 void concat(char *dest, const char *src);
 void floatToString(float myValue, char *myString);
-5) SIM Functions
-void turnOffSIM();
-void turnOnSIM();
-void tryToConnectToNetwork();
-int connectedToNetwork(void);
-void sendMessage (char message[160]);
-void sendTextMessage(char message[160]);
+5) SIM Functions - Moved to FONAUtilities
+
 6) Sensor Functions
 int readWaterSensor(void);
 void initAdc(void);
@@ -39,16 +36,8 @@ void initializeQueue(float value);
 void pushToQueue(float value);
 float queueAverage();
 float queueDifference();
-7) I2C Functions
-unsigned int IdleI2C(void);
-unsigned int StartI2C(void);
-unsigned int StopI2C(void);
-void RestartI2C(void);
-void NackI2C(void);
-void AckI2C(void);
-void configI2c(void);
-void WriteI2C(unsigned char byte);
-unsigned int ReadI2C (void);
+7) I2C Functions - Moved to I2C file
+
 8) RTCC Functions
 void turnOffClockOscilator (void);
 int getSecondI2C (void);
@@ -94,7 +83,7 @@ const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (
 const int signedNumAdjustADC = 511; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
 const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
 ///const int pulseWidthThreshold = 130; // This is just for Zantele we see about 160hz, not when water is there.  Not sure what we would see with no water
-const int networkPulseWidthThreshold = 0x4E20; // The value to check the pulse width against (about 20000)
+
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
 int waterPrimeTimeOut = 7000; // Equivalent to 7 seconds (in "upstrokeInterval" millisecond intervals); 
 long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in "upstrokeInterval" millisecond intervals); 
@@ -127,10 +116,6 @@ const float PI = 3.141592;
 
 const float angleRadius = .008; // this is 80 millimeters so should it equal 80 or .008?
 int depthSensorInUse;
-int queueCount = 0;
-//const int queueLength = 7; //don't forget to change angleQueue to this number also
-#define queueLength        7
-float angleQueue[queueLength]; // Now we don't have to remember to change it anymore. Just change it once.
 
 int prevTimer2 = 0; // Should intially begin at zero
 
@@ -155,25 +140,6 @@ float angle10 = 0;
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
-//char DebugphoneNumber[] = "0548345382"; // Number for the Black Phone - MOVED to kpachelo
-//char DebugphoneNumber[] = "0548982327"; // Number for Immanuel programmed in as debug for kpachelo
-//char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
-char DebugphoneNumber[] = "+17177784498"; // Upside 
-///char DebugphoneNumber[] = "+18458007595"; //Number for Paul Zwert cell phone
-char MainphoneNumber[]="+17177784498"; // Upside Wireless
-char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
-// Debug, need to try this before using it  char* phoneNumber;
-
-//char phoneNumber[] = "+2330548345382"; // Number for the Black Phone
-//char phoneNumber[] = "+17177784498"; // Number for Upside Wireless
-//char phoneNumber[] = "+233545822291"; // Number for the White Phone Ghana trip 3
-//char phoneNumber[] = "+233545823475"; // Number for the Black Phone Ghana trip 3
-//char phoneNumber[] = "+19783840645"; // Number for Jake Sargent
-// char phoneNumber[] = "+19107094602"; //Number for John Harro
-// char phoneNumber[] = "+17176837803"; //Number for Randy Fish
-//char phoneNumber2[] = "+17173039306"; // Tony's number
-//char phoneNumber[] = "+13018737202"; // Number for Jacqui Young
-
 
     //****************Hourly Diagnostic Message Variables************************
 float sleepHrStatus = 0; // 1 if we slept during the current hour, else 0
@@ -189,8 +155,6 @@ float longestPrime = 0; // total upstroke fo the longest priming event of the da
 float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
 char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots is being updated
-int noon_msg_sent = 0;  //set to 1 when noon message has been sent
-int hour_msg_sent = 0;  //set to 1 when the hourly message has been sent
 char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
 char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
 char diagnostic = 1; //set to 1 when we want the diagnostic text messages to be sent hourly
@@ -242,398 +206,6 @@ int waterPresenceSensorOnOffPin = 26;
 int GNDPin = 27;
 int vcc2Pin = 28;
 
-////////////////////////////////////////////////////////////////////
-////                                                            ////
-////                    PIN ASSIGNMENT                          ////
-////                                                            ////
-////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////
-////                                                             ////
-////                PIN MANAGEMENT FUNCTIONS                     ////
-////                                                             ////
-/////////////////////////////////////////////////////////////////////
-//void pinDirectionIO(int pin, int io){ // 1 is an input, 0 is an output
-//	// Pin 1 can't change direction
-//	if (pin == 2)
-//	{
-//		TRISAbits.TRISA0 = io;
-//	}
-//	else if (pin == 3)
-//	{
-//		TRISAbits.TRISA1 = io;
-//	}
-//	else if (pin == 4)
-//	{
-//		TRISBbits.TRISB0 = io;
-//	}
-//	else if (pin == 5)
-//	{
-//		TRISBbits.TRISB1 = io;
-//	}
-//	else if (pin == 6)
-//	{
-//		TRISBbits.TRISB2 = io;
-//	}
-//	else if (pin == 7)
-//	{
-//		TRISBbits.TRISB3 = io;
-//	}
-//	// Pin8 - Always VSS for PIC24FV32KA302 - Do nothing
-//	else if (pin == 9)
-//	{
-//		TRISAbits.TRISA2 = io;
-//	}
-//	else if (pin == 10)
-//	{
-//		TRISAbits.TRISA3 = io;
-//	}
-//	else if (pin == 11)
-//	{
-//		TRISBbits.TRISB4 = io;
-//	}
-//	else if (pin == 12)
-//	{
-//		TRISAbits.TRISA4 = io;
-//	}
-//	//Pin 13 - Always VDD for PIC24FV32KA302 - Do nothing
-//	else if (pin == 14)
-//	{
-//		TRISBbits.TRISB5 = io;
-//	}
-//	else if (pin == 15)
-//	{
-//		TRISBbits.TRISB6 = io;
-//	}
-//	else if (pin == 16)
-//	{
-//		TRISBbits.TRISB7 = io;
-//	} //Usually reserved for TX
-//	else if (pin == 17)
-//	{
-//		TRISBbits.TRISB8 = io;
-//	}//Usually reserved for I2C
-//	else if (pin == 18)
-//	{
-//		TRISBbits.TRISB9 = io;
-//	}//Usually Reserved for I2C
-//	else if (pin == 19)
-//	{
-//		TRISAbits.TRISA7 = io;
-//	}
-//	// Pin 20 - Always vCap for PIC24FV32KA302 - Do nothing
-//	else if (pin == 21)
-//	{
-//		TRISBbits.TRISB10 = io;
-//	}
-//	else if (pin == 22)
-//	{
-//		TRISBbits.TRISB11 = io;
-//	}
-//	else if (pin == 23)
-//	{
-//		TRISBbits.TRISB12 = io;
-//	}
-//	else if (pin == 24)
-//	{
-//		TRISBbits.TRISB13 = io;
-//	}
-//	else if (pin == 25)
-//	{
-//		TRISBbits.TRISB14 = io;
-//	}
-//	else if (pin == 26)
-//	{
-//		TRISBbits.TRISB15 = io;
-//	}
-//	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
-//	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
-//}
-//
-//
-//void digitalPinSet(int pin, int set) // 1 for high, 0 for low
-//{
-//	if (pin == 1)
-//	{
-//		PORTAbits.RA5 = set;
-//	}
-//	else if (pin == 2)
-//	{
-//		PORTAbits.RA0 = set;
-//	}
-//	else if (pin == 3)
-//	{
-//		PORTAbits.RA1 = set;
-//	}
-//	else if (pin == 4)
-//	{
-//		PORTBbits.RB0 = set;
-//	}
-//	else if (pin == 5)
-//	{
-//		PORTBbits.RB1 = set;
-//	}
-//	else if (pin == 6)
-//	{
-//		PORTBbits.RB2 = set;
-//	}
-//	else if (pin == 7)
-//	{
-//		PORTBbits.RB3 = set;
-//	}
-//	// Pin8 - Always VSS for PIC24FV32KA302 - Do nothing
-//	else if (pin == 9)
-//	{
-//		PORTAbits.RA2 = set;
-//	}
-//	else if (pin == 10)
-//	{
-//		PORTAbits.RA3 = set;
-//	}
-//	else if (pin == 11)
-//	{
-//		PORTBbits.RB4 = set;
-//	}
-//	else if (pin == 12)
-//	{
-//		PORTAbits.RA4 = set;
-//	}
-//	//Pin 13 - Always VDD for PIC24FV32KA302 - Do nothing
-//	else if (pin == 14)
-//	{
-//		PORTBbits.RB5 = set;
-//	}
-//	else if (pin == 15)
-//	{
-//		PORTBbits.RB6 = set;
-//	}
-//	else if (pin == 16)
-//	{
-//		PORTBbits.RB7 = set;
-//	} //Usually reserved for TX
-//	else if (pin == 17)
-//	{
-//		PORTBbits.RB8 = set;
-//	}//Usually reserved for I2C
-//	else if (pin == 18)
-//	{
-//		PORTBbits.RB9 = set;
-//	}//Usually Reserved for I2C
-//	else if (pin == 19)
-//	{
-//		PORTAbits.RA7 = set;
-//	}
-//	// Pin 20 - Always vCap for PIC24FV32KA302 - Do nothing
-//	else if (pin == 21)
-//	{
-//		PORTBbits.RB10 = set;
-//	}
-//	else if (pin == 22)
-//	{
-//		PORTBbits.RB11 = set;
-//	}
-//	else if (pin == 23)
-//	{
-//		PORTBbits.RB12 = set;
-//	}
-//	else if (pin == 24)
-//	{
-//		PORTBbits.RB13 = set;
-//	}
-//	else if (pin == 25)
-//	{
-//		PORTBbits.RB14 = set;
-//	}
-//	else if (pin == 26)
-//	{
-//		PORTBbits.RB15 = set;
-//	}
-//	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
-//	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
-//}
-//
-////TODO: Should be based off of the RB values, not the AN
-//void specifyAnalogPin(int pin, int analogOrDigital) // analogOrDigital = 1 if analog, 0 is digital
-//{
-//	if (pin == 4)
-//	{
-//		ANSBbits.ANSB0 = analogOrDigital;
-//	}
-//	else if (pin == 5)
-//	{
-//		ANSBbits.ANSB1 = analogOrDigital;
-//	}
-//	else if (pin == 6)
-//	{
-//		ANSBbits.ANSB2 = analogOrDigital;
-//	}
-//	else if (pin == 7)
-//	{
-//		ANSBbits.ANSB3 = analogOrDigital;
-//		//TODO: Jacqui needs to find out why pin 7 isn't in the library
-//	}
-//	else if (pin == 11)
-//	{
-//		ANSBbits.ANSB4 = analogOrDigital;
-//	}
-//	else if (pin == 23)
-//	{
-//		ANSBbits.ANSB12 = analogOrDigital;
-//	}
-//	else if (pin == 24)
-//	{
-//		ANSBbits.ANSB13 = analogOrDigital;
-//	}
-//	else if (pin == 25)
-//	{
-//		ANSBbits.ANSB14 = analogOrDigital;
-//	}
-//	else if (pin == 26)
-//	{
-//		ANSBbits.ANSB15 = analogOrDigital;
-//	}
-//}
-//
-//void pinSampleSelectRegister(int pin){ //  A/D Sample Select Regiser (this is only used in the readADC() function)
-//    if (pin == 4)
-//	{
-//		AD1CHSbits.CH0SA = 2; //AN2
-//	}
-//	else if (pin == 5)
-//	{
-//		AD1CHSbits.CH0SA = 3; //AN3
-//	}
-//	else if (pin == 6)
-//	{
-//		AD1CHSbits.CH0SA = 4;
-//	}
-//	else if (pin == 7)
-//	{
-//		AD1CHSbits.CH0SA = 5;
-//	}
-//	else if (pin == 11)
-//	{
-//		AD1CHSbits.CH0SA = 15;
-//	}
-//	else if (pin == 23)
-//	{
-//		AD1CHSbits.CH0SA = 12;
-//	}
-//	else if (pin == 24)
-//	{
-//		AD1CHSbits.CH0SA = 11;
-//	}
-//	else if (pin == 25)
-//	{
-//		AD1CHSbits.CH0SA = 10;
-//	}
-//	else if (pin == 26)
-//	{
-//		AD1CHSbits.CH0SA = 9;
-//	}
-//}
-//
-//int digitalPinStatus(int pin)
-//{
-//	int pinValue;
-//	if (pin == 1)
-//	{
-//		pinValue = PORTAbits.RA5;
-//	}
-//	else if (pin == 2)
-//	{
-//		pinValue = PORTAbits.RA0;
-//	}
-//	else if (pin == 3)
-//	{
-//		pinValue = PORTAbits.RA1;
-//	}
-//	else if (pin == 4)
-//	{
-//		pinValue = PORTBbits.RB0;
-//	}
-//	else if (pin == 5)
-//	{
-//		pinValue = PORTBbits.RB1;
-//	}
-//	else if (pin == 6)
-//	{
-//		pinValue = PORTBbits.RB2;
-//	}
-//	else if (pin == 7)
-//	{
-//		pinValue = PORTBbits.RB3;
-//	}
-//	// Pin8 - Always VSS for PIC24FV32KA302 - Do nothing
-//	else if (pin == 9)
-//	{
-//		pinValue = PORTAbits.RA2;
-//	}
-//	else if (pin == 10)
-//	{
-//		pinValue = PORTAbits.RA3;
-//	}
-//	else if (pin == 11)
-//	{
-//		pinValue = PORTBbits.RB4;
-//	}
-//	else if (pin == 12)
-//	{
-//		pinValue = PORTAbits.RA4;
-//	}
-//	//Pin 13 - Always VDD for PIC24FV32KA302 - Do nothing
-//	else if (pin == 14)
-//	{
-//		pinValue = PORTBbits.RB5;
-//	}
-//	else if (pin == 15)
-//	{
-//		pinValue = PORTBbits.RB6;
-//	}
-//	else if (pin == 16)
-//	{
-//		pinValue = PORTBbits.RB7;
-//	} //Usually reserved for TX
-//	else if (pin == 17)
-//	{
-//		pinValue = PORTBbits.RB8;
-//	}//Usually reserved for I2C
-//	else if (pin == 18)
-//	{
-//		pinValue = PORTBbits.RB9;
-//	}//Usually Reserved for I2C
-//	else if (pin == 19)
-//	{
-//		pinValue = PORTAbits.RA7;
-//	}
-//	// Pin 20 - Always vCap for PIC24FV32KA302 - Do nothing
-//	else if (pin == 21)
-//	{
-//		pinValue = PORTBbits.RB10;
-//	}
-//	else if (pin == 22)
-//	{
-//		pinValue = PORTBbits.RB11;
-//	}
-//	else if (pin == 23)
-//	{
-//		pinValue = PORTBbits.RB12;
-//	}
-//	else if (pin == 24)
-//	{
-//		pinValue = PORTBbits.RB13;
-//	}
-//	else if (pin == 25)
-//	{
-//		pinValue = PORTBbits.RB14;
-//	}
-//	else if (pin == 26)
-//	{
-//		pinValue = PORTBbits.RB15;
-//	}
-//	return pinValue;
-//	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
-//	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
-//}
 
 /////////////////////////////////////////////////////////////////////
 ////                                                             ////
@@ -650,7 +222,7 @@ int vcc2Pin = 28;
  * TestDate: 06-03-14
  ********************************************************************/
 void initialization(void) {
-    ////------------Sets up all ports as digial inputs-----------------------
+    ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
     ANSA = 0; // Make PORTA digital I/O
     TRISA = 0xFFFF; // Make PORTA all inputs
@@ -678,10 +250,21 @@ void initialization(void) {
     U1BRG = 25;           // set baud to 9600, assumes FCY=4Mhz (FNOSC = FRC)
     U1MODEbits.PDSEL = 0; // 8 bit data, no parity
     U1MODEbits.STSEL = 0; // 1 stop bit
-    U1MODEbits.UARTEN = 1; // Turn on the UART
+    
+                           // The Tx and Rx PINS are enabled as the default 
     U1STA = 0;            // clear Status and Control Register 
     U1STAbits.UTXEN = 1;  // enable transmit
-
+                          // no need to enable receive.  The default is that a 
+                          // receive interrupt will be generated when any character
+                          // is received and transferred to the receive buffer
+    U1STAbits.URXISEL =0; // generate an interrupt each time a character is received
+    IFS0bits.U1RXIF = 0;  // clear the Rx interrupt flag
+    _U1RXIF = 0;  
+   // IEC0bits.U1RXIE = 1;  // enable Rx interrupts
+   // _U1RXIE = 1;
+    U1MODEbits.UARTEN = 1; // Turn on the UART
+    ReceiveTextMsg[0] = 0;  // Start with an empty string
+    ReceiveTextMsgFlag = 0;
            
 
     //H2O sensor config
@@ -747,51 +330,6 @@ void initialization(void) {
     }
     // Debug - not sure about this so wait until I can try it
     //char* phoneNumber = DebugphoneNumber;
-}
-
-void sendTimeMessage(void) {
-    char timeHourMessage[20];
-    timeHourMessage[0] = 0;
-    char timeMinuteMessage[20];
-    timeMinuteMessage[0] = 0;
-    char timeSecondMessage[20];
-    timeSecondMessage[0]=0;
-    char timeMessage[160];
-    timeMessage[0] = 0;
-    char timeWeekMessage[20];
-    timeWeekMessage[0] = 0;
-    char timeDayMessage[20];
-    timeDayMessage[0] = 0;
-    char timeMonthMessage[20];
-    timeMonthMessage[0]=0;
-    char timeYearMessage[20];
-    timeYearMessage[0] = 0;
-
-
-    longToString(BcdToDec(getHourI2C()), timeHourMessage);
-    longToString(BcdToDec(getMinuteI2C()), timeMinuteMessage);
-    longToString(BcdToDec(getSecondI2C()), timeSecondMessage);
-    longToString(BcdToDec(getYearI2C()), timeYearMessage);
-    longToString(BcdToDec(getWkdayI2C()), timeWeekMessage);
-    longToString(BcdToDec(getDateI2C()), timeDayMessage);
-    longToString(BcdToDec(getMonthI2C()), timeMonthMessage);
-
-    concat(timeMessage, timeHourMessage);
-    concat(timeMessage, ":");
-    concat(timeMessage, timeMinuteMessage);
-    concat(timeMessage, ":");
-    concat(timeMessage, timeSecondMessage);
-    concat(timeMessage, "   ");
-    concat(timeMessage, "WeekDay: ");
-    concat(timeMessage, timeWeekMessage);
-    concat(timeMessage, "  ");
-    concat(timeMessage, timeMonthMessage);
-    concat(timeMessage, "/");
-    concat(timeMessage, timeDayMessage);
-    concat(timeMessage, "/");
-    concat(timeMessage, timeYearMessage);
-    concat(timeMessage, " \r\n");
-    sendMessage(timeMessage);
 }
 /////////////////////////////////////////////////////////////////////
 ////                                                             ////
@@ -971,283 +509,6 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
     myString[sLength - 1] = '\0'; // Add terminating character
 }
 
-/////////////////////////////////////////////////////////////////////
-////                                                             ////
-////                    SIM FUNCTIONS                            ////
-////                                                             ////
-/////////////////////////////////////////////////////////////////////
-
-/*********************************************************************
- * Function: turnOffSIM
- * Input: None
- * Output: NSIM_OFF  this is a 1 if the SIM turned OFF and 0 if not
- * Overview: Turns of the SIM900
- * Note: Pic Dependent
- * TestDate: Not tested as of 03-05-2015
- ********************************************************************/
-int turnOffSIM() {
-    int SIM_OFF = 0;  // Assume the SIM is not off
-    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-    if (digitalPinStatus(statusPin) == 1) { //Checks see if the Fona is on pin
-        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
-        delayMs(2000);
-    }
-    if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
-        SIM_OFF = 1;
-    }
-    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned on later (pin 15)
-
-    return SIM_OFF;//	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
-    //		digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 100ms to turn off Fona
-    //	}
-    //if (digitalPinStatus(statusPin) == 1) {
-    //    digitalPinSet(pwrKeyPin, 0);
-    //}
-    //while (digitalPinStatus(statusPin) == 1) {
-    //} // Wait for Fona to power off
-    //digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-
-
-    // Turn off SIM800
-    //	while (digitalPinStatus(statusPin) == 1) // While STATUS light is on (SIM900 is on)
-    //	{
-    //		digitalPinSet(pwrKeyPin, 0); // Hold in PWRKEY button
-    //	}
-    //	digitalPinSet(pwrKeyPin, 0); // Let go of PWRKEY
-}
-
-/*********************************************************************
- * Function: turnOnSIM
- * Input: None
- * Output: SIM_ON  this is a 1 if the SIM turned on and 0 if not
- * Overview: Turns on SIM900
- * Note: Pic Dependent
- * TestDate: Not tested as of 03-05-2015
- * delayMs(int ms)
- ********************************************************************/
-int turnOnSIM() {
-    int SIM_ON = 0;  // Assume the SIM is not on
-    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-    if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
-        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
-        delayMs(2000);
-    }
-    if (digitalPinStatus(statusPin) != 0) { //Checks see if the Fona is off pin
-        SIM_ON = 1;
-    }
-    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-
-    return SIM_ON;
-    //	while (digitalPinStatus(statusPin) == 0) // While STATUS light is not on (SIM900 is off)
-    //	{
-    //		digitalPinSet(pwrKeyPin, 1); // Hold in PWRKEY button
-    //	}
-    //
-    //	digitalPinSet(pwrKeyPin, 0); // Let go of PWRKEY
-}
-
-/*********************************************************************
- * Function: tryToConnectToNetwork
- * Input: None
- * Output: None
- * Overview: This function tests for network status and attempts to connect to the
- * network. If no network is after 7 attempts (between 20sec and 45sec), 
- * a zero is returned indicating that connection to the network failed
- * TestDate: Not tested as of 03-14-2017
- ********************************************************************/
-int tryToConnectToNetwork() {
-    int success = 0; // assume we were unable to connect to the network
-    int networkTimeout = 0; // Stores the number of times we did not have connection
-    int networkConnectionCount = 0; // Stores the number of times we have detected a connection
-    int keepTrying = 1; // A flag used to keep trying to connect to the network
-    while (keepTrying) // Wait until connected to the network, or we tried for 20 seconds
-    {
-        delayMs(1000); // Delay for 1 second
-        // Check for network take the appropriate action
-        if (connectedToNetwork()) {
-            networkConnectionCount++;
-            // 4 consecutive connections means we can exit the loop
-            if (networkConnectionCount == 4) {
-                keepTrying = 0;
-                success = 1;  // we have a network connection
-            }
-        } else {
-            // If we have no network, reset the counter
-            networkConnectionCount = 0;
-            // Increase the network timeout
-            networkTimeout++;
-            // Each attempt to connect takes 3-6sec if there is no network.  We will try 7 times
-            if (networkTimeout > 7) {
-                    keepTrying = 0;
-            }
-        }
-    }
-    return success;
-}
-
-/*********************************************************************
- * Function: connectedToNetwork
- * Input: None
- * Output: 1 if network connected 0 if not
- * Overview: Measures the time from NETLight High to next High
- *           Spec says this should be 864ms if there is a network
- *           and 3064 if there is not.  We call anything less than 1.28sec 
- *           a valid connection
- *           If there is no network, we are in this routine between 3-6 seconds
- * Note: Timer speed dependent
- * TestDate: Not tested as of 03-05-2015
- ********************************************************************/
-int connectedToNetwork(void) //True when there is a network connection
-{
-  
-    // This is function should only be called once we know the FONA is on.  
-    // If the FONA is on, the NET light will blink so we should not get stuck here
-    // waiting for 1's and 0's.  Just to be safe, leave if you wait too long for
-    // the initial high or low
-    
-    // The timing in this routine assumes that Timer 1 is clocked at 15.625khz
-
-    int success = 0;
-    
-    // Make sure you start at the beginning of the positive pulse
-    TMR1 = 0;
-    if (digitalPinStatus(netLightPin) == 1) //(PORTBbits.RB14 == 1)
-    { // Wait until the light turns off
-        while (digitalPinStatus(netLightPin)) {
-            if(TMR1 > 2000){
-                return success;   //waited longer than 128ms (high should be 64ms)
-            }
-        }; //(PORTBbits.RB14) {}; 
-    }
-    // Wait for rising edge
-    TMR1 = 0;
-    while ((digitalPinStatus(netLightPin) == 0)) {
-         if(TMR1 > 55000){
-                return success;   //waited longer than 3.5seconds (low should be 3sec when no network)
-            }
-    }; //PORTBbits.RB14 == 0) {}; 
-    // no need to exit if it takes too long to get a high or low, if we are here, the light is flashing
-    TMR1 = 0;  // Get time at start of positive pulse
-    // Wait for the pulse to go low
-    while (digitalPinStatus(netLightPin)) {
-    }; 
-    // Wait for the pulse to go high again
-    while (digitalPinStatus(netLightPin) == 0) {
-    }; 
-    if(TMR1 > 20000){ // still looking for network pulsing should be 864ms, we allow up to 1.28sec
-        success = 1;  
-    }
-    
-    return success;  // True, when there is a network connection. (pulses slower than 1.28sec)
-                     // spec says connection flashes every 864ms and no connection is every 3064ms.
-}
-void sendDebugMessage(char message[50], float value){
-    if(print_debug_messages >= 1){
-        char debugMsg[150];
-        char debugValueString[20];
-        debugMsg[0] = 0;
-        concat(debugMsg, message);
-        floatToString(value, debugValueString); 
-        concat(debugMsg,debugValueString);
-        concat(debugMsg, "\n");
-        sendMessage(debugMsg);
-    }
-}
-/*********************************************************************
- * Function: sendMessage()
- * Input: String
- * Output: None
- * Overview: Transmits the given characters along serial lines
- * Note: Library, Pic Dependent, sendTextMessage() uses this
- * TestDate: 06-02-2014
- * Note:  4/23/2017.  change this so to use a WHILE loop waiting for UTXBF but 
- *                    put a secondary check using one of the timers so we don't 
- *                    hang if there is a problem with the UART comms
- * 
- *                    Is there any way that the SIM would not get our message?
- *                    how do we know that everything was received since it does 
- *                    not ACK/NACK
- ********************************************************************/
-void sendMessage(char message[160]) {
-    int stringIndex = 0;
-    int delayIndex;
-   
-    U1STAbits.UTXEN = 1; //enable transmit
-    while (stringIndex < stringLength(message)) { // Tom - while not equal null
-        if (U1STAbits.UTXBF == 0) {
-             U1TXREG = message[stringIndex];
-            stringIndex++;
-            for (delayIndex = 0; delayIndex < 1000; delayIndex++) {
-            }
-        } else {
-            for (delayIndex = 0; delayIndex < 30000; delayIndex++) { // proabably way longer than we need
-            }
-        }
-    }
-}
-
-char intToAscii(unsigned int integer) {
-    return (char) (integer + 48);
-}
-
-/*********************************************************************
- * Function: sendDebugTextMessage()
- * Input: String
- * Output: None
- * Overview: sends a Text Message to which ever phone number is in the variable 'DebugphoneNumber'
- *           we expect to be in this routine for 15.5sec, however, each character
- *           of each message takes some time that has not yet been calculated
- * Note: Library
- * TestDate: 01-12-2017
- ********************************************************************/
-void sendDebugTextMessage(char message[160]) 
-{
- //   turnOnSIM();
-    delayMs(10000);
-    sendMessage("AT+CMGF=1\r\n"); //sets to text mode
-    delayMs(250);
-    sendMessage("AT+CMGS=\""); //beginning of allowing us to send SMS message
-    sendMessage(DebugphoneNumber);
-    sendMessage("\"\r\n"); //middle of allowing us to send SMS message
-    delayMs(250);
-    sendMessage(message);
-    delayMs(250);
-    sendMessage("\x1A"); // method 2: sending hexidecimal representation
-    // of 26 to sendMessage function (line 62)
-    // & the end of allowing us to send SMS message
-    delayMs(5000); // Give it some time to send the message
- //   turnOffSIM();
-}
-
-/*********************************************************************
- * Function: sendTextMessage()
- * Input: String
- * Output: None
- * Overview: sends a Text Message to which ever phone number is in the variable 'phoneNumber'
- *           we expect to be in this routine for 10.5sec, however, each character
- *           of each message takes some time that has not yet been calculated
- * Note: Library
- * TestDate: 06-02-2014
- ********************************************************************/
-void sendTextMessage(char message[160]) // Tested 06-02-2014
-{
- //   turnOnSIM();
-    delayMs(10000);
-    sendMessage("AT+CMGF=1\r\n"); //sets to text mode
-    delayMs(250);
-    sendMessage("AT+CMGS=\""); //beginning of allowing us to send SMS message
-    sendMessage(phoneNumber);
-    sendMessage("\"\r\n"); //middle of allowing us to send SMS message
-    delayMs(250);
-    sendMessage(message);
-    delayMs(250);
-    sendMessage("\x1A"); // method 2: sending hexidecimal representation
-    // of 26 to sendMessage function (line 62)
-    // & the end of allowing us to send SMS message
-    //
-    // we don't turn off the SIM so no need to delay to give it some time to send the message
- //   turnOffSIM();
-}
 
 /////////////////////////////////////////////////////////////////////
 ////                                                             ////
@@ -1433,69 +694,6 @@ float getHandleAngle() {
 
     return averageAngle;
     //return angle;
-}
-
-/*********************************************************************
- * Function: initializeQueue()
- * Input: float
- * Output: None
- * Overview: Set all values in the queue to the intial value
- * Note: Library
- * TestDate: 06-20-2014
- ********************************************************************/
-void initializeQueue(float value) {
-    int i = 0;
-    for (i = 0; i < queueLength; i++) {
-        angleQueue[i] = value;
-    }
-}
-
-/*********************************************************************
- * Function: pushToQueue()
- * Input: float
- * Output: None
- * Overview: Shift values down one
- * Note: Library
- * TestDate: 06-20-2014
- ********************************************************************/
-void pushToQueue(float value) {
-    int i = 0;
-    for (i = 0; i < queueLength - 1; i++) {
-        angleQueue[i] = angleQueue[i + i];
-    }
-    // Insert the value at the end of the queue
-    angleQueue[queueLength - 1] = value;
-}
-
-/*********************************************************************
- * Function: queueAverage()
- * Input: None
- * Output: float
- * Overview: Takes the average of the queue
- * Note: Library
- * TestDate: NOT TESTED
- ********************************************************************/
-float queueAverage() {
-    float sum = 0;
-    int i = 0;
-    // Sum up all the values in the queue
-    for (i = 0; i < queueLength; i++) {
-        sum += angleQueue[i];
-    }
-    // Returns the average after converting queueLength to a float
-    return sum / (queueLength * 1.0);
-}
-
-/*********************************************************************
- * Function: queueDifference()
- * Input: None
- * Output: float
- * Overview: Returns the difference between the last and first numbers in the queue
- * Note: Library
- * TestDate: NOT TESTED
- ********************************************************************/
-float queueDifference() {
-    return angleQueue[queueLength - 1] - angleQueue[0];
 }
 
 /*********************************************************************
@@ -1776,12 +974,14 @@ long timeStamp(void) {
 }
 
 /*********************************************************************
- * Function: pressReset()
+ * Function: ResetMsgVariables() 
  * Input: None
  * Output: None
- * Overview: Resets the values
- * Note: Previously used to reset the RTCC, but currently does not.
- * TestDate: 06-17-2014
+ * Overview: Moves EEPROM saved data to locations for the next day and clears 
+ *           positions that held data sent in the noon message
+ * 
+ * Note: 
+ * TestDate: 
  ********************************************************************/
 void ResetMsgVariables() //Not Tested
 {
@@ -1963,6 +1163,8 @@ void midDayDepthRead(void) {
     }
 }
 
+
+=======
 void hourMessage(void) {
     //Message assembly and sending; Use *floatToString() to send:
     // Create storage for the various values to report
@@ -2436,6 +1638,7 @@ int diagnosticMessage(void) {
     }
 }   
     
+
 /*********************************************************************
  * Function: EEProm_Write_Int(int addr, int newData)
  * Input: addr - the location to write to relative to the start of EEPROM
@@ -2729,5 +1932,24 @@ void ClearEEProm(void){
     EEProm_Write_Float(18, &EEFloatData);
     EEProm_Write_Float(19, &EEFloatData); 
     EEProm_Write_Float(20, &EEFloatData); 
+}
+
+void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART data interrupt
+  // Here is where we put the code to read a character from the Receive data buffer
+  // and concatenate it onto a receive message string.
+    
+    while(U1STAbits.URXDA){
+        ReceiveTextMsg[NumCharInTextMsg]=U1RXREG;
+        if(ReceiveTextMsg[NumCharInTextMsg] == 0x0A){//is this a line feed.
+            ReceiveTextMsgFlag++;
+        }
+        NumCharInTextMsg++;
+        ReceiveTextMsg[NumCharInTextMsg]=0;
+    }
+    // Always reset the interrupt flag
+    IFS0bits.U1RXIF = 0; 
+}
+=======
     EEProm_Write_Float(21, &EEFloatData);
 }
+
