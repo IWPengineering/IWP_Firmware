@@ -175,6 +175,16 @@ char phoneNumber[] = "+17177784498"; // Number Used to send text message report 
 //char phoneNumber[] = "+13018737202"; // Number for Jacqui Young
 
 
+    //****************Hourly Diagnostic Message Variables************************
+float sleepHrStatus = 0; // 1 if we slept during the current hour, else 0
+int timeSinceLastRestart = 0; // Total time in hours since last restart
+int diagnostic_msg_sent = 0; // set to 1 when the hourly diagnostic message is sent    
+int internalHour = 0; // Hour of the day according to internal RTCC
+int internalMinute = 0; // Minute of the hour according to the internal RTCC
+int extRtccReset = 0; // set to 1 if the external RTCC was reset during the hour
+int extRtccTalked = 0; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
+float debugDiagnosticCounter = 0;  // DEBUG used as a variable for various things while debugging diagnostic message
+
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
@@ -183,6 +193,7 @@ int noon_msg_sent = 0;  //set to 1 when noon message has been sent
 int hour_msg_sent = 0;  //set to 1 when the hourly message has been sent
 char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
 char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
+char diagnostic = 1; //set to 1 when we want the diagnostic text messages to be sent hourly
 float debugCounter = 0;  // DEBUG used as a variable for various things while debugging 
 float volume02 = 0; // Total Volume extracted from 0:00-2:00
 float volume24 = 0;
@@ -197,7 +208,7 @@ float volume1820 = 0;
 float volume2022 = 0;
 float volume2224 = 0;
 float EEFloatData = 0;  // to be used when trying to write a float to EEProm EEFloatData = 123.456 then pass as &EEFloatData
-int hour = 0; // Hour of day
+int hour = 0; // Hour of day according to the external RTCC
 int TimeSinceLastHourCheck = 0;  // we check this when we have gone around the no pumping loop enough times that 1 minute has gone by
 int TimeSinceLastBatteryCheck = 0; // we only check the battery every 20min when sleeping
 int minute = 0;  //minute of the day
@@ -732,7 +743,7 @@ void initialization(void) {
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        setTime(0,45,12,17,8,6,17); //  Bittner system 7/13/2017 
+        setTime(0,45,4,17,8,6,17); //  Bittner system 7/13/2017 
     }
     // Debug - not sure about this so wait until I can try it
     //char* phoneNumber = DebugphoneNumber;
@@ -1659,6 +1670,30 @@ int getUpperBCDAsDecimal(int bcd) //Tested 06-04-2014
     return (tens * 10) +ones;
 }
 
+/*********************************************************************
+ * Function: setInternalRTCC()
+ * Input: SS MM HH WW DD MM YY
+ * Output: None
+ * Overview: Initializes values for the internal RTCC
+ * Note: 
+ ********************************************************************/
+void setInternalRTCC(int sec, int min, int hr, int wkday, int date, int month, int year){
+ 
+    __builtin_write_RTCWEN(); //does unlock sequence to enable write to RTCC, sets RTCWEN
+    
+    RCFGCALbits.RTCWREN = 1; // Allow user to change RTCC values
+    RCFGCALbits.RTCPTR = 0b11; //Point to the top (year) register
+    
+    RTCVAL = DecToBcd(year); // RTCPTR decrements automatically after this
+    RTCVAL = DecToBcd(date) + (DecToBcd(month) << 8);
+    RTCVAL = DecToBcd(hr) + (DecToBcd(wkday) << 8);
+    RTCVAL = DecToBcd(sec) + (DecToBcd(min) << 8); // = binaryMinuteSecond;
+ 
+    _RTCEN = 1; // = 1; //RTCC module is enabled
+    _RTCWREN = 0; // = 0; // disable writing
+ 
+}
+
 //Returns the hour of day from the internal clock
 /*********************************************************************
  * Function: getTimeHour
@@ -1670,7 +1705,7 @@ int getUpperBCDAsDecimal(int bcd) //Tested 06-04-2014
  ********************************************************************/
 //Tested 06-04-2014
 
-int getTimeHour(void) //to determine what volume variable to use;
+int getTimeHour(void)
 {
     //don't want to write, just want to read
     _RTCWREN = 0;
@@ -1681,6 +1716,29 @@ int getTimeHour(void) //to determine what volume variable to use;
     int hourDecimal = getLowerBCDAsDecimal(myHour);
     return hourDecimal;
 }
+
+/*********************************************************************
+ * Function: getTimeMinute
+ * Input: None
+ * Output: minuteDecimal
+ * Overview: Returns the minute of the hour from the internal clock
+ * Note: Pic Dependent
+ * TestDate: NA
+ ********************************************************************/
+//Tested NA
+
+int getTimeMinute(void)
+{
+    //don't want to write, just want to read
+    _RTCWREN = 0;
+    //sets the pointer to 0b00 so that reading starts at Minutes/Seconds
+    _RTCPTR = 0b00;
+    // Ask for the hour from the internal clock
+    int myMinute = RTCVAL;
+    int minuteDecimal = getLowerBCDAsDecimal(myMinute);
+    return minuteDecimal;
+}
+
 
 /* First, retrieve time string from the SIM 900 (I think this is reading the PIC RTCC not the SIM 900 rkf)
 Then, parse the string into separate strings for each time partition
@@ -2274,6 +2332,110 @@ int noonMessage(void) {
                // RKF QUESTION - Why do we do this?  I don't think we use the internal RTCC for anything
 
 }
+
+
+int diagnosticMessage(void) {
+    
+    //Message assembly and sending; Use *floatToString() to send:
+    // Create storage for the various values to report
+    int success = 0;  // variable used to see if various FONA operations worked
+                      // which means we either did (1) or did not (0) send the message
+    char sleepHrStatusString[20];
+    sleepHrStatusString[0] = 0;
+
+
+    // Read values from EEPROM and convert them to strings
+    EEProm_Read_Float(21, &EEFloatData);
+    floatToString(EEFloatData, sleepHrStatusString); //populates the sleepHrStatusString with the value from EEPROM
+    
+    
+        //will need more formating for JSON 5-30-2014
+    char dataMessage[160];
+    dataMessage[0] = 0;
+  // Debug for Scott  if(hour != 12){
+      if(hour == 120){
+      concat(dataMessage, "(\"t\":");
+      concat(dataMessage,debugString);
+      concat(dataMessage,",\"d\",\"d\":(\"l\":");
+    }
+    else{
+        concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
+    }
+    
+    concat(dataMessage, leakRateLongString);
+    concat(dataMessage, ",\"p\":");
+    concat(dataMessage, longestPrimeString);
+    concat(dataMessage, ",\"b\":");
+    concat(dataMessage, batteryFloatString);
+    if (depthSensorInUse == 1) { // if you have a depth sensor
+        pinDirectionIO(depthSensorOnOffPin, 0); //makes depth sensor pin an output.
+        digitalPinSet(depthSensorOnOffPin, 1); //turns on the depth sensor.
+        delayMs(30000); // Wait 30 seconds for the depth sensor to power up
+        char maxDepthLevelString[20];
+        maxDepthLevelString[0] = 0;
+        char minDepthLevelString[20];
+        minDepthLevelString[0] = 0;
+        float currentDepth = readDepthSensor();
+        if (midDayDepth > currentDepth) {
+            floatToString(midDayDepth, maxDepthLevelString);
+            floatToString(currentDepth, minDepthLevelString);
+        } else {
+            floatToString(currentDepth, maxDepthLevelString);
+            floatToString(midDayDepth, minDepthLevelString);
+
+        }
+        concat(dataMessage, ",\"d\":<");
+        concat(dataMessage, maxDepthLevelString);
+        concat(dataMessage, ",");
+        concat(dataMessage, minDepthLevelString);
+        concat(dataMessage, ">");
+
+        digitalPinSet(depthSensorOnOffPin, 0); //turns off the depth sensor.
+    }
+    concat(dataMessage, ",\"v\":<");
+    concat(dataMessage, volume02String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume24String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume46String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume68String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume810String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1012String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1214String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1416String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1618String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume1820String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume2022String);
+    concat(dataMessage, ",");
+    concat(dataMessage, volume2224String);
+    concat(dataMessage, ">))");
+
+    success = turnOnSIM();  // returns 1 if the SIM powered up)
+    sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
+    if(success == 1){ 
+       // Try to establish network connection
+        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+        sendDebugMessage("   \n Connect to network was a ", success);  //Debug
+        if(success == 1){
+        // Send off the data
+            sendTextMessage(dataMessage);              
+        // Now that the message has been sent, we can update our EEPROM
+        // Clear RAM and EEPROM associated with message variables
+            if(hour == 12){
+                ResetMsgVariables();
+            }
+        }
+    }
+}   
+    
 /*********************************************************************
  * Function: EEProm_Write_Int(int addr, int newData)
  * Input: addr - the location to write to relative to the start of EEPROM
@@ -2567,4 +2729,5 @@ void ClearEEProm(void){
     EEProm_Write_Float(18, &EEFloatData);
     EEProm_Write_Float(19, &EEFloatData); 
     EEProm_Write_Float(20, &EEFloatData); 
+    EEProm_Write_Float(21, &EEFloatData);
 }
