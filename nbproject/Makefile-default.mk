@@ -51,17 +51,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=main.c IWPUtilities.c I2C.c Pin_Manager.c
+SOURCEFILES_QUOTED_IF_SPACED=main.c IWPUtilities.c I2C.c Pin_Manager.c FONAUtilities.c UnusedFunctions.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/main.o ${OBJECTDIR}/IWPUtilities.o ${OBJECTDIR}/I2C.o ${OBJECTDIR}/Pin_Manager.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/main.o.d ${OBJECTDIR}/IWPUtilities.o.d ${OBJECTDIR}/I2C.o.d ${OBJECTDIR}/Pin_Manager.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/main.o ${OBJECTDIR}/IWPUtilities.o ${OBJECTDIR}/I2C.o ${OBJECTDIR}/Pin_Manager.o ${OBJECTDIR}/FONAUtilities.o ${OBJECTDIR}/UnusedFunctions.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/main.o.d ${OBJECTDIR}/IWPUtilities.o.d ${OBJECTDIR}/I2C.o.d ${OBJECTDIR}/Pin_Manager.o.d ${OBJECTDIR}/FONAUtilities.o.d ${OBJECTDIR}/UnusedFunctions.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/main.o ${OBJECTDIR}/IWPUtilities.o ${OBJECTDIR}/I2C.o ${OBJECTDIR}/Pin_Manager.o
+OBJECTFILES=${OBJECTDIR}/main.o ${OBJECTDIR}/IWPUtilities.o ${OBJECTDIR}/I2C.o ${OBJECTDIR}/Pin_Manager.o ${OBJECTDIR}/FONAUtilities.o ${OBJECTDIR}/UnusedFunctions.o
 
 # Source Files
-SOURCEFILES=main.c IWPUtilities.c I2C.c Pin_Manager.c
+SOURCEFILES=main.c IWPUtilities.c I2C.c Pin_Manager.c FONAUtilities.c UnusedFunctions.c
 
 
 CFLAGS=
@@ -116,6 +116,20 @@ ${OBJECTDIR}/Pin_Manager.o: Pin_Manager.c  nbproject/Makefile-${CND_CONF}.mk
 	${MP_CC} $(MP_EXTRA_CC_PRE)  Pin_Manager.c  -o ${OBJECTDIR}/Pin_Manager.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/Pin_Manager.o.d"      -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1    -omf=elf -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off  
 	@${FIXDEPS} "${OBJECTDIR}/Pin_Manager.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
 	
+${OBJECTDIR}/FONAUtilities.o: FONAUtilities.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/FONAUtilities.o.d 
+	@${RM} ${OBJECTDIR}/FONAUtilities.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  FONAUtilities.c  -o ${OBJECTDIR}/FONAUtilities.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/FONAUtilities.o.d"      -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1    -omf=elf -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off  
+	@${FIXDEPS} "${OBJECTDIR}/FONAUtilities.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
+	
+${OBJECTDIR}/UnusedFunctions.o: UnusedFunctions.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/UnusedFunctions.o.d 
+	@${RM} ${OBJECTDIR}/UnusedFunctions.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  UnusedFunctions.c  -o ${OBJECTDIR}/UnusedFunctions.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/UnusedFunctions.o.d"      -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1    -omf=elf -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off  
+	@${FIXDEPS} "${OBJECTDIR}/UnusedFunctions.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
+	
 else
 ${OBJECTDIR}/main.o: main.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
@@ -144,6 +158,20 @@ ${OBJECTDIR}/Pin_Manager.o: Pin_Manager.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/Pin_Manager.o 
 	${MP_CC} $(MP_EXTRA_CC_PRE)  Pin_Manager.c  -o ${OBJECTDIR}/Pin_Manager.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/Pin_Manager.o.d"        -g -omf=elf -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off  
 	@${FIXDEPS} "${OBJECTDIR}/Pin_Manager.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
+	
+${OBJECTDIR}/FONAUtilities.o: FONAUtilities.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/FONAUtilities.o.d 
+	@${RM} ${OBJECTDIR}/FONAUtilities.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  FONAUtilities.c  -o ${OBJECTDIR}/FONAUtilities.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/FONAUtilities.o.d"        -g -omf=elf -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off  
+	@${FIXDEPS} "${OBJECTDIR}/FONAUtilities.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
+	
+${OBJECTDIR}/UnusedFunctions.o: UnusedFunctions.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/UnusedFunctions.o.d 
+	@${RM} ${OBJECTDIR}/UnusedFunctions.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  UnusedFunctions.c  -o ${OBJECTDIR}/UnusedFunctions.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/UnusedFunctions.o.d"        -g -omf=elf -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off  
+	@${FIXDEPS} "${OBJECTDIR}/UnusedFunctions.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
 	
 endif
 

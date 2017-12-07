@@ -1,6 +1,6 @@
 /*
- * File: InternalClock.c
- * Author: jy1189
+ * File: Main.c
+ * Author: jy1189 - and many more
  *
  * Created on April 23, 2015, 11:05 AM
  */
@@ -8,6 +8,7 @@
 //*****************************************************************************
 #include "IWPUtilities.h"
 #include "I2C.h"
+#include "FONAUtilities.h"
 #include "Pin_Manager.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -123,6 +124,7 @@ void main(void)
         if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, try to turn it on so it is awake to be topped off
            turnOnSIM();
         }
+   
 
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
@@ -305,7 +307,7 @@ void main(void)
 										//accumlation var
 			}
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-				i++; //increase i while handle is stationary
+				i++;
 			}
 			else{
 				i = 0;
@@ -340,12 +342,12 @@ void main(void)
 			// If the handle starts moving we will abandon calculating a new leak rate
             //  Moving is the same criterion as stopping in volume calculation loop
             if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-				i=0; //Handle Not moving
+				i=0;
             }
 			else{
-				i++; //Handle Moving
+				i++;
  			}             
-            if (i >= volumeLoopCounter){ //Has the handle been moving for 150ms?
+            if (i >= volumeLoopCounter){
 				leakCondition = 1;
 				break;
 			}

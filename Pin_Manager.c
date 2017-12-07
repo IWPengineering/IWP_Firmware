@@ -113,7 +113,6 @@ void pinDirectionIO(int pin, int io) { // 1 is an input, 0 is an output
 	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
 }
 
-
 void digitalPinSet(int pin, int set) // 1 for high, 0 for low
 {
 	if (pin == 1)
