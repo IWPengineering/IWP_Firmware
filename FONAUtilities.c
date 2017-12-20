@@ -39,6 +39,7 @@ char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS m
 char* phoneNumber = MainphoneNumber; // Randy
 char FONAmsgStatus[11]; //Message REC/STO, UNREAD/READ, UNSENT/SENT
 char ReceiveTextMsg[280]; //This is the string used to buffer up a message read from the FONA
+char SMSMessage[160]; //A string used to hold all SMS message sent with FONA
 int NumCharInTextMsg = 0; //Keeps track of the number of characters in the received text string
 char ReceiveTextMsgFlag = 0; //Set to 1 when a complete text message has been received
 
@@ -120,9 +121,9 @@ int turnOnSIM() {
  * Input: None
  * Output: None
  * Overview: This function tests for network status and attempts to connect to the
- * network. If no network is after 7 attempts (between 20sec and 45sec), 
+ * network. If no network is found after 7 attempts (between 20sec and 45sec), 
  * a zero is returned indicating that connection to the network failed
- * TestDate: Not tested as of 03-14-2017
+ * TestDate: 12/20/2017 RKF
  ********************************************************************/
 int tryToConnectToNetwork() {
     int success = 0; // assume we were unable to connect to the network
@@ -159,11 +160,16 @@ int tryToConnectToNetwork() {
  * Input: None
  * Output: 1 if network connected 0 if not
  * Overview: Measures the time from NETLight High to next High
- *           Spec says this should be 864ms if there is a network
- *           and 3064 if there is not.  We call anything less than 1.28sec 
- *           a valid connection
- *           If there is no network, we are in this routine between 3-6 seconds
- * Note: Timer speed dependent
+ *           Spec:     864ms if Network = NO (high = 64ms low = 800ms)
+ *           Measured: 904ms if Network = NO (high = 56ms, low = 848ms)
+ * 
+ *           Spec:     3064ms if Network = YES (high = 64ms, low = 3000ms)
+ *           Measured: 2840ms if Network = YES (high = 52ms, low = 2780ms)
+ * 
+ *           We call anything less than 1.28sec a valid connection
+ *           If there is no network, we are in this routine between 1.7-6.2 seconds
+ * 
+ *            * Note: Timer speed dependent
  * TestDate: Not tested as of 03-05-2015
  ********************************************************************/
 int connectedToNetwork(void) //True when there is a network connection
@@ -176,7 +182,7 @@ int connectedToNetwork(void) //True when there is a network connection
     
     // The timing in this routine assumes that Timer 1 is clocked at 15.625khz
 
-    int success = 0;
+    int network_status = 0;  // Assume there is no network connection
     
     // Make sure you start at the beginning of the positive pulse
     TMR1 = 0;
@@ -184,37 +190,48 @@ int connectedToNetwork(void) //True when there is a network connection
     { // Wait until the light turns off
         while (digitalPinStatus(netLightPin)) {
             if(TMR1 > 2000){
-                return success;   //waited longer than 128ms (high should be 64ms)
+                return network_status;   //waited longer than 128ms (high should be 64ms)
+                                  // if this happens, the light is stuck ON
             }
-        }; //(PORTBbits.RB14) {}; 
+        }
     }
     // Wait for rising edge
     TMR1 = 0;
     while ((digitalPinStatus(netLightPin) == 0)) {
          if(TMR1 > 55000){
-                return success;   //waited longer than 3.5seconds (low should be 3sec when no network)
+                return network_status;   //waited longer than 3.5seconds (low should be 3sec when no network)
+                                  // if this happens, the light is stuck OFF
             }
-    }; //PORTBbits.RB14 == 0) {}; 
-    // no need to exit if it takes too long to get a high or low, if we are here, the light is flashing
+    }
+    // We are now right at the start of a cycle and can measure the time
     TMR1 = 0;  // Get time at start of positive pulse
     // Wait for the pulse to go low
     while (digitalPinStatus(netLightPin)) {
-    }; 
+         if(TMR1 > 2000){
+                return network_status;   //waited longer than 128ms (high should be 64ms)
+                                  // if this happens, the light is stuck ON
+            }
+    } 
     // Wait for the pulse to go high again
     while (digitalPinStatus(netLightPin) == 0) {
-    }; 
-    if(TMR1 > 20000){ // still looking for network pulsing should be 864ms, we allow up to 1.28sec
-        success = 1;  
+        if(TMR1 > 55000){
+                return network_status;   //waited longer than 3.5seconds (low should be 3sec when no network)
+                                  // if this happens, the light is stuck OFF
+            }
+    } 
+    if(TMR1 > 20000){ // No Network pulsing should be 864ms, If pulse is longer than 1.28 sec, Network = YES
+        network_status = 1;  
     }
     
-    return success;  // True, when there is a network connection. (pulses slower than 1.28sec)
-                     // spec says connection flashes every 864ms and no connection is every 3064ms.
+    return network_status;  // True, when there is a network connection. (pulses slower than 1.28sec)
+                           
 }
 void sendDebugMessage(char message[50], float value){
     if(print_debug_messages >= 1){
         char debugMsg[150];
         char debugValueString[20];
         debugMsg[0] = 0;
+        
         concat(debugMsg, message);
         floatToString(value, debugValueString); 
         concat(debugMsg,debugValueString);
@@ -710,11 +727,148 @@ void hourMessage(void) {
     RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
 
 }
+/*********************************************************************
+ * Function: CreateNoonMessage(void)
+ * Input: None
+ * Output: None
+ * Overview: Gathers the data needed for the daily report and puts it into a text string
+ *           The maximum length of a SMS message is 160 characters
+ * Note: 
+ * TestDate: Not Tested
+ ********************************************************************/
+/*                  EEPROM STORAGE
+ * EEProm#		    EEProm#		         EEProm#	
+0	leakRateLong	9	Volume01416	     18	Volume1810
+1	longestPrime	10	Volume01618	     19	Volume11012
+2	Volume002	    11	Volume01820	     20	Restart Status
+3	Volume024	    12	Volume02022		
+4	Volume046	    13	Volume02224		
+5	Volume068	    14	Volume102		
+6	Volume0810	    15	Volume124		
+7	Volume01012	    16	Volume146		
+8	Volume01214	    17	Volume168		
 
+ Volume01012 = Yesterday(0)10AM-12AM
+ Volume124 = Today(1) 2AM-4AM
+ * 
+ * Example "("t":"d","d":("l":0,"p":0,"b":0,"v":<0,0,0,0,0,0,0,0,0,0,0,0>))
+ * Notice that there is a " at the start but not the end of this string????
+ 
+ */
+void CreateNoonMessage(void){
+    int vptr;
+    char LocalString[20];  
+    SMSMessage[0] = 0; //reset SMS message array to be empty
+    LocalString[0] = 0;
+    
+    concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"l\":");
+    EEProm_Read_Float(0, &EEFloatData); // Get Longest Leak Rate
+    floatToString(EEFloatData, LocalString);
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"p\":");
+    EEProm_Read_Float(1, &EEFloatData); // Get Longest Prime
+    floatToString(EEFloatData, LocalString);
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"b\":");
+    floatToString(batteryFloat, LocalString); //latest battery voltage
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"v\":<");
+    for(vptr = 2; vptr < 14; vptr++){
+        EEProm_Read_Float(vptr, &EEFloatData); // Get Next Volume
+        floatToString(EEFloatData, LocalString);
+        concat(SMSMessage, LocalString);
+        if(vptr < 13){
+            concat(SMSMessage, ",");
+        }
+        else{
+            concat(SMSMessage, ">))");
+        }
+    }
+}
 
+/*********************************************************************
+ * Function: SendNoonMessage(void)
+ * Input: None
+ * Output: 1 if the message was successfully sent
+ * Overview: Gathers the data needed for the daily report and puts it into a text string
+ *           and sends it as an SMS message using the FONA board
+ * Note: 
+ * TestDate: 12/20/2017 RKF
+ ********************************************************************/
+int SendNoonMessage(void){
+    int success = 0;  // variable used to see if various FONA operations worked
+                      // which means we either did (1) or did not (0) send the message
+    CreateNoonMessage();  //Gather the data for noon message and put int SMSMessage
+    phoneNumber = MainphoneNumber;  
+    success = TurnOnSIMandSendText(SMSMessage);
+    if(success == 1){
+    // Now that the message has been sent, we can update our EEPROM
+        // Clear RAM and EEPROM associated with message variables
+            if(hour == 12){
+                ResetMsgVariables();
+            }
+    }
+    return success;
+    
+    /*
+    success = turnOnSIM();  // returns 1 if the SIM powered up)
+    sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
+    if(success == 1){ 
+       // Try to establish network connection
+        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+        sendDebugMessage("   \n Connect to network was a ", success);  //Debug
+        if(success == 1){
+        // Send off the data
+            phoneNumber = MainphoneNumber;  
+            sendTextMessage(SMSMessage);              
+        // Now that the message has been sent, we can update our EEPROM
+        // Clear RAM and EEPROM associated with message variables
+            if(hour == 12){
+                ResetMsgVariables();
+            }
+        }
+    }
+    
+    return success;  // this will be a 1 if we were able to connect to the network.  We assume that we sent the message
+   
+  
+    ////////////////////////////////////////////////
+    // Should we put the SIM back to sleep here?
+    ////////////////////////////////////////////////
+    
+    */
+}
 
-
-/////////////// IN PROCESS //////////////
+/*********************************************************************
+ * Function: urnOnSIMandSendText(char message[160]
+ * Input: Array containing the string to send
+ * Output: 1 if the message was successfully sent
+ * Overview: Turns on the FONA, Checks for a network connection, 
+ *           if there is a connection, sends the string passed to it.
+ * Note:     The phone number to send to must be set by the calling routine
+ *           for example phoneNumber = MainphoneNumber; 
+ * TestDate: 12/20/2017 RKF
+ ********************************************************************/
+int TurnOnSIMandSendText(char message[160]){
+    int success = 0;  // variable used to see if various FONA operations worked
+                      // which means we either did (1) or did not (0) send the message
+    success = turnOnSIM();  // returns 1 if the SIM powered up)
+    sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
+    if(success == 1){ 
+       // Try to establish network connection
+        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+        sendDebugMessage("   \n Connect to network was a ", success);  //Debug
+        if(success == 1){
+        // Send off the data
+            // The phone number to send to must be set by the calling routine  
+            sendTextMessage(SMSMessage);              
+        
+        }
+    }
+    
+    return success;  // this will be a 1 if we were able to connect to the network.  We assume that we sent the message
+    
+}
 int noonMessage(void) {
     
     //Message assembly and sending; Use *floatToString() to send:

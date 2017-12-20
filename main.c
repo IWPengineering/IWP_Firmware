@@ -117,7 +117,7 @@ void main(void)
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
-    
+   
     while (1)
 	{     
        batteryFloat = batteryLevel();
@@ -203,7 +203,7 @@ void main(void)
             
             if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
                 batteryFloat = batteryLevel();
-                noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                noon_msg_sent = SendNoonMessage();                 // if we did not get a network connection this is still 0;
                 if(noon_msg_sent == 0){
                     debugCounter++;
                 }

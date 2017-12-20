@@ -29,6 +29,7 @@ extern char SendingPhoneNumber[]; //Number for the phone that sent the system a 
 //extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
 extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
 extern char FONAmsgStatus[]; //A string indicating if the message has been sent/read
+extern char SMSMessage[]; //A string used to hold all SMS message sent with FONA
 extern char ReceiveTextMsg[];  //String used to hold text messages received from FONA
 extern int NumCharInTextMsg; //Number of characters in the received text message 
 extern char ReceiveTextMsgFlag; // Set to 1 when a complete text message has been received
@@ -42,6 +43,7 @@ int turnOffSIM();
 int turnOnSIM();
 int tryToConnectToNetwork();
 int connectedToNetwork(void);
+int TurnOnSIMandSendText(char message[160]);
 void sendMessage (char message[160]);
 void sendTextMessage(char message[160]);
 void sendDebugMessage(char message[50], float value);
@@ -51,6 +53,8 @@ void interpretSMSmessage(void);
 void sendDebugTextMessage(char message[160]); 
 void ClearReceiveTextMessages(int MsgNum, int ClrMode); 
 void hourMessage(void);
+void CreateNoonMessage(void);
+int SendNoonMessage(void);
 int noonMessage(void);
 
 
