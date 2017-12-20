@@ -809,18 +809,21 @@ float degToRad(float degrees) {
  * Input: milliseconds
  * Output: None
  * Overview: Delays the specified number of milliseconds
- * Note: Depends on Clock speed. Pic Dependent
- * TestDate: 05-20-14
+ * Note: Assumes that TMR1 is clocked by 15.625khz
+ *       1ms is actually 1.12, 2ms = 2.12, 3ms = 3.08, 5ms = 5.12
+ * TestDate: 12-20-2017 RKF
  ********************************************************************/
 void delayMs(int ms) {
-    int myIndex;
-    while (ms > 0) {
-        myIndex = 0;
-        while (myIndex < 667) {
-            myIndex++;
-        }
-        ms--;
+    int end_count;
+    while(ms > 4000){
+        TMR1 = 0;
+        while(TMR1 < 62500){} //wait 4000ms
+        ms = ms - 4000;
     }
+    // now we fit within the timer's range
+    end_count = ms*15.625; // assumes TC1 is clocked by 15.625khz
+    TMR1 = 0;
+    while(TMR1<end_count){}
 }
 
 //Returns the decimal value for the lower 8 bits in a 16 bit BCD (Binary Coded Decimal)
