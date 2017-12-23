@@ -118,7 +118,7 @@ void main(void)
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     
-     
+   
     while (1)
 	{     
        batteryFloat = batteryLevel();

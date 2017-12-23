@@ -28,6 +28,7 @@ extern char DebugphoneNumber[]; // Number for the Black Phone
 extern char SendingPhoneNumber[]; //Number for the phone that sent the system a message
 //extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
 extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
+extern int LeaveOnSIM;  // this is set to 1 when an external message says to not shut off the SIM
 extern char FONAmsgStatus[]; //A string indicating if the message has been sent/read
 extern char SMSMessage[]; //A string used to hold all SMS message sent with FONA
 extern char ReceiveTextMsg[];  //String used to hold text messages received from FONA
@@ -44,6 +45,7 @@ int turnOnSIM();
 int tryToConnectToNetwork();
 int connectedToNetwork(void);
 int TurnOnSIMandSendText(char message[160]);
+int ReadSIMresponse(char expected_reply[10]);
 void sendMessage (char message[160]);
 void sendTextMessage(char message[160]);
 void sendDebugMessage(char message[50], float value);

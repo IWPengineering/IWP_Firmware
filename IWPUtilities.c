@@ -276,6 +276,7 @@ void initialization(void) {
     pinDirectionIO(simVioPin, 0); //TRISAbits.TRISA1 = 0; //sets Vio as an output (pin 3)
      digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
      digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
+     LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
 
     //depth sensor I/O         
     depthSensorInUse = 0; // If Depth Sensor is in use, make a 1. Else make it zero.

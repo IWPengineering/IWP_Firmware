@@ -37,6 +37,7 @@ char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS m
 //char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
 //char phoneNumber []="+17176837803"; // Randy
 char* phoneNumber = MainphoneNumber; // Randy
+int LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
 char FONAmsgStatus[11]; //Message REC/STO, UNREAD/READ, UNSENT/SENT
 char ReceiveTextMsg[280]; //This is the string used to buffer up a message read from the FONA
 char SMSMessage[160]; //A string used to hold all SMS message sent with FONA
@@ -69,20 +70,25 @@ int hour_msg_sent = 0;  //set to 1 when the hourly message has been sent
  * Output: NSIM_OFF  this is a 1 if the SIM turned OFF and 0 if not
  * Overview: Turns of the SIM900
  * Note: Pic Dependent
- * TestDate: Not tested as of 03-05-2015
+ * TestDate: 12-22-2017 RKF
  ********************************************************************/
 int turnOffSIM() {
     int SIM_OFF = 0;  // Assume the SIM is not off
-    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-    if (digitalPinStatus(statusPin) == 1) { //Checks see if the Fona is ON 1=Yes so turn it off
-        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
-        delayMs(2000);
-    }
-    if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is OFF 0 = OFF so don't do anything
-        SIM_OFF = 1;
-    }
-    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned on later (pin 15)
+    if(LeaveOnSIM == 0){ 
+        digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
+        if (digitalPinStatus(statusPin) == 1) { //Checks see if the Fona is ON 1=Yes so turn it off
+            digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn OFF Fona
+            delayMs(2000);
+        }
+        digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned on later (pin 15)
+        // Experiments show the FONA shutting off 7ms BEFORE the KEY is brought back high
+        //    Still wait 100ms before checking.
+        delayMs(100);
 
+        if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is OFF 0 = OFF so don't do anything
+            SIM_OFF = 1;
+        }
+    }
     return SIM_OFF;//	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
  }
 
@@ -90,9 +96,12 @@ int turnOffSIM() {
  * Function: turnOnSIM
  * Input: None
  * Output: SIM_ON  this is a 1 if the SIM turned on and 0 if not
- * Overview: Turns on SIM900
+ * Overview: Turns on SIM900 - If the PS (Power Status) pin = 0 the SIM is Off
+ *                             Strobe the KEY pin low for 2 sec and then go high
+ *                            The SIM turns on (PS = 1) after approx. 0.8 - 1.3sec
+ * 
  * Note: Pic Dependent
- * TestDate: Not tested as of 03-05-2015
+ * TestDate: Not tested as of 12-22-17 RKF
  * delayMs(int ms)
  ********************************************************************/
 int turnOnSIM() {
@@ -102,18 +111,13 @@ int turnOnSIM() {
         digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
         delayMs(2000);
     }
+    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
+    // Experimental tests showed that it takes 0.8 - 1.3sec for the FONA to turn on
+    delayMs(2000);
     if (digitalPinStatus(statusPin) != 0) { //Checks see if the Fona is off pin
         SIM_ON = 1;
     }
-    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-
     return SIM_ON;
-    //	while (digitalPinStatus(statusPin) == 0) // While STATUS light is not on (SIM900 is off)
-    //	{
-    //		digitalPinSet(pwrKeyPin, 1); // Hold in PWRKEY button
-    //	}
-    //
-    //	digitalPinSet(pwrKeyPin, 0); // Let go of PWRKEY
 }
 
 /*********************************************************************
@@ -318,11 +322,9 @@ void readSMSMessage(int msgNum) {
     U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
                          // This clears the RXREG FIFO
     IEC0bits.U1RXIE = 1;  // enable Rx interrupts
-
-    // AT+CMGF=1  //set the mode to text
     NumCharInTextMsg = 0; //Point to the start of the Text Message String
     ReceiveTextMsgFlag = 0; //clear for the next message
-    
+       // AT+CMGF=1  //set the mode to text 
     sendMessage("AT+CMGF=1\r\n"); //sets to text mode
     while(ReceiveTextMsgFlag<1){  } // Read the echo from the FONA
     ReceiveTextMsgFlag = 0; //clear for the next message
@@ -520,8 +522,8 @@ void ClearReceiveTextMessages(int MsgNum, int ClrMode)
  ********************************************************************/
 void sendTextMessage(char message[160]) // Tested 06-02-2014
 {
- //   turnOnSIM();
-    // delayMs(10000);  FONA is already ON so no need to wait
+ //   The SIM should have been turned on prior to getting here;
+    
     sendMessage("AT+CMGF=1\r\n"); //sets to text mode
     delayMs(250);
     sendMessage("AT+CMGS=\""); //beginning of allowing us to send SMS message
@@ -733,6 +735,7 @@ void hourMessage(void) {
  * Output: None
  * Overview: Gathers the data needed for the daily report and puts it into a text string
  *           The maximum length of a SMS message is 160 characters
+ *           Right now I don't know if we try to limit this
  * Note: 
  * TestDate: Not Tested
  ********************************************************************/
@@ -809,38 +812,10 @@ int SendNoonMessage(void){
             }
     }
     return success;
-    
-    /*
-    success = turnOnSIM();  // returns 1 if the SIM powered up)
-    sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
-    if(success == 1){ 
-       // Try to establish network connection
-        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
-        sendDebugMessage("   \n Connect to network was a ", success);  //Debug
-        if(success == 1){
-        // Send off the data
-            phoneNumber = MainphoneNumber;  
-            sendTextMessage(SMSMessage);              
-        // Now that the message has been sent, we can update our EEPROM
-        // Clear RAM and EEPROM associated with message variables
-            if(hour == 12){
-                ResetMsgVariables();
-            }
-        }
-    }
-    
-    return success;  // this will be a 1 if we were able to connect to the network.  We assume that we sent the message
-   
-  
-    ////////////////////////////////////////////////
-    // Should we put the SIM back to sleep here?
-    ////////////////////////////////////////////////
-    
-    */
-}
+ }
 
 /*********************************************************************
- * Function: urnOnSIMandSendText(char message[160]
+ * Function: TurnOnSIMandSendText(char message[160]
  * Input: Array containing the string to send
  * Output: 1 if the message was successfully sent
  * Overview: Turns on the FONA, Checks for a network connection, 
@@ -853,22 +828,95 @@ int TurnOnSIMandSendText(char message[160]){
     int success = 0;  // variable used to see if various FONA operations worked
                       // which means we either did (1) or did not (0) send the message
     success = turnOnSIM();  // returns 1 if the SIM powered up)
-    sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
+    //sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
     if(success == 1){ 
        // Try to establish network connection
         success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
-        sendDebugMessage("   \n Connect to network was a ", success);  //Debug
+        //sendDebugMessage("   \n Connect to network was a ", success);  //Debug
         if(success == 1){
         // Send off the data
             // The phone number to send to must be set by the calling routine  
-            sendTextMessage(SMSMessage);              
-        
+            sendTextMessage(SMSMessage);   
+             // Check to see if the FONA replies with ERROR or not
+            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+            success = ReadSIMresponse(CmdMatch);
         }
     }
-    
+    // I think we want to turn off the FONA at this point unless there has been a message saying we should leave it on
+    turnOffSIM();
     return success;  // this will be a 1 if we were able to connect to the network.  We assume that we sent the message
     
 }
+
+
+/*********************************************************************
+ * Function: ReadSIMresponse(char expected_reply[10])
+ * Input: Array containing the string expected when the message sent 
+ *        to the SIM was successful
+ * Output: 1 if the expected reply was received
+ * Overview: When an AT command is sent to the FONA it replies.  Usually this is
+ *           OK or some other indication of success.  If there was a problem
+ *           it returns ERROR.  This routine looks for the response and checks
+ *           to see if it was the one expected when things are working properly
+ * Note:     There is usually a CR-LF RESPONSE CR-LF.  This routine expects 
+ *           the bracketing CR-LF 
+ *           Experiments show this taking between 11.71 - 11.72sec when the response is ERROR
+ *           we will wait up to 20seconds
+ * TestDate: 
+ ********************************************************************/
+int ReadSIMresponse(char expected_reply[10]){
+    int GoodResponse = 0;  // Assume the reply was not the one expected
+    IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+    U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+                         // This clears the RXREG FIFO
+    IEC0bits.U1RXIE = 1;  // enable Rx interrupts
+    NumCharInTextMsg = 0; //Point to the start of the Text Message String
+    ReceiveTextMsgFlag = 0; //clear for the next message
+    ReceiveTextMsg[0]=0;  //Reset the receive text message array
+    
+    TMR1 = 0;
+    int response_ctr = 0;
+    //while(ReceiveTextMsgFlag<2){}
+    while((ReceiveTextMsgFlag<2)&&(response_ctr < 10)){// Only wait up to 20 seconds
+        if(TMR1 > 31250){//this is 2 seconds
+            TMR1 = 0;
+            response_ctr++;
+        }
+    } 
+    if(response_ctr < 10){ // we got something
+        IEC0bits.U1RXIE = 0;  // disable Rx interrupts
+          
+        // Here is where I'd like to read the response to see if it was an ERROR or not
+        char *MsgPtr;
+        int msgLength=strlen(ReceiveTextMsg);
+        FONAmsgStatus[0]=0;  //Reset the Fona Message Status array
+        MsgPtr = ReceiveTextMsg;
+        while((*MsgPtr < 0x30)&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // Skip line feeds etc  and anything like + and get to the reply text
+            MsgPtr++;
+        }
+        while((*MsgPtr > 0x20)&&(MsgPtr < ReceiveTextMsg+msgLength-1)){// copy the text into the FONAmsgStatus string
+            strncat(FONAmsgStatus, MsgPtr,1);
+            MsgPtr++;
+        }
+        msgLength=strlen(expected_reply);
+        char ErrCmdMatch[]="ERROR";
+        if(strncmp(expected_reply, FONAmsgStatus,msgLength)==0){
+            GoodResponse = 1;
+        }
+        else if(strncmp(ErrCmdMatch, FONAmsgStatus,5)==0){
+            GoodResponse = 0;
+        }
+        else{
+            GoodResponse = 0; //something is wrong we should get expected or Error
+        }
+    }
+    else{
+        GoodResponse = 0;
+    }// we did not hear back from the FONA
+    return GoodResponse;    
+}
+
+
 int noonMessage(void) {
     
     //Message assembly and sending; Use *floatToString() to send:
