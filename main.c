@@ -144,25 +144,19 @@ void main(void)
             TimeSinceLastHourCheck++;
             if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
                 hour = BcdToDec(getHourI2C());
-                minute = BcdToDec(getMinuteI2C());
+                //minute = BcdToDec(getMinuteI2C());
                 internalHour = BcdToDec(getTimeHour());
-                internalMinute = BcdToDec(getTimeMinute());
+                //internalMinute = BcdToDec(getTimeMinute());
                 TimeSinceLastHourCheck = 0;
             }
             
             //NEEDS REVIEW**********************************************************
-            // updates either the internal or external clock if one has lost time
-            // the external clock is preferred
-            //if (((hour - internalHour) > 1) || ((hour - internalHour) < -1)) {
-            if ((hour != internalHour) && (minute != internalMinute)){
-                // supposing the internal clock lost the time
-                if (((minute - internalMinute) >= 3) || ((minute - internalMinute) <= -3) ) {
-                    setInternalRTCC(0, minute, hour, 17, 8, 6, 17);
-                    internalHour == hour;
-                } 
+            //NEEDS UPDATE TO SET INTERNAL RTCC MINUTE TO EXTERNAL RTCC MINUTE
+            // updates either the internal clock if it lost time
+            if ((hour != internalHour) && (extRtccHourSet)){ // supposing the internal clock lost the time
+                setInternalRTCC(0, 0, hour, 17, 8, 6, 17); //date values don't matter therefore random date
+                internalHour = hour;
             }
-
-            // checks for clock drift and if there is, sets the internal to match the external
             
             
             // should we be asleep to save power?   
@@ -254,7 +248,7 @@ void main(void)
                 }
                 
                 batteryFloat = batteryLevel();
-                diagnostic_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                diagnostic_msg_sent = diagnosticMessage();                 // if we did not get a network connection this is still 0;
                 if(diagnostic_msg_sent == 0){
                     debugDiagnosticCounter++;
                 }
@@ -262,7 +256,6 @@ void main(void)
                     debugDiagnosticCounter = 0;  //Debug
                     prevHour = hour;                             // only want to send it once
                     diagnostic_msg_sent = 0;  //set up for next hourly message
-                    extRtccReset = 0; // reset the external clock was reset bit
                     extRtccTalked = 0; // reset the external clock talked bit
                     sleepHrStatus = 0; // reset the slept during that hour
                     EEProm_Write_Float(21,&sleepHrStatus);                      // Save to EEProm

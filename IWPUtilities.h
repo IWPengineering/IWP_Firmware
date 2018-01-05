@@ -76,21 +76,22 @@ extern int prevTimer2;
 
 extern char active_volume_bin;
 extern float longestPrime; // total upstroke fo the longest priming event of the day
-=======
 extern char MainphoneNumber[]; // Upside Wireless
 extern char DebugphoneNumber[]; // Number for the Black Phone
 //extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
-extern char phoneNumber[]; // Number Used to send text message report (daily or hourly)
+//extern char phoneNumber[]; // Number Used to send text message report (daily or hourly)
 
     //****************Hourly Diagnostic Message Variables************************
 extern float sleepHrStatus; // 1 if we slept during the current hour, else 0
-extern int timeSinceLastRestart; // Total time in hours since last restart
-extern int diagnostic_msg_sent; // set to 1 when the hourly diagnostic message is sent    
+extern float timeSinceLastRestart; // Total time in hours since last restart
+extern float diagnostic_msg_sent; // set to 1 when the hourly diagnostic message is sent    
 extern int internalHour; // Hour of the day according to internal RTCC
 extern int internalMinute; // Minute of the hour according to the internal RTCC
 extern float debugDiagnosticCounter;  // DEBUG used as a variable for various things while debugging diagnostic message
-extern int extRtccTalked; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
+extern float extRtccTalked; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
 extern int extRtccReset; // set to 1 if the external RTCC was reset during the hour
+
+extern int extRtccHourSet; //set to 0 if the external RTCC didn't update the hour in the current loop - used to check internal RTCC
 
 extern char active_volume_bin;
 extern int noon_msg_sent;  //set to 1 when noon message has been sent
@@ -151,6 +152,7 @@ extern int minute;  //minute of the day
 extern char active_volume_bin;
 extern char never_primed;  //set to 1 if we exit the priming loop because of timeout
 extern char print_debug_messages; //set to 1 when we want the debug messages to be sent to the Tx pin.
+extern char diagnostic; //set to 1 when we want the diagnostic text messages to be sent hourly
 
 
 // ****************************************************************************
@@ -188,7 +190,6 @@ char BcdToDec(char val);
 char DecToBcd(char val);
 
 
-=======
 int noonMessage(void);
 int diagnosticMessage(void);
 void hourMessage(void);
