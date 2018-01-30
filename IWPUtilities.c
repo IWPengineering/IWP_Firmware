@@ -243,7 +243,7 @@ void initialization(void) {
     T2CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this) 
                             // if FNOSC = FRC, Timer Clock = 15.625khz
     T2CONbits.TON = 1; // Starts 16-bit Timer2
-
+    
     // UART config
 //    U1MODE = 0x8000;  
     U1MODEbits.BRGH = 0;  // Use the standard BRG speed
@@ -259,6 +259,7 @@ void initialization(void) {
                           // is received and transferred to the receive buffer
     U1STAbits.URXISEL =0; // generate an interrupt each time a character is received
     IFS0bits.U1RXIF = 0;  // clear the Rx interrupt flag
+    pinDirectionIO(rxPin, 1); //explicitly make Rx pin an input
     _U1RXIF = 0;  
    // IEC0bits.U1RXIE = 1;  // enable Rx interrupts
    // _U1RXIE = 1;
@@ -274,9 +275,10 @@ void initialization(void) {
     // From fona code (for enabling Texting)
     pinDirectionIO(pwrKeyPin, 0); //TRISBbits.TRISB6 = 0; //sets power key as an output (Pin 15)
     pinDirectionIO(simVioPin, 0); //TRISAbits.TRISA1 = 0; //sets Vio as an output (pin 3)
-     digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-     digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-     LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
+    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
+    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
+    LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
+    turnOffSIM();//Make sure the FONA board is powered down
 
     //depth sensor I/O         
     depthSensorInUse = 0; // If Depth Sensor is in use, make a 1. Else make it zero.
@@ -329,7 +331,7 @@ void initialization(void) {
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        setTime(0,45,4,17,8,6,17); //  Bittner system 7/13/2017 
+        setTime(0,45,15,5,8,6,18); //  6/8/2018 
     }
     // Debug - not sure about this so wait until I can try it
     //char* phoneNumber = DebugphoneNumber;
@@ -1567,6 +1569,7 @@ void ClearEEProm(void){
     EEProm_Write_Float(18, &EEFloatData);
     EEProm_Write_Float(19, &EEFloatData); 
     EEProm_Write_Float(20, &EEFloatData); 
+    EEProm_Write_Float(21, &EEFloatData); 
 }
 
 void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART data interrupt

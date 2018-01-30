@@ -36,6 +36,7 @@ extern int NumCharInTextMsg; //Number of characters in the received text message
 extern char ReceiveTextMsgFlag; // Set to 1 when a complete text message has been received
 extern int noon_msg_sent;  //set to 1 when noon message has been sent
 extern int hour_msg_sent;  //set to 1 when hourly message has been sent
+extern int num_unsent_daily_reports; //this is the number of saved daily reports that have not been sent
 
 // ****************************************************************************
 // *** Function Prototypes ****************************************************
@@ -43,11 +44,11 @@ extern int hour_msg_sent;  //set to 1 when hourly message has been sent
 int turnOffSIM();
 int turnOnSIM();
 int tryToConnectToNetwork();
-int connectedToNetwork(void);
+int CheckNetworkConnection(void);
 int TurnOnSIMandSendText(char message[160]);
 int ReadSIMresponse(char expected_reply[10]);
-void sendMessage (char message[160]);
-void sendTextMessage(char message[160]);
+int sendMessage (char message[160]); //uses UART to send the string in message[]
+int sendTextMessage(char message[160]); //transmits UART characters necessary to send an SMS message using AT protocol
 void sendDebugMessage(char message[50], float value);
 int wasMessageSent(int msgNum);
 void readSMSMessage(int msgNum);
@@ -55,9 +56,12 @@ void interpretSMSmessage(void);
 void sendDebugTextMessage(char message[160]); 
 void ClearReceiveTextMessages(int MsgNum, int ClrMode); 
 void hourMessage(void);
-void CreateNoonMessage(void);
+void CreateNoonMessageOld(void);
+void CreateNoonMessage(int);
 int SendNoonMessage(void);
 int noonMessage(void);
+void CreateAndSaveDailyReport(void);
+int SendSavedDailyReports(void);
 
 
 

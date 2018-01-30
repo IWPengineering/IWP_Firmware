@@ -43,6 +43,7 @@ char ReceiveTextMsg[280]; //This is the string used to buffer up a message read 
 char SMSMessage[160]; //A string used to hold all SMS message sent with FONA
 int NumCharInTextMsg = 0; //Keeps track of the number of characters in the received text string
 char ReceiveTextMsgFlag = 0; //Set to 1 when a complete text message has been received
+int num_unsent_daily_reports = 0; //this is the number of saved daily reports that have not been sent
 
 
 //char phoneNumber[] = "+2330548345382"; // Number for the Black Phone
@@ -125,8 +126,12 @@ int turnOnSIM() {
  * Input: None
  * Output: None
  * Overview: This function tests for network status and attempts to connect to the
- * network. If no network is found after 7 attempts (between 20sec and 45sec), 
- * a zero is returned indicating that connection to the network failed
+ *           network. A connection is there if we see the proper blinking of the
+ *           network light 4 times in a row.
+ *           If the 4 good consecutive connections are not there, pause for 
+ *           1 second and try again up to 7 times. Looking for network with this
+ *           approach will take between 20sec and 45sec.  If no network is found, 
+ *           a zero is returned indicating that connection to the network failed
  * TestDate: 12/20/2017 RKF
  ********************************************************************/
 int tryToConnectToNetwork() {
@@ -138,7 +143,7 @@ int tryToConnectToNetwork() {
     {
         delayMs(1000); // Delay for 1 second
         // Check for network take the appropriate action
-        if (connectedToNetwork()) {
+        if (CheckNetworkConnection()) {
             networkConnectionCount++;
             // 4 consecutive connections means we can exit the loop
             if (networkConnectionCount == 4) {
@@ -160,7 +165,7 @@ int tryToConnectToNetwork() {
 }
 
 /*********************************************************************
- * Function: connectedToNetwork
+ * Function: CheckNetworkConnection
  * Input: None
  * Output: 1 if network connected 0 if not
  * Overview: Measures the time from NETLight High to next High
@@ -170,13 +175,13 @@ int tryToConnectToNetwork() {
  *           Spec:     3064ms if Network = YES (high = 64ms, low = 3000ms)
  *           Measured: 2840ms if Network = YES (high = 52ms, low = 2780ms)
  * 
- *           We call anything less than 1.28sec a valid connection
+ *           We call anything less than 1.28sec a valid connection???
  *           If there is no network, we are in this routine between 1.7-6.2 seconds
  * 
  *            * Note: Timer speed dependent
  * TestDate: Not tested as of 03-05-2015
  ********************************************************************/
-int connectedToNetwork(void) //True when there is a network connection
+int CheckNetworkConnection(void) //True when there is a network connection
 {
   
     // This is function should only be called once we know the FONA is on.  
@@ -246,34 +251,30 @@ void sendDebugMessage(char message[50], float value){
 /*********************************************************************
  * Function: sendMessage()
  * Input: String
- * Output: None
- * Overview: Transmits the given characters along serial lines
+ * Output: 1 if the string was sent and 0 if not
+ * Overview: Transmits the characters in the string message[] using the
+ *           UART.  BAUD rate is assumed to be 9600
  * Note: Library, Pic Dependent, sendTextMessage() uses this
- * TestDate: 06-02-2014
- * Note:  4/23/2017.  change this so to use a WHILE loop waiting for UTXBF but 
- *                    put a secondary check using one of the timers so we don't 
- *                    hang if there is a problem with the UART comms
- * 
- *                    Is there any way that the SIM would not get our message?
- *                    how do we know that everything was received since it does 
- *                    not ACK/NACK
+ * TestDate: 1-26-2018
  ********************************************************************/
-void sendMessage(char message[160]) {
+int sendMessage(char message[160]) {
     int stringIndex = 0;
-    int delayIndex;
+    int success = 0;
    
     U1STAbits.UTXEN = 1; //enable transmit
-    while (stringIndex < stringLength(message)) { // Tom - while not equal null
-        if (U1STAbits.UTXBF == 0) {
-             U1TXREG = message[stringIndex];
-            stringIndex++;
-            for (delayIndex = 0; delayIndex < 1000; delayIndex++) {
-            }
-        } else {
-            for (delayIndex = 0; delayIndex < 30000; delayIndex++) { // proabably way longer than we need
-            }
+    TMR1 = 0;  // transmitting 160char (10bits each) at 9600BAUD should take less than 170ms
+               // Assuming a 15.625khz clock for timer 1, that is 2656 clock cycles
+    while ((stringIndex < stringLength(message))&&(TMR1 < 2700)) {
+        while((U1STAbits.UTXBF == 1)&&(TMR1 < 2700)){ //wait for the buffer to be ready for the next character
+                                                      // but don't allow us to get hung if something is wrong
         }
+        U1TXREG = message[stringIndex];
+        stringIndex++;
     }
+    if(stringIndex == stringLength(message)){
+        success = 1;
+    }
+    return success;  // report a failure if we don't send the entire string
 }
 /*********************************************************************
  * Function: wasMessageSent
@@ -430,7 +431,7 @@ void interpretSMSmessage(void){
                 itoa(hour_val, hour, 10);
                 concat(localMsg,"Changed hour to ");
                 concat(localMsg, hour_val);
-                sendTextMessage(localMsg); 
+                sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
                 phoneNumber = MainphoneNumber;            
             }
         }
@@ -513,31 +514,28 @@ void ClearReceiveTextMessages(int MsgNum, int ClrMode)
 /*********************************************************************
  * Function: sendTextMessage()
  * Input: String
- * Output: None
- * Overview: sends a Text Message to which ever phone number is in the variable 'phoneNumber'
- *           we expect to be in this routine for 10.5sec, however, each character
- *           of each message takes some time that has not yet been calculated
+ * Output: 1 if the SMS message was sent to the FONA.  This does not mean it was actually transmitted
+ * Overview: sends an SMS Text Message to which ever phone number is in the variable 'phoneNumber'
+ *           
  * Note: Library
- * TestDate: 06-02-2014
+ * TestDate: Needs to be retested
  ********************************************************************/
-void sendTextMessage(char message[160]) // Tested 06-02-2014
+int sendTextMessage(char message[160]) 
 {
+    int success = 0;
  //   The SIM should have been turned on prior to getting here;
     
-    sendMessage("AT+CMGF=1\r\n"); //sets to text mode
+    success = sendMessage("AT+CMGF=1\r\n"); //sets to text mode
     delayMs(250);
-    sendMessage("AT+CMGS=\""); //beginning of allowing us to send SMS message
-    sendMessage(phoneNumber);
-    sendMessage("\"\r\n"); //middle of allowing us to send SMS message
+    success = sendMessage("AT+CMGS=\""); //beginning of allowing us to send SMS message
+    success = sendMessage(phoneNumber);
+    success = sendMessage("\"\r\n"); //middle of allowing us to send SMS message
     delayMs(250);
-    sendMessage(message);
+    success = sendMessage(message);
     delayMs(250);
-    sendMessage("\x1A"); // method 2: sending hexidecimal representation
-    // of 26 to sendMessage function (line 62)
-    // & the end of allowing us to send SMS message
-    //
-    // we don't turn off the SIM so no need to delay to give it some time to send the message
- //   turnOffSIM();
+    success = sendMessage("\x1A"); // this terminates an AT SMS command
+    
+    return success;
 }
 
 
@@ -729,8 +727,68 @@ void hourMessage(void) {
     RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
 
 }
+ 
 /*********************************************************************
- * Function: CreateNoonMessage(void)
+ * Function: CreateNoonMessage(int)
+ * Input: EEProm slot number for the start of data saved for this daily report
+ * Output: None
+ * Overview: Gathers the data needed for the daily report and puts it into a text string
+ *           The maximum length of a SMS message is 160 characters
+ *           Right now I don't know if we try to limit this
+ * Note: 
+ * TestDate: Not Tested
+ ********************************************************************/
+/*
+ * Example "("t":"d","d":("l":0,"p":0,"b":0,"v":<0,0,0,0,0,0,0,0,0,0,0,0>))
+ *
+ * Notice that there is a " at the start but not the end of this string????
+ * New format: ("t":"d","d":("l":0,"p":0,"b":3.968,"v":<0,0,0,0,0,0,0,0,0,0,0,0>),?c?:MMDDHH)
+ *                    MM- Month and DD-Date are the date the information was collected
+ *                    HH ? hour is the time that the system believes the message is being sent.
+ */
+void CreateNoonMessage(int effective_address){
+    int vptr;
+    char LocalString[20];  
+    SMSMessage[0] = 0; //reset SMS message array to be empty
+    LocalString[0] = 0;
+    
+    concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"l\":");
+    EEProm_Read_Float(effective_address, &EEFloatData); // Get Longest Leak Rate
+    floatToString(EEFloatData, LocalString);
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"p\":");
+    EEProm_Read_Float(effective_address+1, &EEFloatData); // Get Longest Prime
+    floatToString(EEFloatData, LocalString);
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"b\":");
+    EEProm_Read_Float(effective_address+2, &EEFloatData); // Get battery voltage
+    floatToString(EEFloatData, LocalString);
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"v\":<");
+    for(vptr = 3; vptr < 15; vptr++){
+        EEProm_Read_Float(effective_address+vptr, &EEFloatData); // Get Next Volume
+        floatToString(EEFloatData, LocalString);
+        concat(SMSMessage, LocalString);
+        if(vptr < 14){
+            concat(SMSMessage, ",");
+        }
+        else{
+            concat(SMSMessage, ">))");
+        }
+    }
+    concat(SMSMessage, ",\"c\":");
+    EEProm_Read_Float(effective_address+15, &EEFloatData); // Get saved date 
+    EEFloatData = (EEFloatData*100)+ hour; //Add current hour
+    floatToString(EEFloatData, LocalString);
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ")");
+        
+}
+
+
+ 
+/*********************************************************************
+ * Function: CreateNoonMessageOld()
  * Input: None
  * Output: None
  * Overview: Gathers the data needed for the daily report and puts it into a text string
@@ -755,10 +813,11 @@ void hourMessage(void) {
  Volume124 = Today(1) 2AM-4AM
  * 
  * Example "("t":"d","d":("l":0,"p":0,"b":0,"v":<0,0,0,0,0,0,0,0,0,0,0,0>))
+ *
  * Notice that there is a " at the start but not the end of this string????
  
  */
-void CreateNoonMessage(void){
+void CreateNoonMessageOld(void){
     int vptr;
     char LocalString[20];  
     SMSMessage[0] = 0; //reset SMS message array to be empty
@@ -801,7 +860,7 @@ void CreateNoonMessage(void){
 int SendNoonMessage(void){
     int success = 0;  // variable used to see if various FONA operations worked
                       // which means we either did (1) or did not (0) send the message
-    CreateNoonMessage();  //Gather the data for noon message and put int SMSMessage
+    CreateNoonMessageOld();  //Gather the data for noon message and put int SMSMessage
     phoneNumber = MainphoneNumber;  
     success = TurnOnSIMandSendText(SMSMessage);
     if(success == 1){
@@ -836,7 +895,7 @@ int TurnOnSIMandSendText(char message[160]){
         if(success == 1){
         // Send off the data
             // The phone number to send to must be set by the calling routine  
-            sendTextMessage(SMSMessage);   
+            sendTextMessage(SMSMessage);   //note, this now returns 1 if successfully sent to FONA
              // Check to see if the FONA replies with ERROR or not
             char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
             success = ReadSIMresponse(CmdMatch);
@@ -1073,7 +1132,7 @@ int noonMessage(void) {
         if(success == 1){
         // Send off the data
             phoneNumber = MainphoneNumber;  
-            sendTextMessage(dataMessage);              
+            sendTextMessage(dataMessage);   //note, this now returns 1 if successfully sent to FONA           
         // Now that the message has been sent, we can update our EEPROM
         // Clear RAM and EEPROM associated with message variables
             if(hour == 12){
@@ -1094,4 +1153,151 @@ int noonMessage(void) {
  // Taken out 4/24/17 RKF   RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
                // RKF QUESTION - Why do we do this?  I don't think we use the internal RTCC for anything
 
+}
+/*********************************************************************
+ * Function: void CreateAndSaveDailyReport(void)
+ * Input: None
+ * Output: None
+ * Overview: At noon, collect the information saved during the previous day
+ *           Leak,Prime,Battery,12Volume
+ *           Save these to the end of the circular daily report EEPROM buffer
+ *           the last entry should be a 4 digit number indicating the 
+ *           MonthDate for the previous day; which is the date stamp for the data
+  * TestDate: 
+ ********************************************************************/
+void CreateAndSaveDailyReport(void){
+    int num_saved_messages;
+    int message_position;
+    int effective_address;
+    int vptr;
+    float date;
+    // Read EEPROM address 21 which contains the number of messages already saved
+    EEProm_Read_Float(21, &EEFloatData);
+    num_saved_messages = EEFloatData;
+    num_saved_messages++; //we are adding to the queue
+    if(num_saved_messages > 10){
+        num_saved_messages = 6;
+    }
+    EEFloatData = num_saved_messages;  //Update the number of messages in the queue
+    EEProm_Write_Float(21,&EEFloatData);
+    // Find the first available address to store this daily report
+    if(num_saved_messages > 5){
+        message_position = num_saved_messages-5;  //If this is the 24th message since 
+                                                   //we were able to send things, it 
+                                                   //belongs in position 4 of the circular buffer
+    }
+    else{message_position = num_saved_messages;
+    }
+    effective_address = ((message_position - 1)*16)+22;
+
+  /*                  EEPROM STORAGE
+ * EEProm#		    EEProm#		         EEProm#	
+0	leakRateLong	9	Volume01416	     18	Volume1810
+1	longestPrime	10	Volume01618	     19	Volume11012
+2	Volume002	    11	Volume01820	     20	Restart Status
+3	Volume024	    12	Volume02022		
+4	Volume046	    13	Volume02224		
+5	Volume068	    14	Volume102		
+6	Volume0810	    15	Volume124		
+7	Volume01012	    16	Volume146		
+8	Volume01214	    17	Volume168		
+
+ Volume01012 = Yesterday(0)10AM-12AM
+ Volume124 = Today(1) 2AM-4AM
+ */
+    EEProm_Read_Float(0, &EEFloatData); // Longest Leak Rate
+    EEProm_Write_Float(effective_address,&EEFloatData);
+    effective_address++;
+
+    EEProm_Read_Float(1, &EEFloatData); // Longest Prime
+    EEProm_Write_Float(effective_address,&EEFloatData);
+    effective_address++;
+    
+    EEFloatData = batteryLevel(); //latest battery voltage
+    EEProm_Write_Float(effective_address,&EEFloatData);
+    effective_address++;
+    
+    for(vptr = 2; vptr < 14; vptr++){
+        EEProm_Read_Float(vptr, &EEFloatData); // Get Next Volume
+        EEProm_Write_Float(effective_address,&EEFloatData);
+        effective_address++;
+    }
+  // add the date stuff
+    date = 100*BcdToDec(getMonthI2C());
+    date = date + BcdToDec(getDateI2C());
+    EEFloatData = date;
+    EEProm_Write_Float(effective_address,&EEFloatData);
+
+    // Now that the daily report information has been saved
+    // we can move today's data to its new locations and
+    // Clear RAM and EEPROM associated with message variables
+    ResetMsgVariables();
+      
+}
+/*********************************************************************
+ * Function: int SendSavedDailyReports(void)
+ * Input: none
+ * Output: the number of daily reports still waiting to be sent
+ * Note:  Sends saved daily reports to the MainphoneNumber.  Messages are sent
+ *        newest first.  As long as the network is available and messages are
+ *        being sent, older saved messages not able to be sent before are sent 
+ * 
+ *        Once all messages are sent, received messages are read.  If they are
+ *        messages from friends (AW) the appropriate action is taken.  If not, they
+ *        are just deleted  
+ * TestDate: 
+ ********************************************************************/
+int SendSavedDailyReports(void){
+    int ready = 0; 
+    int num_saved_messages;
+    int message_position;
+    int effective_address;  //EEProm position.  We assume each position is a float and start at 0
+    // Turn on the FONA
+    ready = turnOnSIM();
+    ready = tryToConnectToNetwork(); // This will try 7 times to connect to the network
+    
+    // Send a daily report if we have network connection and there are messages to send
+    EEProm_Read_Float(21, &EEFloatData);// Read EEPROM address 21 which contains the number of messages already saved
+    num_saved_messages = EEFloatData;
+    num_unsent_daily_reports = num_saved_messages;  //as long as there have been 5 or less saved messages, these are the same
+    if(num_saved_messages > 5){
+            num_unsent_daily_reports = 5;  //This is the maximum number of messages saved in our daily report buffer
+    }
+    while((num_unsent_daily_reports > 0 )&&(ready = 1)){
+        // Find the EEPROM address of the start of the next daily report data
+        if(num_saved_messages > 5){
+            message_position = num_saved_messages-5;  //If this is the 7th message since 
+                                                   //we were able to send things, it 
+                                                   //belongs in position 2 of the circular buffer
+        }
+        else{message_position = num_saved_messages;}
+        effective_address = ((message_position - 1)*16)+22;
+        // Create the message including adding the hour
+        CreateNoonMessage(effective_address);  //Gather the data into the array SMSMessage
+        // send the message and check for the reply that it was sent
+        phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
+        ready = sendTextMessage(SMSMessage);   
+        // Check to see if the FONA replies with ERROR or not
+        char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+        ready = ReadSIMresponse(CmdMatch);
+        if(ready){    
+            num_saved_messages--;
+            num_unsent_daily_reports--;
+        }
+        else{
+            break; // we were not able to send this message so stop trying until next hour
+        }
+        ready = CheckNetworkConnection(); // make sure we still have a network connection
+    }
+    // after we are done sending update the number of messages still waiting to be sent
+    // if there is no problem with the network, this will be zero
+    EEFloatData = num_saved_messages;  //Update the number of messages in the queue
+    EEProm_Write_Float(21,&EEFloatData);
+    //Read received messages and act on them
+    
+    //Turn off the FONA
+    turnOffSIM();
+    
+    return num_unsent_daily_reports;
+    
 }
