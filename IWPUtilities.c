@@ -521,41 +521,45 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
 ////                                                             ////
 /////////////////////////////////////////////////////////////////////
 
+
 /*********************************************************************
  * Function: readWaterSensor
  * Input: None
- * Output: pulseWidth
- * Overview: RB5 is one water sensor, start at beginning of positive pulse
+ * Output: 1 if water is present and 0 if it is not
+ * Overview: The output of the 555 times is monitored to see what its
+ *           output frequency is.  When there is no water, the frequency
+ *           is less than 400hz.  If the frequency is greater than this
+ *           we assume water is present.  We only measure the duration of
+ *           the high part of the pulse. * 
+ *           This routine assumes that Timer1 is clocked at 15.625khz
  * Note: Pic Dependent
- * TestDate: Not tested as of 03-05-2015
+ * TestDate: changed and not tested as of 1-31-2018
  ********************************************************************/
 int readWaterSensor(void) // RB5 is one water sensor
 {
-    // turn on and off in the Main loop so the 555 has time to stabelize 
-   // digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
-   
-    delayMs(5);  //debug
-    if (digitalPinStatus(waterPresenceSensorPin) == 1) {
-        while (digitalPinStatus(waterPresenceSensorPin)) {
-        }; //make sure you start at the beginning of the positive pulse
-    }
-    while (digitalPinStatus(waterPresenceSensorPin) == 0) {
-    }; //wait for rising edge
-    int prevICTime = TMR1; //get time at start of positive pulse
-    while (digitalPinStatus(waterPresenceSensorPin)) {
-    };
-    int currentICTime = TMR1; //get time at end of positive pulse
-    long pulseWidth = 0;
-    if (currentICTime >= prevICTime) {
-        pulseWidth = (currentICTime - prevICTime);
-    } else {
-        pulseWidth = (currentICTime - prevICTime + 0x100000000);
-    }
+    int WaterPresent = 0;  //assume there is no water
+   // turn WPS on and off in the Main loop 
+    delayMs(5);  //make sure the 555 has had time to turn on 
     
-    // digitalPinSet(waterPresenceSensorOnOffPin, 0); //turns off the water presence sensor.
-
-    //Check if this value is right
-    return (pulseWidth <= pulseWidthThreshold);
+    
+    //make sure you start at the beginning of the positive pulse
+    TMR1 = 0;
+    if (digitalPinStatus(waterPresenceSensorPin) == 1) {
+        while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)) { //quit if the line is high for too long
+        }; 
+    }
+    //wait for rising edge
+    TMR1 = 0;
+    while ((digitalPinStatus(waterPresenceSensorPin) == 0)&&(TMR1 <= pulseWidthThreshold)) { //quit if the line is low for too long
+    }; 
+    //Now measure the high part of the signal
+    TMR1 = 0;
+    while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)) { //quit if the line is high for too long
+    };
+    if(TMR1 <= pulseWidthThreshold){
+        WaterPresent = 1;
+    }
+    return WaterPresent;
 }
 
 /*********************************************************************

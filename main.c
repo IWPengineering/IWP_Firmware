@@ -122,7 +122,7 @@ void main(void)
     The stuff done in here is just to verify newly written or changed routines
     * it should be removed after the functions have been verified 
     */
-    // save 23 daily reports
+    // save 5 daily reports
     int i;
     for(i=1;i<8;i++){
          //   (sec, min, hr, wkday, date, month, year)
