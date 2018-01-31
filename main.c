@@ -195,7 +195,8 @@ void main(void)
                     }
                 
                     batteryFloat = batteryLevel();
-                    diagnostic_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                    // The noonMessage() function is now gone maybe use CreateNoonMessage
+                    ///diagnostic_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
                     if(diagnostic_msg_sent == 0){
                         debugDiagnosticCounter++;
                     }

@@ -45,21 +45,16 @@ int turnOffSIM();
 int turnOnSIM();
 int tryToConnectToNetwork();
 int CheckNetworkConnection(void);
-int TurnOnSIMandSendText(char message[160]);
 int ReadSIMresponse(char expected_reply[10]);
 int sendMessage (char message[160]); //uses UART to send the string in message[]
 int sendTextMessage(char message[160]); //transmits UART characters necessary to send an SMS message using AT protocol
 void sendDebugMessage(char message[50], float value);
-int wasMessageSent(int msgNum);
-void readSMSMessage(int msgNum);
-void interpretSMSmessage(void);
-void sendDebugTextMessage(char message[160]); 
+int wasMessageSent(int msgNum); //this is being written and may not be needed
+void readSMSMessage(int msgNum); //still not used 
+void interpretSMSmessage(void); //still not used
+void sendDebugTextMessage(char message[160]); //I don't think this is ever used
 void ClearReceiveTextMessages(int MsgNum, int ClrMode); 
-void hourMessage(void);
-void CreateNoonMessageOld(void);
 void CreateNoonMessage(int);
-int SendNoonMessage(void);
-int noonMessage(void);
 void CreateAndSaveDailyReport(void);
 int SendSavedDailyReports(void);
 
