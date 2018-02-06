@@ -143,13 +143,14 @@ float angle10 = 0;
 
     //****************Hourly Diagnostic Message Variables************************
 float sleepHrStatus = 0; // 1 if we slept during the current hour, else 0
-int timeSinceLastRestart = 0; // Total time in hours since last restart
-int diagnostic_msg_sent = 0; // set to 1 when the hourly diagnostic message is sent    
+float timeSinceLastRestart = 0; // Total time in hours since last restart
+float diagnostic_msg_sent = 0; // set to 1 when the hourly diagnostic message is sent    
 int internalHour = 0; // Hour of the day according to internal RTCC
 int internalMinute = 0; // Minute of the hour according to the internal RTCC
-int extRtccReset = 0; // set to 1 if the external RTCC was reset during the hour
-int extRtccTalked = 0; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
+float extRtccTalked = 0; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
 float debugDiagnosticCounter = 0;  // DEBUG used as a variable for various things while debugging diagnostic message
+
+int extRtccHourSet = 1;
 
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
@@ -228,9 +229,18 @@ void initialization(void) {
     TRISA = 0xFFFF; // Make PORTA all inputs
     ANSB = 0; // All port B pins are digital. Individual ADC are set in the readADC function
     TRISB = 0xFFFF; // Sets all of port B to input
+    TRISBbits.TRISB0 = 0;
 
     // pinDirectionIO(sclI2CPin, 0);                                            //TRISBbits.TRISB8 = 0; // RB8 is an output
-
+    //OSCCONbits.SOSCEN = 0b01;
+    //OSCCONbits.COSC = 0b100;
+    //CLKDIVbits.DOZE = 0b00;
+    
+    while(1){
+        LATBbits.LATB0 = 1;
+       // LATBbits.LATB0 = 0;
+    }
+    
     // Timer control (for WPS)
     T1CONbits.TCS = 0; // Source is Internal Clock if FNOSC = FRC, Fosc/2 = 4Mhz
     T1CONbits.TCKPS = 0b11; // Prescalar to 1:256 
@@ -243,7 +253,20 @@ void initialization(void) {
     T2CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this) 
                             // if FNOSC = FRC, Timer Clock = 15.625khz
     T2CONbits.TON = 1; // Starts 16-bit Timer2
+
+    /*T2CONbits.PR2 = 0xf424; //0xf424 - 62500
+    T2CONbits.TMR2 = 0;
+    T2CONbits.TON = 1; // Starts 16-bit Timer2
     
+    sendDebugMessage("Time start", 0);
+
+    while(1) {
+        if (T2CONbits.TMR2 >= T2CONbits.PR2) {
+            sendDebugMessage("Time is done", 0);
+        }
+    }*/
+    
+
     // UART config
 //    U1MODE = 0x8000;  
     U1MODEbits.BRGH = 0;  // Use the standard BRG speed
@@ -1278,6 +1301,7 @@ int diagnosticMessage(void) {
     }
   */
 }   
+
     
 
 /*********************************************************************
@@ -1590,6 +1614,8 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART 
     }
     // Always reset the interrupt flag
     IFS0bits.U1RXIF = 0; 
+
 }
-   
+
+
 
