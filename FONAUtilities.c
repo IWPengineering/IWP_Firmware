@@ -874,4 +874,4 @@ int diagnosticMessage(void) {
     }
     return success;  // this will be a 1 if we were able to connect to the network.  We assume that we sent the message
 }   
-}
+
