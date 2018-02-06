@@ -28,7 +28,8 @@
 #pragma config GWRP = OFF // General Segment Write Protect (General segment may be written)
 #pragma config GSS0 = OFF // General Segment Code Protect (No Protection)
 // FOSCSEL
-#pragma config FNOSC = FRC // Oscillator Select (Fast RC Oscillator (FRC))
+//#pragma config FNOSC = FRC
+#pragma config FNOSC = SOSC // Oscillator Select (Fast RC Oscillator (FRC))
 #pragma config SOSCSRC = ANA // SOSC Source Type (Analog Mode for use with crystal)
 #pragma config LPRCSEL = HP // LPRC Oscillator Power and Accuracy (High Power, High Accuracy Mode)
 #pragma config IESO = OFF // Internal External Switch Over bit (Internal External Switchover mode enabled (Two-speed Start-up enabled))
@@ -161,9 +162,9 @@ void main(void)
             TimeSinceLastHourCheck++;
             if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
                 hour = BcdToDec(getHourI2C());
-                minute = BcdToDec(getMinuteI2C());
+                //minute = BcdToDec(getMinuteI2C());
                 internalHour = BcdToDec(getTimeHour());
-                internalMinute = BcdToDec(getTimeMinute());
+                //internalMinute = BcdToDec(getTimeMinute());
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
@@ -222,18 +223,12 @@ void main(void)
            
             
             //NEEDS REVIEW**********************************************************
-            // updates either the internal or external clock if one has lost time
-            // the external clock is preferred
-            //if (((hour - internalHour) > 1) || ((hour - internalHour) < -1)) {
-            if ((hour != internalHour) && (minute != internalMinute)){
-                // supposing the internal clock lost the time
-                if (((minute - internalMinute) >= 3) || ((minute - internalMinute) <= -3) ) {
-                    setInternalRTCC(0, minute, hour, 17, 8, 6, 17);
-                    internalHour == hour;
-                } 
+            //NEEDS UPDATE TO SET INTERNAL RTCC MINUTE TO EXTERNAL RTCC MINUTE
+            // updates either the internal clock if it lost time
+            if ((hour != internalHour) && (extRtccHourSet)){ // supposing the internal clock lost the time
+                setInternalRTCC(0, 0, hour, 17, 8, 6, 17); //date values don't matter therefore random date
+                internalHour = hour;
             }
-
-            // checks for clock drift and if there is, sets the internal to match the external
             
             
             // should we be asleep to save power?   
@@ -265,7 +260,61 @@ void main(void)
                     
                 }
             }
-           
+/*
+            // If we are debugging at a pump we want to send the noon message every hour
+            if((print_debug_messages >= 2)&&(hour != prevHour)){             //it's the next hour and we are debugging at pump
+                //phoneNumber = DebugphoneNumber;                            // change phone number to the debug number
+                phoneNumber[0]=0;
+                concat(phoneNumber, DebugphoneNumber);
+                
+                batteryFloat = batteryLevel();
+                hour_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                if(hour_msg_sent == 0){
+                    debugCounter++;
+                }
+                if(hour_msg_sent){
+                    debugCounter = 0;  //Debug
+                    prevHour = hour;                             // only want to send it once
+                    hour_msg_sent = 0;  //set up for next hourly message
+                }
+                sendDebugMessage("   \n We tried to send the hourly message ", debugCounter);  //Debug               
+                //Put the phone number back to Upside 
+                phoneNumber[0]=0;
+                concat(phoneNumber, MainphoneNumber);
+            }
+*/
+/*
+            // For Boards to send hourly diagnostic messages
+            if((diagnostic == 1)&&(hour != prevHour)){             //it's the next hour and we are debugging at pump
+                phoneNumber[0]=0;
+                concat(phoneNumber, DebugphoneNumber);
+                
+                if (debugDiagnosticCounter == 0) {
+                    timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
+                }
+                
+                batteryFloat = batteryLevel();
+                diagnostic_msg_sent = diagnosticMessage();                 // if we did not get a network connection this is still 0;
+                if(diagnostic_msg_sent == 0){
+                    debugDiagnosticCounter++;
+                }
+                if(diagnostic_msg_sent){
+                    debugDiagnosticCounter = 0;  //Debug
+                    prevHour = hour;                             // only want to send it once
+                    diagnostic_msg_sent = 0;  //set up for next hourly message
+                    extRtccTalked = 0; // reset the external clock talked bit
+                    sleepHrStatus = 0; // reset the slept during that hour
+                    EEProm_Write_Float(21,&sleepHrStatus);                      // Save to EEProm
+                    
+                }
+                sendDebugMessage("   \n We tried to send the hourly diagnostic message ", debugDiagnosticCounter);  //Debug               
+                //Put the phone number back to Upside 
+                phoneNumber[0]=0;
+                concat(phoneNumber, MainphoneNumber);
+            }
+*/            
+            
+
             // OK, go ahead and look for handle movement again
 			delayMs(upstrokeInterval);                            // Delay for a short time
 			float newAngle = getHandleAngle();

@@ -628,6 +628,7 @@ int getHourI2C(void) {
     if((TMR1 > MaxTime)||(hr > 0x24)){  //something went wrong (BCD 24)
         hr = (hour/10 *16)+(hour % 10); // If the read was unsuccessful, return the last known hour
                                         // Remember the returned value is supposed to be in BCD
+        extRtccHourSet = 0;             // Cleared because RTCC hour didn't update
     }
     else if (extRtccTalked != 1) { // if the max time didn't elapsed, the RTCC talked so set the bit
         extRtccTalked = 1;
