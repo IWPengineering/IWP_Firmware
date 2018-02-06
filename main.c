@@ -118,6 +118,23 @@ void main(void)
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     
+   /*
+    The stuff done in here is just to verify newly written or changed routines
+    * it should be removed after the functions have been verified 
+    */
+    // save 5 daily reports
+    int i;
+    for(i=1;i<8;i++){
+         //   (sec, min, hr, wkday, date, month, year)
+        setTime(0,45,4,5,i,6,18); //  June i, 2018 
+        CreateAndSaveDailyReport();
+    }
+    //Send the messages
+    int num_remain;
+    num_remain=SendSavedDailyReports();
+    // END of FUNCTION VERIFICATION SECTION
+    
+    
     while (1)
 	{     
        batteryFloat = batteryLevel();
@@ -149,6 +166,60 @@ void main(void)
                 internalMinute = BcdToDec(getTimeMinute());
                 TimeSinceLastHourCheck = 0;
             }
+            // Do hourly tasks
+            if(hour != prevHour){
+                // Is it time to record volume from previous time bin to EEProm?
+                if(hour/2 != active_volume_bin){
+                    SaveVolumeToEEProm();
+                    sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);  //Debug
+                }
+                // If it is noon, save a daily report
+                if(hour == 12){
+                    CreateAndSaveDailyReport();
+                }
+                // Attempt to Send daily report
+                if(num_unsent_daily_reports > 0){
+                    if(batteryFloat > 3.3){
+                        SendSavedDailyReports();                    
+                    }
+                }
+                // Attempt to send diagnostic reports
+                // For Boards to send hourly diagnostic messages
+                if(diagnostic == 1){             //it's the next hour and we are debugging at pump
+                                                 // THIS NEEDS TO BE REVIEWED
+                    phoneNumber[0]=0;
+                    concat(phoneNumber, DebugphoneNumber);
+                
+                    if (debugDiagnosticCounter == 0) {
+                        timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
+                    }
+                
+                    batteryFloat = batteryLevel();
+                    // The noonMessage() function is now gone maybe use CreateNoonMessage
+                    ///diagnostic_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
+                    if(diagnostic_msg_sent == 0){
+                        debugDiagnosticCounter++;
+                    }
+                    if(diagnostic_msg_sent){
+                        debugDiagnosticCounter = 0;  //Debug
+                        prevHour = hour;                             // only want to send it once
+                        diagnostic_msg_sent = 0;  //set up for next hourly message
+                        extRtccReset = 0; // reset the external clock was reset bit
+                        extRtccTalked = 0; // reset the external clock talked bit
+                        sleepHrStatus = 0; // reset the slept during that hour
+                        EEProm_Write_Float(102,&sleepHrStatus);                      // Save to EEProm
+                    }
+                    sendDebugMessage("   \n We tried to send the hourly diagnostic message ", debugDiagnosticCounter);  //Debug               
+                    //Put the phone number back to Upside 
+                    phoneNumber[0]=0;
+                    concat(phoneNumber, MainphoneNumber);
+                }
+            
+                // Read messages sent to the system
+                  // need to put the code for that here
+                prevHour = hour; // update so we know this is not the start of a new hour
+            }
+           
             
             //NEEDS REVIEW**********************************************************
             // updates either the internal or external clock if one has lost time
@@ -179,7 +250,7 @@ void main(void)
                 }
                 if (sleepHrStatus != 1){
                     sleepHrStatus = 1;
-                    EEProm_Write_Float(21,&sleepHrStatus);                      // Save to EEProm
+                    EEProm_Write_Float(102,&sleepHrStatus);                      // Save to EEProm
                 }
                     
                 sendDebugMessage("Going to sleep ", hour);  //Debug
@@ -194,87 +265,7 @@ void main(void)
                     
                 }
             }
-            // Is it time to record volume from previous time bin to EEProm?
-            if(hour/2 != active_volume_bin){
-                SaveVolumeToEEProm();
-                sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);  //Debug
-            }
-            // Is it time to report data from yesterday?    
-            
-            if((hour == 12)&&(noon_msg_sent == 0)){             //it's noon send previous day's information 0AM - 12PM
-                batteryFloat = batteryLevel();
-                noon_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
-                if(noon_msg_sent == 0){
-                    debugCounter++;
-                }
-                sendDebugMessage("   \n The noon message effort was a ", debugCounter);  //Debug
-                if(noon_msg_sent){
-                    sendDebugMessage("Noon Message sent ", debugCounter);  //Debug
-                    debugCounter = 0;  //Debug
-                    prevHour = hour; // without this, in debug = 2 mode, we send the noon message in the hourly deubug function.
-                }
-            }
-            if((hour == 13)&&(noon_msg_sent == 0)){             //The noon message was not able to be sent, reset things for today
-                ResetMsgVariables();
-                noon_msg_sent = 1;  //this will be cleared at 14:00 (2PM)
-            }
-            if((hour != 12)&&(hour !=13)){ 
-                noon_msg_sent = 0;
-            }
-            
-            // If we are debugging at a pump we want to send the noon message every hour
-            if((print_debug_messages >= 2)&&(hour != prevHour)){             //it's the next hour and we are debugging at pump
-                //phoneNumber = DebugphoneNumber;                            // change phone number to the debug number
-                phoneNumber[0]=0;
-                concat(phoneNumber, DebugphoneNumber);
-                
-                batteryFloat = batteryLevel();
-                hour_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
-                if(hour_msg_sent == 0){
-                    debugCounter++;
-                }
-                if(hour_msg_sent){
-                    debugCounter = 0;  //Debug
-                    prevHour = hour;                             // only want to send it once
-                    hour_msg_sent = 0;  //set up for next hourly message
-                }
-                sendDebugMessage("   \n We tried to send the hourly message ", debugCounter);  //Debug               
-                //Put the phone number back to Upside 
-                phoneNumber[0]=0;
-                concat(phoneNumber, MainphoneNumber);
-            }
-            
-            // For Boards to send hourly diagnostic messages
-            if((diagnostic == 1)&&(hour != prevHour)){             //it's the next hour and we are debugging at pump
-                phoneNumber[0]=0;
-                concat(phoneNumber, DebugphoneNumber);
-                
-                if (debugDiagnosticCounter == 0) {
-                    timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
-                }
-                
-                batteryFloat = batteryLevel();
-                diagnostic_msg_sent = noonMessage();                 // if we did not get a network connection this is still 0;
-                if(diagnostic_msg_sent == 0){
-                    debugDiagnosticCounter++;
-                }
-                if(diagnostic_msg_sent){
-                    debugDiagnosticCounter = 0;  //Debug
-                    prevHour = hour;                             // only want to send it once
-                    diagnostic_msg_sent = 0;  //set up for next hourly message
-                    extRtccReset = 0; // reset the external clock was reset bit
-                    extRtccTalked = 0; // reset the external clock talked bit
-                    sleepHrStatus = 0; // reset the slept during that hour
-                    EEProm_Write_Float(21,&sleepHrStatus);                      // Save to EEProm
-                    
-                }
-                sendDebugMessage("   \n We tried to send the hourly diagnostic message ", debugDiagnosticCounter);  //Debug               
-                //Put the phone number back to Upside 
-                phoneNumber[0]=0;
-                concat(phoneNumber, MainphoneNumber);
-            }
-            
-            
+           
             // OK, go ahead and look for handle movement again
 			delayMs(upstrokeInterval);                            // Delay for a short time
 			float newAngle = getHandleAngle();
