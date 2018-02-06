@@ -229,9 +229,18 @@ void initialization(void) {
     TRISA = 0xFFFF; // Make PORTA all inputs
     ANSB = 0; // All port B pins are digital. Individual ADC are set in the readADC function
     TRISB = 0xFFFF; // Sets all of port B to input
+    TRISBbits.TRISB0 = 0;
 
     // pinDirectionIO(sclI2CPin, 0);                                            //TRISBbits.TRISB8 = 0; // RB8 is an output
-
+    //OSCCONbits.SOSCEN = 0b01;
+    //OSCCONbits.COSC = 0b100;
+    //CLKDIVbits.DOZE = 0b00;
+    
+    while(1){
+        LATBbits.LATB0 = 1;
+       // LATBbits.LATB0 = 0;
+    }
+    
     // Timer control (for WPS)
     T1CONbits.TCS = 0; // Source is Internal Clock if FNOSC = FRC, Fosc/2 = 4Mhz
     T1CONbits.TCKPS = 0b11; // Prescalar to 1:256 
