@@ -75,16 +75,18 @@ extern int prevTimer2;
 // ****************************************************************************
 
 extern char active_volume_bin;
-extern float longestPrime; // total upstroke fo the longest priming event of the day
+
+extern float longestPrime; // total upstroke for the longest priming event of the day
 extern char MainphoneNumber[]; // Upside Wireless
 extern char DebugphoneNumber[]; // Number for the Black Phone
 //extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
-//extern char phoneNumber[]; // Number Used to send text message report (daily or hourly)
+///extern char phoneNumber[]; // Number Used to send text message report (daily or hourly)
 
     //****************Hourly Diagnostic Message Variables************************
 extern float sleepHrStatus; // 1 if we slept during the current hour, else 0
-extern float timeSinceLastRestart; // Total time in hours since last restart
-extern float diagnostic_msg_sent; // set to 1 when the hourly diagnostic message is sent    
+extern int timeSinceLastRestart; // Total time in hours since last restart
+extern int diagnostic_msg_sent; // set to 1 when the hourly diagnostic message is sent 
+extern char diagnostic; //set to 1 when we want the diagnostic text messages to be sent hourly
 extern int internalHour; // Hour of the day according to internal RTCC
 extern int internalMinute; // Minute of the hour according to the internal RTCC
 extern float debugDiagnosticCounter;  // DEBUG used as a variable for various things while debugging diagnostic message
@@ -190,10 +192,10 @@ char BcdToDec(char val);
 char DecToBcd(char val);
 
 
-int noonMessage(void);
-int diagnosticMessage(void);
-void hourMessage(void);
 
+int noonMessage(void);
+
+int diagnosticMessage(void);
 void SoftwareReset(void);
 
 void delaySCL(void);
