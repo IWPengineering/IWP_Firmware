@@ -84,14 +84,13 @@ extern char DebugphoneNumber[]; // Number for the Black Phone
 
     //****************Hourly Diagnostic Message Variables************************
 extern float sleepHrStatus; // 1 if we slept during the current hour, else 0
-extern int timeSinceLastRestart; // Total time in hours since last restart
+extern float timeSinceLastRestart; // Total time in hours since last restart
 extern int diagnostic_msg_sent; // set to 1 when the hourly diagnostic message is sent 
 extern char diagnostic; //set to 1 when we want the diagnostic text messages to be sent hourly
 extern int internalHour; // Hour of the day according to internal RTCC
 extern int internalMinute; // Minute of the hour according to the internal RTCC
 extern float debugDiagnosticCounter;  // DEBUG used as a variable for various things while debugging diagnostic message
 extern float extRtccTalked; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
-extern int extRtccReset; // set to 1 if the external RTCC was reset during the hour
 
 extern int extRtccHourSet; //set to 0 if the external RTCC didn't update the hour in the current loop - used to check internal RTCC
 
@@ -182,6 +181,7 @@ float degToRad(float degrees);
 void delayMs(int ms);
 int getLowerBCDAsDecimal(int bcd);
 int getUpperBCDAsDecimal(int bcd);
+void setInternalRTCC(int sec, int min, int hr, int wkday, int date, int month, int year);
 int getTimeHour(void);
 long timeStamp(void);
 void ResetMsgVariables();
