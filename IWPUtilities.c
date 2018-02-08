@@ -1507,4 +1507,5 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART 
     // Always reset the interrupt flag
     IFS0bits.U1RXIF = 0; 
 
+
 }

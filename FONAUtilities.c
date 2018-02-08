@@ -841,7 +841,7 @@ void createDiagnosticMessage(void) {
     float LocalFloat = hour;
     SMSMessage[0] = 0; //reset SMS message array to be empty
     LocalString[0] = 0;
-
+  
     concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"s\":");
     EEProm_Read_Float(21, &EEFloatData);
     floatToString(EEFloatData, LocalString); //populates the sleepHrStatusString with the value from EEPROM
@@ -861,3 +861,4 @@ void createDiagnosticMessage(void) {
    
     concat(SMSMessage, ">))");
 }   
+
