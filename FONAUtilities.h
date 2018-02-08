@@ -57,6 +57,7 @@ void ClearReceiveTextMessages(int MsgNum, int ClrMode);
 void CreateNoonMessage(int);
 void CreateAndSaveDailyReport(void);
 int SendSavedDailyReports(void);
+void createDiagnosticMessage(void);
 
 
 
