@@ -68,6 +68,8 @@ extern float omega3;
 extern float alpha;
 extern double timeStep;
 extern int prevTimer2;
+extern int DailyReportEEPromStart; // this is the EEPROM slot that Daily Report Messages will begin to be saved
+extern int DiagnosticEEPromStart;  // this is the EEPROM slot that Diagnostic information can begin to be saved
 
 
 // ****************************************************************************

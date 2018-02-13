@@ -28,8 +28,8 @@
 #pragma config GWRP = OFF // General Segment Write Protect (General segment may be written)
 #pragma config GSS0 = OFF // General Segment Code Protect (No Protection)
 // FOSCSEL
-//#pragma config FNOSC = FRC
-#pragma config FNOSC = SOSC // Oscillator Select (Fast RC Oscillator (FRC))
+#pragma config FNOSC = FRC
+//#pragma config FNOSC = SOSC // Oscillator Select (Fast RC Oscillator (FRC))
 #pragma config SOSCSRC = ANA // SOSC Source Type (Analog Mode for use with crystal)
 #pragma config LPRCSEL = HP // LPRC Oscillator Power and Accuracy (High Power, High Accuracy Mode)
 #pragma config IESO = OFF // Internal External Switch Over bit (Internal External Switchover mode enabled (Two-speed Start-up enabled))
@@ -124,25 +124,27 @@ void main(void)
     * it should be removed after the functions have been verified 
     */
     // save 5 daily reports
-    int i;
-    for(i=1;i<8;i++){
+    //int i;
+    //for(i=1;i<8;i++){
          //   (sec, min, hr, wkday, date, month, year)
-        setTime(0,45,4,5,i,6,18); //  June i, 2018 
-        CreateAndSaveDailyReport();
-    }
+   //     setTime(0,45,4,5,i,6,18); //  June i, 2018 
+  //      CreateAndSaveDailyReport();
+  //  }
     //Send the messages
-    int num_remain;
-    num_remain=SendSavedDailyReports();
+ //   int num_remain;
+  //  while(1){
+  //  num_remain=SendSavedDailyReports();
+  //  }
     // END of FUNCTION VERIFICATION SECTION
     
-    
+        
     while (1)
 	{     
        batteryFloat = batteryLevel();
        
-        if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, try to turn it on so it is awake to be topped off
-           turnOnSIM();
-        }
+       // don't do this anymore if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, try to turn it on so it is awake to be topped off
+       // don't do this anymore    turnOnSIM();
+       // don't do this anymore }
    
 
         //MAIN LOOP; repeats indefinitely
@@ -212,7 +214,7 @@ void main(void)
                 }
                 if (sleepHrStatus != 1){
                     sleepHrStatus = 1;
-                    EEProm_Write_Float(102,&sleepHrStatus);                      // Save to EEProm
+                    EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
                 }
                     
                 sendDebugMessage("Going to sleep ", hour);  //Debug
