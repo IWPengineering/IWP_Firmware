@@ -115,6 +115,9 @@ const int yearI2Cvar = 0x06;
 const float PI = 3.141592;
 
 const float angleRadius = .008; // this is 80 millimeters so should it equal 80 or .008?
+
+int DailyReportEEPromStart = 21; // this is the EEPROM slot that Daily Report Messages will begin to be saved
+int DiagnosticEEPromStart = 102;  // this is the EEPROM slot that Diagnostic information can begin to be saved
 int depthSensorInUse;
 
 int prevTimer2 = 0; // Should intially begin at zero
@@ -352,8 +355,14 @@ void initialization(void) {
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        setTime(0,45,15,5,8,6,18); //  6/8/2018 
+        setTime(0,37,17,2,12,2,18); //  2/12/2018 
     }
+    // just so we know the board is working
+    
+    turnOnSIM();
+    delayMs(2000);
+    turnOffSIM();
+
     // Debug - not sure about this so wait until I can try it
     //char* phoneNumber = DebugphoneNumber;
 }
