@@ -29,8 +29,9 @@
 //char DebugphoneNumber[] = "0548345382"; // Number for the Black Phone - MOVED to kpachelo
 //char DebugphoneNumber[] = "0548982327"; // Number for Immanuel programmed in as debug for kpachelo
 //char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
-char DebugphoneNumber[] = "+17177784498"; // Upside 
-///char DebugphoneNumber[] = "+18458007595"; //Number for Paul Zwert cell phone
+//char DebugphoneNumber[] = "+17177784498"; // Upside 
+
+char DebugphoneNumber[] = "+18458007595"; //Number for Paul Zwart cell phone
 //char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char MainphoneNumber[]="+17176837803"; // Randy
 char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS message default to mine
@@ -236,6 +237,14 @@ int CheckNetworkConnection(void) //True when there is a network connection
                            
 }
 void sendDebugMessage(char message[50], float value){
+    // we need to change this so that it shuts off the SIM before sending
+    // we have found that using the serial line while the FONA is on 
+    // causes the FONA problems.
+    int SIMwasON = 0;
+    if (digitalPinStatus(statusPin) == 1) { // if the Fona is off, try to turn it on so it is awake to be topped off
+       turnOffSIM();
+       SIMwasON = 1;
+    }
     if(print_debug_messages >= 1){
         char debugMsg[150];
         char debugValueString[20];
@@ -246,6 +255,9 @@ void sendDebugMessage(char message[50], float value){
         concat(debugMsg,debugValueString);
         concat(debugMsg, "\n");
         sendMessage(debugMsg);
+    }
+    if(SIMwasON ==1){
+        turnOnSIM(); // if the SIM was on when you got here, turn it back on
     }
 }
 /*********************************************************************
@@ -681,15 +693,15 @@ void CreateAndSaveDailyReport(void){
     int effective_address;
     int vptr;
     float date;
-    // Read EEPROM address 21 which contains the number of messages already saved
-    EEProm_Read_Float(21, &EEFloatData);
+    // Read EEPROM address, right now 21, which contains the number of messages already saved
+    EEProm_Read_Float(DailyReportEEPromStart, &EEFloatData);
     num_saved_messages = EEFloatData;
     num_saved_messages++; //we are adding to the queue
     if(num_saved_messages > 10){
         num_saved_messages = 6;
     }
     EEFloatData = num_saved_messages;  //Update the number of messages in the queue
-    EEProm_Write_Float(21,&EEFloatData);
+    EEProm_Write_Float(DailyReportEEPromStart,&EEFloatData);
     // Find the first available address to store this daily report
     if(num_saved_messages > 5){
         message_position = num_saved_messages-5;  //If this is the 24th message since 
@@ -698,7 +710,7 @@ void CreateAndSaveDailyReport(void){
     }
     else{message_position = num_saved_messages;
     }
-    effective_address = ((message_position - 1)*16)+22;
+    effective_address = ((message_position - 1)*16)+DailyReportEEPromStart+1;
 
   /*                  EEPROM STORAGE
  * EEProm#		    EEProm#		         EEProm#	
@@ -766,22 +778,23 @@ int SendSavedDailyReports(void){
     ready = turnOnSIM();
     ready = tryToConnectToNetwork(); // This will try 7 times to connect to the network
     
+      
     // Send a daily report if we have network connection and there are messages to send
-    EEProm_Read_Float(21, &EEFloatData);// Read EEPROM address 21 which contains the number of messages already saved
+    EEProm_Read_Float(DailyReportEEPromStart, &EEFloatData);// Read EEPROM address, as of now 21, which contains the number of messages already saved
     num_saved_messages = EEFloatData;
     num_unsent_daily_reports = num_saved_messages;  //as long as there have been 5 or less saved messages, these are the same
     if(num_saved_messages > 5){
             num_unsent_daily_reports = 5;  //This is the maximum number of messages saved in our daily report buffer
     }
-    while((num_unsent_daily_reports > 0 )&&(ready = 1)){
+    while((num_unsent_daily_reports > 0 )&&(ready == 1)){
         // Find the EEPROM address of the start of the next daily report data
         if(num_saved_messages > 5){
             message_position = num_saved_messages-5;  //If this is the 7th message since 
-                                                   //we were able to send things, it 
-                                                   //belongs in position 2 of the circular buffer
+                                                       //we were able to send things, it 
+                                                       //belongs in position 2 of the circular buffer
         }
         else{message_position = num_saved_messages;}
-        effective_address = ((message_position - 1)*16)+22;
+        effective_address = ((message_position - 1)*16)+DailyReportEEPromStart+1;
         // Create the message including adding the hour
         CreateNoonMessage(effective_address);  //Gather the data into the array SMSMessage
         // send the message and check for the reply that it was sent
@@ -799,10 +812,30 @@ int SendSavedDailyReports(void){
         }
         ready = CheckNetworkConnection(); // make sure we still have a network connection
     }
+    
+        // If hourly diagnostic messages are enabled and we are still ready, create and send the message
+    if((diagnostic == 1) && (ready == 1)) {
+        phoneNumber = DebugphoneNumber;
+
+        batteryFloat = batteryLevel();               
+        //Put the phone number back to Upside 
+
+        createDiagnosticMessage();
+        
+        ready = sendTextMessage(SMSMessage);
+
+        // NOTE:  We should not try to send messages on the serial port while the FONA is ON
+            //sendDebugMessage("  \n The attempt to send the hourly diagnostic message to the FONA was a ", ready);  //Debug
+        timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
+        extRtccTalked = 0; // reset the external clock talked bit
+        sleepHrStatus = 0; // reset the slept during that hour
+        EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
+        phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
+    }
     // after we are done sending update the number of messages still waiting to be sent
     // if there is no problem with the network, this will be zero
     EEFloatData = num_saved_messages;  //Update the number of messages in the queue
-    EEProm_Write_Float(21,&EEFloatData);
+    EEProm_Write_Float(DailyReportEEPromStart,&EEFloatData);
     //Read received messages and act on them
     
     //Turn off the FONA
@@ -817,61 +850,29 @@ int SendSavedDailyReports(void){
 }
 
 
-int diagnosticMessage(void) {
-    
-    //Message assembly and sending; Use *floatToString() to send:
-    // Create storage for the various values to report
-    int success = 0;  // variable used to see if various FONA operations worked
-                      // which means we either did (1) or did not (0) send the message
-    char sleepHrStatusString[20];
-    sleepHrStatusString[0] = 0;
-    char batteryFloatString[20];
-    batteryFloatString[0] = 0;
-    char timeSinceLastRestartString[20];
-    timeSinceLastRestartString[0] = 0;
-    char extRtccTalkedString[20];
-    extRtccTalkedString[0] = 0;
-    
-    // Read values from EEPROM and convert them to strings
-    EEProm_Read_Float(21, &EEFloatData);
-    floatToString(EEFloatData, sleepHrStatusString); //populates the sleepHrStatusString with the value from EEPROM
-    
-    floatToString(batteryFloat, batteryFloatString); //latest battery voltage
-    floatToString(timeSinceLastRestart, timeSinceLastRestartString);
-    floatToString(extRtccTalked, extRtccTalkedString);
-    
-        //will need more formating for JSON 5-30-2014
-    char dataMessage[160];
-    dataMessage[0] = 0;
-
-    concat(dataMessage, "(\"t\":\"d\",\"d\":(\"s\":");
-    concat(dataMessage, sleepHrStatusString);
-    concat(dataMessage, ",\"b\":");
-    concat(dataMessage, batteryFloatString);
-    concat(dataMessage, ",\"r\":");
-    concat(dataMessage, timeSinceLastRestartString);
-    concat(dataMessage, ",\"c\":");
-    concat(dataMessage, extRtccTalkedString);
-    
-
-    concat(dataMessage, ">))");
-
-    success = turnOnSIM();  // returns 1 if the SIM powered up)
-    sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
-    if(success == 1){ 
-       // Try to establish network connection
-        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
-        sendDebugMessage("   \n Connect to network was a ", success);  //Debug
-        if(success == 1){
-        // Send off the data
-            sendTextMessage(dataMessage);              
-        // Now that the message has been sent, we can update our EEPROM
-        // Clear RAM and EEPROM associated with message variables
-            if(hour == 12){
-                ResetMsgVariables();
-            }
-        }
-    }
-    return success;  // this will be a 1 if we were able to connect to the network.  We assume that we sent the message
+void createDiagnosticMessage(void) {
+    char LocalString[20]; 
+    float LocalFloat = hour;
+    SMSMessage[0] = 0; //reset SMS message array to be empty
+    LocalString[0] = 0;
+  
+    concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"s\":");
+    EEProm_Read_Float(DiagnosticEEPromStart, &EEFloatData);
+    floatToString(EEFloatData, LocalString); //populates the sleepHrStatusString with the value from EEPROM
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"b\":");
+    floatToString(batteryFloat, LocalString); //latest battery voltage
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"r\":");
+    floatToString(timeSinceLastRestart, LocalString); // hours since the system restarted
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"c\":");
+    floatToString(extRtccTalked, LocalString); // if the external rtcc responded in the last hour
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"t\":");
+    floatToString(LocalFloat, LocalString); // what it thinks the hour is
+    concat(SMSMessage, LocalString);
+   
+    concat(SMSMessage, ">))");
 }   
 

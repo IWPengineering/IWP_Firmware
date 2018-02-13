@@ -115,6 +115,9 @@ const int yearI2Cvar = 0x06;
 const float PI = 3.141592;
 
 const float angleRadius = .008; // this is 80 millimeters so should it equal 80 or .008?
+
+int DailyReportEEPromStart = 21; // this is the EEPROM slot that Daily Report Messages will begin to be saved
+int DiagnosticEEPromStart = 102;  // this is the EEPROM slot that Diagnostic information can begin to be saved
 int depthSensorInUse;
 
 int prevTimer2 = 0; // Should intially begin at zero
@@ -143,12 +146,10 @@ float angle10 = 0;
 
     //****************Hourly Diagnostic Message Variables************************
 float sleepHrStatus = 0; // 1 if we slept during the current hour, else 0
-float timeSinceLastRestart = 0; // Total time in hours since last restart
-float diagnostic_msg_sent = 0; // set to 1 when the hourly diagnostic message is sent    
+float timeSinceLastRestart = 0; // Total time in hours since last restart 
 int internalHour = 0; // Hour of the day according to internal RTCC
 int internalMinute = 0; // Minute of the hour according to the internal RTCC
 float extRtccTalked = 0; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
-float debugDiagnosticCounter = 0;  // DEBUG used as a variable for various things while debugging diagnostic message
 
 int extRtccHourSet = 1;
 
@@ -236,10 +237,10 @@ void initialization(void) {
     //OSCCONbits.COSC = 0b100;
     //CLKDIVbits.DOZE = 0b00;
     
-    while(1){
+    /*while(1){
         LATBbits.LATB0 = 1;
-       // LATBbits.LATB0 = 0;
-    }
+        LATBbits.LATB0 = 0;
+    }*/
     
     // Timer control (for WPS)
     T1CONbits.TCS = 0; // Source is Internal Clock if FNOSC = FRC, Fosc/2 = 4Mhz
@@ -354,8 +355,14 @@ void initialization(void) {
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        setTime(0,45,15,5,8,6,18); //  6/8/2018 
+        setTime(0,37,17,2,12,2,18); //  2/12/2018 
     }
+    // just so we know the board is working
+    
+    turnOnSIM();
+    delayMs(2000);
+    turnOffSIM();
+
     // Debug - not sure about this so wait until I can try it
     //char* phoneNumber = DebugphoneNumber;
 }
@@ -1196,113 +1203,7 @@ void midDayDepthRead(void) {
         prevDayDepthSensor = BcdToDec(getDateI2C());
 
     }
-}
-
-
-int diagnosticMessage(void) {
-    
-    //Message assembly and sending; Use *floatToString() to send:
-    // Create storage for the various values to report
-    int success = 0;  // variable used to see if various FONA operations worked
-                      // which means we either did (1) or did not (0) send the message
-    char sleepHrStatusString[20];
-    sleepHrStatusString[0] = 0;
-/*  I'M COMMENTING ALL OF THIS OUT ON THE ASSUMPTION THAT PAUL IS WORKING ON IT
-
-    // Read values from EEPROM and convert them to strings
-    EEProm_Read_Float(21, &EEFloatData);
-    floatToString(EEFloatData, sleepHrStatusString); //populates the sleepHrStatusString with the value from EEPROM
-    
-    
-        //will need more formating for JSON 5-30-2014
-    char dataMessage[160];
-    dataMessage[0] = 0;
-  // Debug for Scott  if(hour != 12){
-      if(hour == 120){
-      concat(dataMessage, "(\"t\":");
-      concat(dataMessage,debugString);
-      concat(dataMessage,",\"d\",\"d\":(\"l\":");
-    }
-    else{
-        concat(dataMessage, "(\"t\":\"d\",\"d\":(\"l\":");
-    }
-    
-    concat(dataMessage, leakRateLongString);
-    concat(dataMessage, ",\"p\":");
-    concat(dataMessage, longestPrimeString);
-    concat(dataMessage, ",\"b\":");
-    concat(dataMessage, batteryFloatString);
-    if (depthSensorInUse == 1) { // if you have a depth sensor
-        pinDirectionIO(depthSensorOnOffPin, 0); //makes depth sensor pin an output.
-        digitalPinSet(depthSensorOnOffPin, 1); //turns on the depth sensor.
-        delayMs(30000); // Wait 30 seconds for the depth sensor to power up
-        char maxDepthLevelString[20];
-        maxDepthLevelString[0] = 0;
-        char minDepthLevelString[20];
-        minDepthLevelString[0] = 0;
-        float currentDepth = readDepthSensor();
-        if (midDayDepth > currentDepth) {
-            floatToString(midDayDepth, maxDepthLevelString);
-            floatToString(currentDepth, minDepthLevelString);
-        } else {
-            floatToString(currentDepth, maxDepthLevelString);
-            floatToString(midDayDepth, minDepthLevelString);
-
-        }
-        concat(dataMessage, ",\"d\":<");
-        concat(dataMessage, maxDepthLevelString);
-        concat(dataMessage, ",");
-        concat(dataMessage, minDepthLevelString);
-        concat(dataMessage, ">");
-
-        digitalPinSet(depthSensorOnOffPin, 0); //turns off the depth sensor.
-    }
-    concat(dataMessage, ",\"v\":<");
-    concat(dataMessage, volume02String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume24String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume46String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume68String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume810String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1012String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1214String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1416String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1618String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume1820String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume2022String);
-    concat(dataMessage, ",");
-    concat(dataMessage, volume2224String);
-    concat(dataMessage, ">))");
-
-    success = turnOnSIM();  // returns 1 if the SIM powered up)
-    sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
-    if(success == 1){ 
-       // Try to establish network connection
-        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
-        sendDebugMessage("   \n Connect to network was a ", success);  //Debug
-        if(success == 1){
-        // Send off the data
-            sendTextMessage(dataMessage);              
-        // Now that the message has been sent, we can update our EEPROM
-        // Clear RAM and EEPROM associated with message variables
-            if(hour == 12){
-                ResetMsgVariables();
-            }
-        }
-    }
-  */
-}   
-
-    
+}    
 
 /*********************************************************************
  * Function: EEProm_Write_Int(int addr, int newData)
@@ -1615,7 +1516,5 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART 
     // Always reset the interrupt flag
     IFS0bits.U1RXIF = 0; 
 
+
 }
-
-
-
