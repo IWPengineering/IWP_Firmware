@@ -29,8 +29,8 @@
 //char DebugphoneNumber[] = "0548345382"; // Number for the Black Phone - MOVED to kpachelo
 //char DebugphoneNumber[] = "0548982327"; // Number for Immanuel programmed in as debug for kpachelo
 //char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
-char DebugphoneNumber[] = "+17177784498"; // Upside 
-///char DebugphoneNumber[] = "+18458007595"; //Number for Paul Zwart cell phone
+//char DebugphoneNumber[] = "+17177784498"; // Upside 
+char DebugphoneNumber[] = "+18458007595"; //Number for Paul Zwart cell phone
 //char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char MainphoneNumber[]="+17176837803"; // Randy
 char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS message default to mine
@@ -801,7 +801,7 @@ int SendSavedDailyReports(void){
     }
     
         // If hourly diagnostic messages are enabled and we are still ready, create and send the message
-    while((diagnostic == 1) && (ready == 1)) {
+    if((diagnostic == 1) && (ready == 1)) {
         phoneNumber = DebugphoneNumber;
 
         batteryFloat = batteryLevel();               
@@ -850,13 +850,13 @@ void createDiagnosticMessage(void) {
     floatToString(batteryFloat, LocalString); //latest battery voltage
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"r\":");
-    floatToString(timeSinceLastRestart, LocalString);
+    floatToString(timeSinceLastRestart, LocalString); // hours since the system restarted
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"c\":");
-    floatToString(extRtccTalked, LocalString);
+    floatToString(extRtccTalked, LocalString); // if the external rtcc responded in the last hour
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"t\":");
-    floatToString(LocalFloat, LocalString);
+    floatToString(LocalFloat, LocalString); // what it thinks the hour is
     concat(SMSMessage, LocalString);
    
     concat(SMSMessage, ">))");
