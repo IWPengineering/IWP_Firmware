@@ -582,7 +582,7 @@ int getHourI2C(void) {
     
     int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
                      //quit trying if things hang. (usually takes about 410us)
- 
+    extRtccChecked++;
     
     configI2c(); // sets up I2C
     TMR1 = 0;  
@@ -629,10 +629,18 @@ int getHourI2C(void) {
         hr = (hour/10 *16)+(hour % 10); // If the read was unsuccessful, return the last known hour
                                         // Remember the returned value is supposed to be in BCD
         extRtccHourSet = 0;             // Cleared because RTCC hour didn't update
+        sendDebugMessage("The time update failed", 0);
+        extRtccTalked++;
+        if (extRtccChecked > 60) {
+            hr++;
+            extRtccManualSet = 1;
+        }
     }
-    else if (extRtccTalked != 1) { // if the max time didn't elapsed, the RTCC talked so set the bit
-        extRtccTalked = 1;
+    else { // if the max time didn't elapsed, the RTCC talked so set the bit
+        sendDebugMessage("The time update succeeded", 0);
     }
+    
+    
     
     return hr; 
                 
