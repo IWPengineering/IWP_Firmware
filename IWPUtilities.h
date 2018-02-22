@@ -93,6 +93,9 @@ extern int internalHour; // Hour of the day according to internal RTCC
 extern int internalMinute; // Minute of the hour according to the internal RTCC
 extern float debugDiagnosticCounter;  // DEBUG used as a variable for various things while debugging diagnostic message
 extern float extRtccTalked; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
+extern float numberTries; // number of times that tried to connect to network for hourly diagnostic messages 
+extern int extRtccChecked;
+extern float extRtccManualSet;
 
 extern int extRtccHourSet; //set to 0 if the external RTCC didn't update the hour in the current loop - used to check internal RTCC
 

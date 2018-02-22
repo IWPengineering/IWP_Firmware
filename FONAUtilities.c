@@ -788,6 +788,7 @@ int SendSavedDailyReports(void){
     int message_position;
     int effective_address;  //EEProm position.  We assume each position is a float and start at 0
     // Turn on the FONA
+    sendDebugMessage("Trying to send a daily or diagnostic message", 1);
     ready = turnOnSIM();
     ready = tryToConnectToNetwork(); // This will try 7 times to connect to the network
     
@@ -827,24 +828,41 @@ int SendSavedDailyReports(void){
     }
     
         // If hourly diagnostic messages are enabled and we are still ready, create and send the message
-    if((diagnostic == 1) && (ready == 1)) {
-        phoneNumber = DebugphoneNumber;
+    while (diagnostic == 1){
+        numberTries++;
+        if(numberTries > 30) {
+            break;
+        }
+        ready = CheckNetworkConnection();
+        if(ready == 1) {
+            phoneNumber = DebugphoneNumber;
 
-        batteryFloat = batteryLevel();               
-        //Put the phone number back to Upside 
+            batteryFloat = batteryLevel();               
+            //Put the phone number back to Upside 
 
-        createDiagnosticMessage();
-        
-        ready = sendTextMessage(SMSMessage);
-
-        // NOTE:  We should not try to send messages on the serial port while the FONA is ON
-            //sendDebugMessage("  \n The attempt to send the hourly diagnostic message to the FONA was a ", ready);  //Debug
-        timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
-        extRtccTalked = 0; // reset the external clock talked bit
-        sleepHrStatus = 0; // reset the slept during that hour
-        EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
-        phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
+            createDiagnosticMessage();
+            
+            while(1){
+                ready = sendTextMessage(SMSMessage);
+                // Check to see if the FONA replies with ERROR or not
+                char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+                ready = ReadSIMresponse(CmdMatch);
+                if (ready == 1) {
+                    break;
+                }
+            }
+            // NOTE:  We should not try to send messages on the serial port while the FONA is ON
+                //sendDebugMessage("  \n The attempt to send the hourly diagnostic message to the FONA was a ", ready);  //Debug
+            timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
+            extRtccTalked = 0; // reset the external clock talked bit
+            sleepHrStatus = 0; // reset the slept during that hour
+            EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
+            extRtccManualSet = 0; 
+            phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
+            break;
+        }
     }
+    numberTries = 0;
     // after we are done sending update the number of messages still waiting to be sent
     // if there is no problem with the network, this will be zero
     EEFloatData = num_saved_messages;  //Update the number of messages in the queue
@@ -887,7 +905,13 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, ",\"t\":");
     floatToString(LocalFloat, LocalString); // what it thinks the hour is
     concat(SMSMessage, LocalString);
-   
+    concat(SMSMessage, ",\"n\":");
+    floatToString(numberTries, LocalString); // number of tries to connect
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"e\":");
+    floatToString(extRtccManualSet, LocalString); // external RTCC was manually set forward
+    concat(SMSMessage, LocalString);
+    
     concat(SMSMessage, ">))");
 }   
 

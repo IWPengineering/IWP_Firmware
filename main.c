@@ -97,6 +97,7 @@ void main(void)
     noon_msg_sent = 0; // Start with the assumption that the noon message has not been sent
     debugCounter = 0;  //DEBUG variable to track how many times it takes to send the message
     int local_debug_hour = 1;  //just used to debug things
+    prevHour = BcdToDec(getHourI2C());
     
     //                    DEBUG
     // print_debug_messages controls the debug reporting
@@ -155,12 +156,15 @@ void main(void)
             if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
                 hour = BcdToDec(getHourI2C());
                 //minute = BcdToDec(getMinuteI2C());
-                internalHour = BcdToDec(getTimeHour());
+                //internalHour = BcdToDec(getTimeHour());
                 //internalMinute = BcdToDec(getTimeMinute());
+                sendDebugMessage("The hour is ", hour);
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
             if(hour != prevHour){
+            //if(TimeSinceLastHourCheck > 5000) {
+              //  TimeSinceLastHourCheck = 0;
                 // Is it time to record volume from previous time bin to EEProm?
                 if(hour/2 != active_volume_bin){
                     SaveVolumeToEEProm();

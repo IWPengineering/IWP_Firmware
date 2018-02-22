@@ -139,6 +139,7 @@ float angle8 = 0;
 float angle9 = 0;
 float angle10 = 0;
 
+int success = 0;
 
 // ****************************************************************************
 // *** Global Variables *******************************************************
@@ -150,8 +151,10 @@ float timeSinceLastRestart = 0; // Total time in hours since last restart
 int internalHour = 0; // Hour of the day according to internal RTCC
 int internalMinute = 0; // Minute of the hour according to the internal RTCC
 float extRtccTalked = 0; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
-
+float numberTries = 0; // Keeps track of the number of times we attempt to connect to the network to send diagnostic messages
 int extRtccHourSet = 1;
+int extRtccChecked = 0; // how many times weve tried to update the time this hour
+float extRtccManualSet = 0;
 
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
@@ -356,7 +359,9 @@ void initialization(void) {
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        setTime(0,37,17,2,12,2,18); //  2/12/2018 
+        success = setTime(0,20,11,3,22,2,18); //  2/12/2018 
+        print_debug_messages = 1; 
+        sendDebugMessage("Program time? ", success);
     }
     // just so we know the board is working
     
@@ -1477,13 +1482,12 @@ void DebugReadEEProm(void){
  * TestDate: 1-5-2017 (changed to clear all EEPROM and not retested)
  ********************************************************************/
 void ClearEEProm(void){
-    int EEPromPointer = 0;
+    int i;
     EEFloatData = 0;
-    while(EEPromPointer < 128){
-        EEProm_Write_Float(EEPromPointer, &EEFloatData);
-        EEPromPointer++;
+    for (i = 0; i < DiagnosticEEPromStart; i++){
+        EEProm_Write_Float(i, &EEFloatData);
     }
-    }
+}
 
 void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART data interrupt
   // Here is where we put the code to read a character from the Receive data buffer
