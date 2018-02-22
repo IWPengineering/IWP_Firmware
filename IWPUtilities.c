@@ -233,7 +233,8 @@ void initialization(void) {
     TRISA = 0xFFFF; // Make PORTA all inputs
     ANSB = 0; // All port B pins are digital. Individual ADC are set in the readADC function
     TRISB = 0xFFFF; // Sets all of port B to input
-    TRISBbits.TRISB0 = 0;
+    TRISBbits.TRISB0 = 0; //DEBUG Make spare test pin#4 on Pic an output
+    PORTBbits.RB0 = 1;  //DEBUG Set this high,  When we go to sleep we will make it low
 
     // pinDirectionIO(sclI2CPin, 0);                                            //TRISBbits.TRISB8 = 0; // RB8 is an output
     //OSCCONbits.SOSCEN = 0b01;
@@ -1473,12 +1474,12 @@ void DebugReadEEProm(void){
  * Function: ClearEEProm(void)
  * Input: none
  * Output: none
- * Overview: This function writes a 0 to the first 21 float locations
+ * Overview: This function writes a 0 to all of the EEPROM addresses
  *           in EEProm.  It should be called the first time a board
  *           is programmed but NOT every time we Initialize since we don't want 
  *           to lose data saved prior to shutting down because of lost power
  * Note: Library
- * TestDate: 1-5-2017
+ * TestDate: 1-5-2017 (changed to clear all EEPROM and not retested)
  ********************************************************************/
 void ClearEEProm(void){
     int i;

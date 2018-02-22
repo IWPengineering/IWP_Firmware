@@ -120,34 +120,24 @@ void main(void)
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     
-   /*
-    The stuff done in here is just to verify newly written or changed routines
-    * it should be removed after the functions have been verified 
-    */
-    // save 5 daily reports
-    //int i;
-    //for(i=1;i<8;i++){
-         //   (sec, min, hr, wkday, date, month, year)
-   //     setTime(0,45,4,5,i,6,18); //  June i, 2018 
-  //      CreateAndSaveDailyReport();
-  //  }
-    //Send the messages
- //   int num_remain;
-  //  while(1){
-  //  num_remain=SendSavedDailyReports();
-  //  }
-    // END of FUNCTION VERIFICATION SECTION
+   // THIS STUFF IS JUST FOR TESTING 
+    //Read received messages and act on them
+  //  turnOnSIM();
+  //  readSMSMessage(4); //still not used 
+ //   readSMSMessage(5); //still not used 
+ //   readSMSMessage(6); //still not used 
+    interpretSMSmessage(); //still not used
+    //ClearReceiveTextMessages(1,0); 
+//    readSMSMessage(1); //still not used 
+//    turnOffSIM();
+    // THIS STUFF IS JUST FOR TESTING
     
-        
+    
+          
     while (1)
 	{     
        batteryFloat = batteryLevel();
        
-       // don't do this anymore if (digitalPinStatus(statusPin) == 0) { // if the Fona is off, try to turn it on so it is awake to be topped off
-       // don't do this anymore    turnOnSIM();
-       // don't do this anymore }
-   
-
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
 		// Idle Handle Monitor Loop
@@ -222,6 +212,7 @@ void main(void)
                 }
                     
                 sendDebugMessage("Going to sleep ", hour);  //Debug
+                PORTBbits.RB0 = 0; // DEBUG make test pin low when we are sleeping
                 Sleep(); 
                                
                 hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
@@ -233,6 +224,7 @@ void main(void)
                     
                 }
             }
+            PORTBbits.RB0 = 1; //DEBUG make test pin high when not sleeping
             // OK, go ahead and look for handle movement again
 			delayMs(upstrokeInterval);                            // Delay for a short time
 			float newAngle = getHandleAngle();
