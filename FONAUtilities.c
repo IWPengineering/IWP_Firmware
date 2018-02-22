@@ -40,7 +40,7 @@ char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS m
 char* phoneNumber = MainphoneNumber; // Randy
 int LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
 char FONAmsgStatus[11]; //Message REC/STO, UNREAD/READ, UNSENT/SENT
-char ReceiveTextMsg[280]; //This is the string used to buffer up a message read from the FONA
+char ReceiveTextMsg[160]; //This is the string used to buffer up a message read from the FONA
 char SMSMessage[160]; //A string used to hold all SMS message sent with FONA
 int NumCharInTextMsg = 0; //Keeps track of the number of characters in the received text string
 char ReceiveTextMsgFlag = 0; //Set to 1 when a complete text message has been received
@@ -237,11 +237,11 @@ int CheckNetworkConnection(void) //True when there is a network connection
                            
 }
 void sendDebugMessage(char message[50], float value){
-    // we need to change this so that it shuts off the SIM before sending
-    // we have found that using the serial line while the FONA is on 
-    // causes the FONA problems.
+
     int SIMwasON = 0;
-    if (digitalPinStatus(statusPin) == 1) { // if the Fona is off, try to turn it on so it is awake to be topped off
+    if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, turn it off
+                                            // the FONA gets messed up if the serial line
+                                            // is sending non AT commands when it is on
        turnOffSIM();
        SIMwasON = 1;
     }
@@ -327,9 +327,9 @@ int wasMessageSent(int msgNum){
  *           ReceiveTextMsgFlag = 1 when a complete message has been received
  * Note: Library, Pic Dependent
  * TestDate: Not Tested
- * Note:  Not yet written
  ********************************************************************/
 void readSMSMessage(int msgNum) {
+    int NoMessageThere = 1;  // Assume that there is nothing to read
     
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
     U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
@@ -339,9 +339,12 @@ void readSMSMessage(int msgNum) {
     ReceiveTextMsgFlag = 0; //clear for the next message
        // AT+CMGF=1  //set the mode to text 
     sendMessage("AT+CMGF=1\r\n"); //sets to text mode
-    while(ReceiveTextMsgFlag<1){  } // Read the echo from the FONA
+
+    TMR1 = 0; // start timer for max 160characters
+    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the echo of the AT+CMGF=1 command from the FONA
     ReceiveTextMsgFlag = 0; //clear for the next message
-    while(ReceiveTextMsgFlag<1){  } // Read the OK from the FONA
+    TMR1 = 0; // start timer for max 160characters
+    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the OK from the FONA
            
     // Send the command to the FONA to read a text message
     // AT+CMGR=1
@@ -351,7 +354,6 @@ void readSMSMessage(int msgNum) {
                          // This clears the RXREG FIFO
     NumCharInTextMsg = 0; // Point to the start of the Text Message String
     ReceiveTextMsgFlag = 0; //clear for the next message
-  // Debug  sendMessage("AT+CPMS=\"SM\"\r\n");
     
     char localMsg[160];
     localMsg[0] = 0;
@@ -360,15 +362,17 @@ void readSMSMessage(int msgNum) {
     concat(localMsg,"AT+CMGR=");
     concat(localMsg,msg_val);
     concat(localMsg,"\r\n");   
-    sendMessage(localMsg); //Read message at index msgNum
-    while(ReceiveTextMsgFlag<1){  } // Read the command echo from the FONA
+    sendMessage(localMsg); //send command to Read message at index msgNum
+    TMR1 = 0; // start timer for max 160characters
+    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the command echo from the FONA
 
     
     // There is about 17ms between the end of the echo of the command until 
     // The FONA responds with what you asked for
     // First we will get information about the message followed by a CR
     ReceiveTextMsgFlag = 0; //clear for the next message
-    while(ReceiveTextMsgFlag<1){  } // Read the first line from the FONA
+    TMR1 = 0; // start timer for max 160characters
+    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the first line from the FONA
     
     // Here is where I'd like to read the phone number that sent the message
     // and the status of the message
@@ -394,8 +398,10 @@ void readSMSMessage(int msgNum) {
     strncpy(SendingPhoneNumber,MsgPtr,12);        
     NumCharInTextMsg = 0; //Point to the start of the Text Message String
     ReceiveTextMsgFlag = 0; //clear for the next message
+    
     // Then the message itself is received.  
-    while(ReceiveTextMsgFlag<1){  } // Read the second line from the FONA
+    TMR1 = 0; // start timer for max 160characters
+    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the second line from the FONA
     // The ReceiveTextMsg array should now have the message
     IEC0bits.U1RXIE = 0;  // disable Rx interrupts
 }
@@ -419,7 +425,14 @@ void interpretSMSmessage(void){
     if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
         strncpy(MsgPart,ReceiveTextMsg+11,2);
         char newhr = atoi(MsgPart); // does it work to convert the 2 string characters to a single decimal value
-        setTime(0,45,newhr,5,3,11,17);
+        hour = BcdToDec(getHourI2C());
+        newhr = hour + newhr;
+        int year = BcdToDec(getYearI2C());
+        int month = BcdToDec(getMonthI2C());
+        int wkday = BcdToDec(getWkdayI2C());
+        int date = BcdToDec(getDateI2C());
+         //   (sec, min, hr, wkday, date, month, year)
+        setTime(0,0,newhr,wkday,date,month,year);
         hour = BcdToDec(getHourI2C());
         
         // Now we want to reply to the sender telling it what we just did
@@ -514,7 +527,7 @@ void ClearReceiveTextMessages(int MsgNum, int ClrMode)
     sendMessage("AT+CPMS=\"SM\"\r\n"); 
      delayMs(250);  // Delay while the FONA replies with the number of messages already in storage
     // AT+CMGD=MsgNum,ClrMode  This is the delete command 
-         
+    MessageString[0]=0; //Clear the message string    
     concat(MessageString, "AT+CMGD=");
     concat(MessageString, MsgNumString);
     concat(MessageString, ",");
@@ -837,7 +850,9 @@ int SendSavedDailyReports(void){
     EEFloatData = num_saved_messages;  //Update the number of messages in the queue
     EEProm_Write_Float(DailyReportEEPromStart,&EEFloatData);
     //Read received messages and act on them
-    
+    /// BEING TESTED  readSMSMessage(int msgNum); //still not used 
+    /// BEING TESTED  interpretSMSmessage(void); //still not used
+    //  BEING TESTED   ClearReceiveTextMessages(int MsgNum, int ClrMode); 
     //Turn off the FONA
     turnOffSIM();
     

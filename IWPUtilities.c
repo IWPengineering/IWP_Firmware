@@ -230,7 +230,8 @@ void initialization(void) {
     TRISA = 0xFFFF; // Make PORTA all inputs
     ANSB = 0; // All port B pins are digital. Individual ADC are set in the readADC function
     TRISB = 0xFFFF; // Sets all of port B to input
-    TRISBbits.TRISB0 = 0;
+    TRISBbits.TRISB0 = 0; //DEBUG Make spare test pin#4 on Pic an output
+    PORTBbits.RB0 = 1;  //DEBUG Set this high,  When we go to sleep we will make it low
 
     // pinDirectionIO(sclI2CPin, 0);                                            //TRISBbits.TRISB8 = 0; // RB8 is an output
     //OSCCONbits.SOSCEN = 0b01;
@@ -1468,38 +1469,21 @@ void DebugReadEEProm(void){
  * Function: ClearEEProm(void)
  * Input: none
  * Output: none
- * Overview: This function writes a 0 to the first 21 float locations
+ * Overview: This function writes a 0 to all of the EEPROM addresses
  *           in EEProm.  It should be called the first time a board
  *           is programmed but NOT every time we Initialize since we don't want 
  *           to lose data saved prior to shutting down because of lost power
  * Note: Library
- * TestDate: 1-5-2017
+ * TestDate: 1-5-2017 (changed to clear all EEPROM and not retested)
  ********************************************************************/
 void ClearEEProm(void){
+    int EEPromPointer = 0;
     EEFloatData = 0;
-    EEProm_Write_Float(0, &EEFloatData);
-    EEProm_Write_Float(1, &EEFloatData);
-    EEProm_Write_Float(2, &EEFloatData);
-    EEProm_Write_Float(3, &EEFloatData);
-    EEProm_Write_Float(4, &EEFloatData);
-    EEProm_Write_Float(5, &EEFloatData);
-    EEProm_Write_Float(6, &EEFloatData);
-    EEProm_Write_Float(7, &EEFloatData);
-    EEProm_Write_Float(8, &EEFloatData);
-    EEProm_Write_Float(9, &EEFloatData);
-    EEProm_Write_Float(10, &EEFloatData);
-    EEProm_Write_Float(11, &EEFloatData);
-    EEProm_Write_Float(12, &EEFloatData);
-    EEProm_Write_Float(13, &EEFloatData);
-    EEProm_Write_Float(14, &EEFloatData);
-    EEProm_Write_Float(15, &EEFloatData);
-    EEProm_Write_Float(16, &EEFloatData);
-    EEProm_Write_Float(17, &EEFloatData);
-    EEProm_Write_Float(18, &EEFloatData);
-    EEProm_Write_Float(19, &EEFloatData); 
-    EEProm_Write_Float(20, &EEFloatData); 
-    EEProm_Write_Float(21, &EEFloatData); 
-}
+    while(EEPromPointer < 128){
+        EEProm_Write_Float(EEPromPointer, &EEFloatData);
+        EEPromPointer++;
+    }
+    }
 
 void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART data interrupt
   // Here is where we put the code to read a character from the Receive data buffer
