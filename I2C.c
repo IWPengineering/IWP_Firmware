@@ -631,7 +631,7 @@ int getHourI2C(void) {
         extRtccHourSet = 0;             // Cleared because RTCC hour didn't update
         sendDebugMessage("The time update failed", 0);
         extRtccTalked++;
-        if (extRtccChecked > 60) {
+        if (extRtccChecked > 61) {
             hr++;
             extRtccManualSet = 1;
         }

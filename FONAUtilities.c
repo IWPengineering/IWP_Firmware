@@ -885,7 +885,7 @@ void createDiagnosticMessage(void) {
     floatToString(timeSinceLastRestart, LocalString); // hours since the system restarted
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"c\":");
-    floatToString(extRtccTalked, LocalString); // if the external rtcc responded in the last hour
+    floatToString(extRtccTalked, LocalString); // number of times the rtcc didn't respond in last hour
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"t\":");
     floatToString(LocalFloat, LocalString); // what it thinks the hour is
