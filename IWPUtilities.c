@@ -1484,7 +1484,7 @@ void DebugReadEEProm(void){
 void ClearEEProm(void){
     int i;
     EEFloatData = 0;
-    for (i = 0; i < DiagnosticEEPromStart; i++){
+    for (i = 0; i < DiagnosticEEPromStart + 1; i++){
         EEProm_Write_Float(i, &EEFloatData);
     }
 }
