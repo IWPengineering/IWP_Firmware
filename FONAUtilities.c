@@ -321,7 +321,9 @@ int wasMessageSent(int msgNum){
 /*********************************************************************
  * Function: readMessage()
  * Input: integer between 1-30 indicating which message to read
- * Output: None - the global array ReceiveTextMsg should have the message string in it.
+ * Output: None - two global arrays are modified by this function
+ *                ReceiveTextMsg has the message string in it 
+ *                SendingPhoneNumber has the phone number of the sender
  * Overview: Reads a single text message from the FONA and puts it into 
  *           the string ReceiveTextMsg
  *           ReceiveTextMsgFlag = 1 when a complete message has been received
@@ -408,62 +410,89 @@ void readSMSMessage(int msgNum) {
 
 /*********************************************************************
  * Function: interpretSMSmessage()
- * Input: None
+ * Input: None - must be called after the readSMSMessage
+ *                ReceiveTextMsg has the message string in it 
+ *                SendingPhoneNumber has the phone number of the sender
  * Output: None
  * Overview: Parses the ReceiveTextMsg character array 
  *           Depending upon the message, different actions are taken.
  * Currently Understood Messages
- *      AW_T indicates a time to use to update the RTCC.
+ *      AW_C indicates changes to the RTCC date,month,hour.
  *              AW_T:sec,min,hr,wkday,date,month,year
+ *              AW_C:date,month,delta_hour  ie.  March 12th add 6hrs to hour AW_C:12,03,06
  * Note: Library
  * TestDate: no tested
  ********************************************************************/
 void interpretSMSmessage(void){
-    int success = 0;
-    char MsgPart[3];
-    char CmdMatch[]="AW_T";
+    char CmdMatch[]="AW_C";
     if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
-        strncpy(MsgPart,ReceiveTextMsg+11,2);
-        char newhr = atoi(MsgPart); // does it work to convert the 2 string characters to a single decimal value
-        hour = BcdToDec(getHourI2C());
-        newhr = hour + newhr;
-        int year = BcdToDec(getYearI2C());
-        int month = BcdToDec(getMonthI2C());
-        int wkday = BcdToDec(getWkdayI2C());
-        int date = BcdToDec(getDateI2C());
-         //   (sec, min, hr, wkday, date, month, year)
-        setTime(0,0,newhr,wkday,date,month,year);
-        hour = BcdToDec(getHourI2C());
-        
-        // Now we want to reply to the sender telling it what we just did
-        
-            // Send off the data
-
-        
-        success = turnOnSIM();  // returns 1 if the SIM powered up)
-        sendDebugMessage("   \n Turning on the SIM was a ", success);  //Debug
-        if(success == 1){ 
-       // Try to establish network connection
-            success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
-            sendDebugMessage("   \n Connect to network was a ", success);  //Debug
-            if(success == 1){
-            // Send off the data
-                phoneNumber = SendingPhoneNumber;
-                // Need to make dataMessage
-                char localMsg[160];
-                localMsg[0] = 0;
-                char hour_val[3];
-                itoa(hour_val, hour, 10);
-                concat(localMsg,"Changed hour to ");
-                concat(localMsg, hour_val);
-                sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
-                phoneNumber = MainphoneNumber;            
-            }
-        }
-        
-        
+      updateClockCalendar();
     }    
 }
+/*********************************************************************
+ * Function: updateClockCalendar()
+ * Input: None - must be called after the readSMSMessage
+ *                ReceiveTextMsg has the message string in it 
+ *                SendingPhoneNumber has the phone number of the sender
+ * Output: None
+ * Overview: An SMS message was received (in the string ReceiveTextMsg)
+ *           with the AW_C prefix indicating that
+ *           the date, month or hour needs to be changed
+ *              AW_C:date,month,delta_hour  
+ *              AW_C:12,03,06  March 12th add 6hrs to hour 
+ * 
+ *           The cell phone number that sent the message is expected to already
+ *           be in the string SendingPhoneNumber
+ * Note: Library
+ * TestDate: not tested
+ ********************************************************************/
+void updateClockCalendar(){
+     char MsgPart[3];
+     int success = 0;
+     // Get the new date
+     strncpy(MsgPart,ReceiveTextMsg+5,2);
+     char newDate = atoi(MsgPart);      
+     // Get the new month
+     strncpy(MsgPart,ReceiveTextMsg+8,2);
+     char newMonth = atoi(MsgPart);
+     // Get the change to the hour
+     strncpy(MsgPart,ReceiveTextMsg+11,2);
+     char Delta_hour = atoi(MsgPart);
+   
+    // Update the settings for the external RTCC
+    hour = Delta_hour + BcdToDec(getHourI2C());
+    if(hour > 23){ // If we want to change 9AM to 7AM we will ask for a change of +22
+        hour = hour - 24;
+    }
+    int year = BcdToDec(getYearI2C());
+    int wkday = BcdToDec(getWkdayI2C());
+    setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
+    
+    // Update the settings for the internal RTCC
+    setInternalRTCC(0, 0, hour, wkday, newDate, newMonth, year);
+    internalHour = hour;
+               
+    // Now we want to reply to the sender telling it what we just did
+    success = turnOnSIM();  // returns 1 if the SIM powered up)
+    if(success == 1){
+        // Try to establish network connection
+        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+        if(success == 1){
+        // Send off the data
+            phoneNumber = SendingPhoneNumber;
+            // Need to make dataMessage
+            char localMsg[160];
+            localMsg[0] = 0;
+            char hour_val[3];
+            itoa(hour_val, hour, 10);
+            concat(localMsg,"Changed hour to ");
+            concat(localMsg, hour_val);
+            sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
+            phoneNumber = MainphoneNumber;
+        }
+    }
+    turnOffSIM();
+} 
 /*********************************************************************
  * Function: sendDebugTextMessage()
  * Input: String
@@ -568,7 +597,7 @@ int sendTextMessage(char message[160])
  * Function: CreateNoonMessage(int)
  * Input: EEProm slot number for the start of data saved for this daily report
  * Output: None
- * Overview: Gathers the data needed for the daily report and puts it into a text string
+ * Overview: Gathers the data needed for the daily report and puts it into a text string SMSMessage
  *           The maximum length of a SMS message is 160 characters
  *           Right now I don't know if we try to limit this
  * Note: 
