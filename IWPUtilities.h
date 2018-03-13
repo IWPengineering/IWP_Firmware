@@ -99,6 +99,14 @@ extern float extRtccManualSet;
 
 extern int extRtccHourSet; //set to 0 if the external RTCC didn't update the hour in the current loop - used to check internal RTCC
 
+//*******************VTCC Variables************************
+extern char secondVTCC;
+extern char minuteVTCC;
+extern char hourVTCC;
+extern char dateVTCC;
+extern char monthVTCC;
+extern float rtccUpdateTime;
+
 extern char active_volume_bin;
 extern int noon_msg_sent;  //set to 1 when noon message has been sent
 extern int hour_msg_sent;  //set to 1 when hourly message has been sent

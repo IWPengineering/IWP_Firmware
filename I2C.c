@@ -749,11 +749,11 @@ int getDateI2C(void) {
  *       which does not break the I2C functions into such small parts
  ********************************************************************/
 int setTime(char sec, char min, char hr, char wkday, char date, char month, char year){
-  int success = 0;  //used to determine if sub operations worked.  Assume this is false
-  int MaxTime = 20;  //number of Timer1 cycles expected for this whole function.  This is used to
+    int success = 0;  //used to determine if sub operations worked.  Assume this is false
+    int MaxTime = 20;  //number of Timer1 cycles expected for this whole function.  This is used to
                      //quit trying if things hang.  Should take about 17
-  hour = hr;  //Set the system variable for hour equal to what is being sent to the external RTCC
-  int leapYear;
+    hour = hr;  //Set the system variable for hour equal to what is being sent to the external RTCC
+    int leapYear;
     if (year % 4 == 0)
     {
         leapYear = 1; //Is a leap Year

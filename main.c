@@ -97,7 +97,6 @@ void main(void)
     noon_msg_sent = 0; // Start with the assumption that the noon message has not been sent
     debugCounter = 0;  //DEBUG variable to track how many times it takes to send the message
     int local_debug_hour = 1;  //just used to debug things
-    prevHour = BcdToDec(getHourI2C());
     
     //                    DEBUG
     // print_debug_messages controls the debug reporting
@@ -115,7 +114,7 @@ void main(void)
     
     print_debug_messages = 2;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
-    sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
+    sendDebugMessage("The hour is = ", hourVTCC);  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
@@ -135,7 +134,24 @@ void main(void)
     
           
     while (1)
-	{     
+	{   
+        /*int localcounter = 0;
+        sendDebugMessage("Starting timer", 1);
+        TMR2 = 0;
+        //IEC0bits.T2IE = 1;
+        IFS0bits.T2IF = 0;
+        PR2 = 0xFFFF;
+        while(localcounter < 5){ //10 seconds
+            ClearWatchDogTimer();
+            if (IFS0bits.T2IF == 1){
+                localcounter++;
+                IFS0bits.T2IF = 0;
+            }
+            sendDebugMessage("TMR2 = ", TMR2);
+            sendDebugMessage("Counter = ", localcounter);
+        }
+        sendDebugMessage("Timer end", 1);*/
+        
        batteryFloat = batteryLevel();
        
         //MAIN LOOP; repeats indefinitely
@@ -154,11 +170,13 @@ void main(void)
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
             TimeSinceLastHourCheck++;
             if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
-                hour = BcdToDec(getHourI2C());
+                hour = hourVTCC;
                 //minute = BcdToDec(getMinuteI2C());
                 //internalHour = BcdToDec(getTimeHour());
                 //internalMinute = BcdToDec(getTimeMinute());
                 sendDebugMessage("The hour is ", hour);
+                sendDebugMessage("The VTCC minute is ", minuteVTCC);
+                sendDebugMessage("The VTCC hour is ", hourVTCC);
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
@@ -166,6 +184,10 @@ void main(void)
             //if(TimeSinceLastHourCheck > 5000) {
               //  TimeSinceLastHourCheck = 0;
                 // Is it time to record volume from previous time bin to EEProm?
+                setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
+                rtccUpdateTime = hourVTCC;
+                EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
+                
                 if(hour/2 != active_volume_bin){
                     SaveVolumeToEEProm();
                     sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);  //Debug
@@ -215,7 +237,7 @@ void main(void)
                 PORTBbits.RB0 = 0; // DEBUG make test pin low when we are sleeping
                 Sleep(); 
                                
-                hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
+                hour = hourVTCC; //still time to sleep? Don't check battery, you are here because it was low
                 TimeSinceLastBatteryCheck++; // only check the battery every 10th time you wake up (approx 20min)
                 // check the battery every 20 min
                 if(TimeSinceLastBatteryCheck > 10){
@@ -249,7 +271,7 @@ void main(void)
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
-        hour = BcdToDec(getHourI2C()); //Update the time so we know where to save this pumping event
+        hour = hourVTCC; //Update the time so we know where to save this pumping event
         TimeSinceLastHourCheck = 0;
      
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
