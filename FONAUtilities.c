@@ -425,7 +425,7 @@ void interpretSMSmessage(void){
     if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
         strncpy(MsgPart,ReceiveTextMsg+11,2);
         char newhr = atoi(MsgPart); // does it work to convert the 2 string characters to a single decimal value
-        hour = BcdToDec(getHourI2C());
+        hour = hourVTCC;
         newhr = hour + newhr;
         int year = BcdToDec(getYearI2C());
         int month = BcdToDec(getMonthI2C());
@@ -433,7 +433,7 @@ void interpretSMSmessage(void){
         int date = BcdToDec(getDateI2C());
          //   (sec, min, hr, wkday, date, month, year)
         setTime(0,0,newhr,wkday,date,month,year);
-        hour = BcdToDec(getHourI2C());
+        hour = hourVTCC;
         
         // Now we want to reply to the sender telling it what we just did
         

@@ -156,6 +156,15 @@ int extRtccHourSet = 1;
 int extRtccChecked = 0; // how many times weve tried to update the time this hour
 float extRtccManualSet = 0;
 
+//*****************VTCC Variables*******************************************
+char monthArray[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+char secondVTCC = 0;
+char minuteVTCC = 0;
+char hourVTCC = 0;
+char dateVTCC = 0;
+char monthVTCC = 0;
+float rtccUpdateTime = 0; // records the hour when we last updated the ext RTCC
+
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
@@ -227,6 +236,14 @@ int vcc2Pin = 28;
  * TestDate: 06-03-14
  ********************************************************************/
 void initialization(void) {
+    char localSec = 0;
+    char localMin = 19;
+    char localHr = 20;
+    char localWkday = 2;
+    char localDate = 5;
+    char localMonth = 3;
+    char localYear = 18;
+
     ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
     ANSA = 0; // Make PORTA digital I/O
@@ -341,10 +358,6 @@ void initialization(void) {
  //     (sec, min, hr, wkday, date, month, year)  
  //setTime(0,18,13,6,7,07,17); //  Indoor system 7/7/2017
    //  setTime(0,03,15,6,24,03,17); //  Outdoor system 3/23/2017
-
-    hour = BcdToDec(getHourI2C());
-    active_volume_bin = hour/2;  //Which volume bin are we starting with
-    prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
     
     // We may be waking up because the battery was dead.  If that is the case,
     // Restart Status, EEProm#20, will be zero and we want to continue using 
@@ -354,17 +367,21 @@ void initialization(void) {
     if(EEFloatData == 0){
         EEProm_Read_Float(0,&leakRateLong);
         EEProm_Read_Float(1,&longestPrime);
+        updateVTCC();
     }
     else{
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        success = setTime(0,20,11,3,22,2,18); //  2/12/2018 
+        success = setTime(localSec,localMin,localHr,localWkday,localDate,localMonth,localYear); //  2/12/2018 
         print_debug_messages = 1; 
         sendDebugMessage("Program time? ", success);
     }
     // just so we know the board is working
-    
+    initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
+    hour = hourVTCC;
+    active_volume_bin = hour/2;  //Which volume bin are we starting with
+    prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
     turnOnSIM();
     delayMs(2000);
     turnOffSIM();
@@ -1484,7 +1501,7 @@ void DebugReadEEProm(void){
 void ClearEEProm(void){
     int i;
     EEFloatData = 0;
-    for (i = 0; i < DiagnosticEEPromStart; i++){
+    for (i = 0; i < DiagnosticEEPromStart + 2; i++){
         EEProm_Write_Float(i, &EEFloatData);
     }
 }
@@ -1505,4 +1522,52 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART 
     IFS0bits.U1RXIF = 0; 
 
 
+}
+void initializeVTCC(char sec, char min, char hr, char date, char month){
+    secondVTCC = sec;
+    minuteVTCC = min;
+    hourVTCC = hr;
+    dateVTCC = date;
+    monthVTCC = month;
+    TMR2 = 0;
+    PR2 = 62500; //set cycle time to 4sec
+    IFS0bits.T2IF = 0;
+    IEC0bits.T2IE = 1;
+}
+
+void __attribute__((interrupt, auto_psv)) _T2Interrupt(void){
+    // assuming we are entering this when the over flow occurs
+    IFS0bits.T2IF = 0; //clear the flag
+    secondVTCC = secondVTCC + 4;
+    if (secondVTCC >= 60){
+        secondVTCC = secondVTCC - 60;
+        minuteVTCC++;
+        if (minuteVTCC >= 60){
+            minuteVTCC = minuteVTCC - 60;
+            hourVTCC++;
+            if (hourVTCC >= 24){
+                hourVTCC = hourVTCC - 24;
+                dateVTCC++;
+                if (dateVTCC >= monthArray[monthVTCC]){
+                    dateVTCC = 1;
+                    monthVTCC++;
+                    if (monthVTCC == 13){
+                        monthVTCC = monthVTCC - 12;
+                    }
+                    
+                }
+            }
+        }
+    }
+}
+
+void updateVTCC(void){
+    float localData;
+    EEProm_Read_Float(DiagnosticEEPromStart+1, &localData);
+    if (BcdToDec(getHourI2C()) != localData){
+        initializeVTCC(0, getMinuteI2C(), getHourI2C(), getDateI2C(), getMonthI2C());
+    }
+    else{
+        initializeVTCC(0, 0, 0, 0, 0);
+    }
 }
