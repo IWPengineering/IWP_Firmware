@@ -599,13 +599,15 @@ int sendTextMessage(char message[160])
  * Output: None
  * Overview: Gathers the data needed for the daily report and puts it into a text string SMSMessage
  *           The maximum length of a SMS message is 160 characters
- *           Right now I don't know if we try to limit this
+ *           battery limited to 5 characters
+ *           priming, leak and volume amounts limited to 7 characters each
+ *           if EEProm has a NaN, it is reported as 22222
+ *           3 decimal places of accuracy maintained for values between 0.001 - 999.999
+ *           For 1000 - 32000 we only report integers.  Maximum integer is 32000
  * Note: 
- * TestDate: Not Tested
+ * TestDate: Tested 3-13-08
  ********************************************************************/
 /*
- * Example "("t":"d","d":("l":0,"p":0,"b":0,"v":<0,0,0,0,0,0,0,0,0,0,0,0>))
- *
  * Notice that there is a " at the start but not the end of this string????
  * New format: ("t":"d","d":("l":0,"p":0,"b":3.968,"v":<0,0,0,0,0,0,0,0,0,0,0,0>),?c?:MMDDHH)
  *                    MM- Month and DD-Date are the date the information was collected
@@ -619,19 +621,67 @@ void CreateNoonMessage(int effective_address){
     
     concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"l\":");
     EEProm_Read_Float(effective_address, &EEFloatData); // Get Longest Leak Rate
+    // Limit report to 7 characters within integer range
+    if((EEFloatData == 0)||(EEFloatData < 0)||(EEFloatData > 0)){// check for NaN
+        if(EEFloatData>32000){ // maximum positive integer is 32767 (7FFF)
+            EEFloatData = 32000;
+        }
+        if(EEFloatData>999.999){
+            EEFloatData = (int)EEFloatData; //truncates to integer
+        }
+    }
+    else{
+        EEFloatData = 22222; // this will be understood to be NaN
+    }
     floatToString(EEFloatData, LocalString);
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"p\":");
     EEProm_Read_Float(effective_address+1, &EEFloatData); // Get Longest Prime
+    // Limit report to 7 characters within integer range
+    if((EEFloatData == 0)||(EEFloatData < 0)||(EEFloatData > 0)){// check for NaN
+        if(EEFloatData>32000){ // maximum positive integer is 32767 (7FFF)
+            EEFloatData = 32000;
+        }
+        if(EEFloatData>999.999){
+            EEFloatData = (int)EEFloatData; //truncates to integer
+        }
+    }
+    else{
+        EEFloatData = 22222; // this will be understood to be NaN
+    }
+    
     floatToString(EEFloatData, LocalString);
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"b\":");
     EEProm_Read_Float(effective_address+2, &EEFloatData); // Get battery voltage
+    // Limit report to 7 characters within integer range
+    if((EEFloatData == 0)||(EEFloatData < 0)||(EEFloatData > 0)){// check for NaN
+        // Limit report to 5 characters
+        if(EEFloatData>9.999){
+            EEFloatData = 9.999;
+        }
+    }
+    else{
+        EEFloatData = 22222; // this will be understood to be NaN
+    }
+    
     floatToString(EEFloatData, LocalString);
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"v\":<");
     for(vptr = 3; vptr < 15; vptr++){
         EEProm_Read_Float(effective_address+vptr, &EEFloatData); // Get Next Volume
+    // Limit report to 7 characters within integer range
+    if((EEFloatData == 0)||(EEFloatData < 0)||(EEFloatData > 0)){// check for NaN
+        if(EEFloatData>32000){ // maximum positive integer is 32767 (7FFF)
+            EEFloatData = 32000;
+        }
+        if(EEFloatData>999.999){
+            EEFloatData = (int)EEFloatData; //truncates to integer
+        }
+    }
+    else{
+        EEFloatData = 22222; // this will be understood to be NaN
+    }
         floatToString(EEFloatData, LocalString);
         concat(SMSMessage, LocalString);
         if(vptr < 14){
@@ -643,7 +693,12 @@ void CreateNoonMessage(int effective_address){
     }
     concat(SMSMessage, ",\"c\":");
     EEProm_Read_Float(effective_address+15, &EEFloatData); // Get saved date 
-    EEFloatData = (EEFloatData*100)+ hour; //Add current hour
+    if((EEFloatData == 0)||(EEFloatData < 0)||(EEFloatData > 0)){// check for NaN
+        EEFloatData = (EEFloatData*100)+ hour; //Add current hour
+    }
+    else{
+        EEFloatData = 131300 + hour;
+    }
     floatToString(EEFloatData, LocalString);
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ")");
