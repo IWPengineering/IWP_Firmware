@@ -237,10 +237,10 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 19;
-    char localHr = 20;
-    char localWkday = 2;
-    char localDate = 5;
+    char localMin = 59;
+    char localHr = 11;
+    char localWkday = 3;
+    char localDate = 20;
     char localMonth = 3;
     char localYear = 18;
 
@@ -373,12 +373,14 @@ void initialization(void) {
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        success = setTime(localSec,localMin,localHr,localWkday,localDate,localMonth,localYear); //  2/12/2018 
+        success = setTime(localSec,localMin,2,localWkday,localDate,localMonth,localYear); //  2/12/2018 
         print_debug_messages = 1; 
         sendDebugMessage("Program time? ", success);
+        initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
     }
     // just so we know the board is working
-    initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
+    rtccUpdateTime = hourVTCC;
+    EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
     hour = hourVTCC;
     active_volume_bin = hour/2;  //Which volume bin are we starting with
     prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone

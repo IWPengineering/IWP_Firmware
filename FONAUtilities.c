@@ -830,7 +830,7 @@ int SendSavedDailyReports(void){
         // If hourly diagnostic messages are enabled and we are still ready, create and send the message
     while (diagnostic == 1){
         numberTries++;
-        if(numberTries > 30) {
+        if(numberTries > 75) {
             break;
         }
         ready = CheckNetworkConnection();
