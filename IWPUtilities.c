@@ -237,10 +237,10 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 19;
-    char localHr = 20;
-    char localWkday = 2;
-    char localDate = 5;
+    char localMin = 48;
+    char localHr = 12;
+    char localWkday = 3;
+    char localDate = 20;
     char localMonth = 3;
     char localYear = 18;
 
@@ -376,9 +376,11 @@ void initialization(void) {
         success = setTime(localSec,localMin,localHr,localWkday,localDate,localMonth,localYear); //  2/12/2018 
         print_debug_messages = 1; 
         sendDebugMessage("Program time? ", success);
+        initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
     }
     // just so we know the board is working
-    initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
+    rtccUpdateTime = hourVTCC;
+    EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
     hour = hourVTCC;
     active_volume_bin = hour/2;  //Which volume bin are we starting with
     prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
@@ -1501,11 +1503,7 @@ void DebugReadEEProm(void){
 void ClearEEProm(void){
     int i;
     EEFloatData = 0;
-<<<<<<< HEAD
     for (i = 0; i < DiagnosticEEPromStart + 2; i++){
-=======
-    for (i = 0; i < DiagnosticEEPromStart + 1; i++){
->>>>>>> a28d84a133f81699ba86d2ee099a54d73ceeb39c
         EEProm_Write_Float(i, &EEFloatData);
     }
 }
@@ -1569,9 +1567,11 @@ void updateVTCC(void){
     float localData;
     EEProm_Read_Float(DiagnosticEEPromStart+1, &localData);
     if (BcdToDec(getHourI2C()) != localData){
-        initializeVTCC(0, getMinuteI2C(), getHourI2C(), getDateI2C(), getMonthI2C());
+        initializeVTCC(0, getMinuteI2C(), BcdToDec(getHourI2C()), getDateI2C(), getMonthI2C());
     }
     else{
+        //createAndSendRequestMessage('date');
+        
         initializeVTCC(0, 0, 0, 0, 0);
     }
 }
