@@ -237,8 +237,8 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 59;
-    char localHr = 11;
+    char localMin = 48;
+    char localHr = 12;
     char localWkday = 3;
     char localDate = 20;
     char localMonth = 3;
@@ -373,7 +373,7 @@ void initialization(void) {
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        success = setTime(localSec,localMin,2,localWkday,localDate,localMonth,localYear); //  2/12/2018 
+        success = setTime(localSec,localMin,localHr,localWkday,localDate,localMonth,localYear); //  2/12/2018 
         print_debug_messages = 1; 
         sendDebugMessage("Program time? ", success);
         initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
@@ -1567,9 +1567,11 @@ void updateVTCC(void){
     float localData;
     EEProm_Read_Float(DiagnosticEEPromStart+1, &localData);
     if (BcdToDec(getHourI2C()) != localData){
-        initializeVTCC(0, getMinuteI2C(), getHourI2C(), getDateI2C(), getMonthI2C());
+        initializeVTCC(0, getMinuteI2C(), BcdToDec(getHourI2C()), getDateI2C(), getMonthI2C());
     }
     else{
+        //createAndSendRequestMessage('date');
+        
         initializeVTCC(0, 0, 0, 0, 0);
     }
 }

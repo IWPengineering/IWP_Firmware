@@ -177,6 +177,7 @@ void main(void)
                 sendDebugMessage("The hour is ", hour);
                 sendDebugMessage("The VTCC minute is ", minuteVTCC);
                 sendDebugMessage("The VTCC hour is ", hourVTCC);
+                sendDebugMessage("The RTCC hour is ", BcdToDec(getHourI2C()));
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
@@ -241,6 +242,7 @@ void main(void)
                 sendDebugMessage("The hour is ", hour);
                 sendDebugMessage("The VTCC minute is ", minuteVTCC);
                 sendDebugMessage("The VTCC hour is ", hourVTCC);
+                sendDebugMessage("The RTCC hour is ", BcdToDec(getHourI2C()));
                 if(hour != prevHour){
                     setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
                     rtccUpdateTime = hourVTCC;
