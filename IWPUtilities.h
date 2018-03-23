@@ -96,6 +96,7 @@ extern float extRtccTalked; // set to 1 if the external RTCC talked during the l
 extern float numberTries; // number of times that tried to connect to network for hourly diagnostic messages 
 extern int extRtccChecked;
 extern float extRtccManualSet;
+extern float extRTCCset;
 
 extern int extRtccHourSet; //set to 0 if the external RTCC didn't update the hour in the current loop - used to check internal RTCC
 
@@ -105,7 +106,6 @@ extern char minuteVTCC;
 extern char hourVTCC;
 extern char dateVTCC;
 extern char monthVTCC;
-extern float rtccUpdateTime;
 
 extern char active_volume_bin;
 extern int noon_msg_sent;  //set to 1 when noon message has been sent

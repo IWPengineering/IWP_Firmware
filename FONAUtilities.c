@@ -858,6 +858,7 @@ int SendSavedDailyReports(void){
             sleepHrStatus = 0; // reset the slept during that hour
             EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
             extRtccManualSet = 0; 
+            extRTCCset = 0;
             phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
             break;
         }
@@ -911,8 +912,8 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, ",\"e\":");
     floatToString(extRtccManualSet, LocalString); // external RTCC was manually set forward
     concat(SMSMessage, LocalString);
-    concat(SMSMessage, ",\"m\":");
-    floatToString((float)BcdToDec(getHourI2C()), LocalString); // external RTCC was manually set forward
+    concat(SMSMessage, ",\"x\":");
+    floatToString(extRTCCset, LocalString); // To keep track if the VTCC time was used to set the external RTCC
     concat(SMSMessage, LocalString);
     
     concat(SMSMessage, ">))");
