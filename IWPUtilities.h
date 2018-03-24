@@ -163,6 +163,9 @@ extern int hour; // Hour of day
 extern int TimeSinceLastHourCheck; //we check this when we have gone around the no pumping loop enough times that 1 minute has gone by
 extern int TimeSinceLastBatteryCheck; // we check the battery when we are sleeping because of low battery every 10 times we wake up.
 extern int minute;  //minute of the day
+extern int year;
+extern int month;
+extern int date;
 extern char active_volume_bin;
 extern char never_primed;  //set to 1 if we exit the priming loop because of timeout
 extern char print_debug_messages; //set to 1 when we want the debug messages to be sent to the Tx pin.

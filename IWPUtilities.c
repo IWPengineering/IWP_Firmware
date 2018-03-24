@@ -190,6 +190,9 @@ int hour = 0; // Hour of day according to the external RTCC
 int TimeSinceLastHourCheck = 0;  // we check this when we have gone around the no pumping loop enough times that 1 minute has gone by
 int TimeSinceLastBatteryCheck = 0; // we only check the battery every 20min when sleeping
 int minute = 0;  //minute of the day
+int year = 0; //current year
+int month = 0; //current month
+int date = 0; // current date
 //Pin assignments
 int mclrPin = 1;
 int depthSensorPin = 2;
@@ -377,11 +380,19 @@ void initialization(void) {
         print_debug_messages = 1; 
         sendDebugMessage("Program time? ", success);
         initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
+        year = BcdToDec(getYearI2C()); //just here to return value if RTCC failed to communicate
+        if (year == 0) {
+            sendDebugMessage("Was unable to read RTCC year", 0);
+        }
     }
     // just so we know the board is working
     hour = BcdToDec(getHourI2C());
     active_volume_bin = hour/2;  //Which volume bin are we starting with
     prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
+    month = BcdToDec(getMonthI2C());
+    if (month == 0) {
+            sendDebugMessage("Was unable to read RTCC month", 0);
+    }
     turnOnSIM();
     delayMs(2000);
     turnOffSIM();

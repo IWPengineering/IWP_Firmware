@@ -171,6 +171,7 @@ void main(void)
             TimeSinceLastHourCheck++;
             if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
                 hour = BcdToDec(getHourI2C());
+                minute = BcdToDec(getMinuteI2C());
                 //minute = BcdToDec(getMinuteI2C());
                 //internalHour = BcdToDec(getTimeHour());
                 //internalMinute = BcdToDec(getTimeMinute());
@@ -193,6 +194,7 @@ void main(void)
             //if(TimeSinceLastHourCheck > 5000) {
               //  TimeSinceLastHourCheck = 0;
                 //secondVTCC = secondVTCC - 18; // compensate for using pll
+                date = BcdToDec(getDateI2C());
                 if (extRTCCset == 0) {
                     initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
                 }
