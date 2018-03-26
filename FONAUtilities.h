@@ -59,8 +59,7 @@ void CreateNoonMessage(int);
 void CreateAndSaveDailyReport(void);
 int SendSavedDailyReports(void);
 void createDiagnosticMessage(void);
-void initializeVTCC(char sec, char min, char hr, char date, char month);
-void updateVTCC(void);
+
 
 
 

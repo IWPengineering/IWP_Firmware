@@ -914,7 +914,7 @@ int SendSavedDailyReports(void){
         // If hourly diagnostic messages are enabled and we are still ready, create and send the message
     while (diagnostic == 1){
         numberTries++;
-        if(numberTries > 30) {
+        if(numberTries > 75) {
             break;
         }
         ready = CheckNetworkConnection();
@@ -995,7 +995,21 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, ",\"e\":");
     floatToString(extRtccManualSet, LocalString); // external RTCC was manually set forward
     concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"m\":");
+    floatToString((float)BcdToDec(getHourI2C()), LocalString); // external RTCC was manually set forward
+    concat(SMSMessage, LocalString);
     
     concat(SMSMessage, ">))");
 }   
 
+/*void createRequestMessage(void) {
+    char LocalString[20]; 
+    float LocalFloat = hour;
+    SMSMessage[0] = 0; //reset SMS message array to be empty
+    LocalString[0] = 0;
+  
+    concat(SMSMessage, "(\"t\":\"r\",\"d\":(\"r\":");
+    
+    
+    concat(SMSMessage, ">))");
+}*/   

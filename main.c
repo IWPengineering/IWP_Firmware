@@ -177,6 +177,7 @@ void main(void)
                 sendDebugMessage("The hour is ", hour);
                 sendDebugMessage("The VTCC minute is ", minuteVTCC);
                 sendDebugMessage("The VTCC hour is ", hourVTCC);
+                sendDebugMessage("The RTCC hour is ", BcdToDec(getHourI2C()));
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
@@ -184,6 +185,7 @@ void main(void)
             //if(TimeSinceLastHourCheck > 5000) {
               //  TimeSinceLastHourCheck = 0;
                 // Is it time to record volume from previous time bin to EEProm?
+                secondVTCC = secondVTCC + 18; // compensate for using pll
                 setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
                 rtccUpdateTime = hourVTCC;
                 EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
@@ -237,7 +239,22 @@ void main(void)
                     sleepHrStatus = 1;
                     EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
                 }
-                    
+                
+                hour = hourVTCC;
+                //minute = BcdToDec(getMinuteI2C());
+                //internalHour = BcdToDec(getTimeHour());
+                //internalMinute = BcdToDec(getTimeMinute());
+                sendDebugMessage("The hour is ", hour);
+                sendDebugMessage("The VTCC minute is ", minuteVTCC);
+                sendDebugMessage("The VTCC hour is ", hourVTCC);
+                sendDebugMessage("The RTCC hour is ", BcdToDec(getHourI2C()));
+                if(hour != prevHour){
+                    setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
+                    rtccUpdateTime = hourVTCC;
+                    EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
+                    prevHour = hour;
+                }
+                
                 sendDebugMessage("Going to sleep ", hour);  //Debug
                 PORTBbits.RB0 = 0; // DEBUG make test pin low when we are sleeping
                 Sleep(); 
