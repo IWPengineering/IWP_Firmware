@@ -43,15 +43,16 @@ extern int num_unsent_daily_reports; //this is the number of saved daily reports
 // ****************************************************************************
 int turnOffSIM();
 int turnOnSIM();
-int tryToConnectToNetwork();
-int CheckNetworkConnection(void);
-int ReadSIMresponse(char expected_reply[10]);
+int tryToConnectToNetwork(); //tries to connect to the network for up to 45 seconds
+int CheckNetworkConnection(void); //checks to see if the network has been acquired
+int ReadSIMresponse(char expected_reply[10]); //called after an AT command is sent to the FONA, looks for a defined response
 int sendMessage (char message[160]); //uses UART to send the string in message[]
 int sendTextMessage(char message[160]); //transmits UART characters necessary to send an SMS message using AT protocol
 void sendDebugMessage(char message[50], float value);
 int wasMessageSent(int msgNum); //this is being written and may not be needed
 void readSMSMessage(int msgNum); //still not used 
 void interpretSMSmessage(void); //still not used
+void updateClockCalendar(void); //take action when an AW command calls for a change to the clock calendar
 void sendDebugTextMessage(char message[160]); //I don't think this is ever used
 void ClearReceiveTextMessages(int MsgNum, int ClrMode); 
 void CreateNoonMessage(int);

@@ -215,6 +215,11 @@ void main(void)
                     }            
                 // Read messages sent to the system
                   // need to put the code for that here
+                int msgNum = 0;
+                for(msgNum = 1;msgNum<24;msgNum++){
+                    readSMSMessage(msgNum);
+                    interpretSMSmessage();
+                }
                 prevHour = hour; // update so we know this is not the start of a new hour
             }
            
