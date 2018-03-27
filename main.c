@@ -187,6 +187,11 @@ void main(void)
                     extRTCCset = 1;
                 }
                 
+                turnOnSIM();
+                readFonaSignalStrength();
+                turnOffSIM();
+                sendDebugMessage(ReceiveTextMsg, 0);
+                
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks

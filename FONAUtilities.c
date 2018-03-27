@@ -968,6 +968,7 @@ int SendSavedDailyReports(void){
 }
 
 
+
 void createDiagnosticMessage(void) {
     char LocalString[20]; 
     float LocalFloat = hour;
