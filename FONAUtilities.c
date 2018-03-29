@@ -332,6 +332,7 @@ int wasMessageSent(int msgNum){
  ********************************************************************/
 void readSMSMessage(int msgNum) {
     int NoMessageThere = 1;  // Assume that there is nothing to read
+    int longest_wait = 2650;
     
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
     U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
@@ -343,10 +344,10 @@ void readSMSMessage(int msgNum) {
     sendMessage("AT+CMGF=1\r\n"); //sets to text mode
 
     TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the echo of the AT+CMGF=1 command from the FONA
+    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the echo of the AT+CMGF=1 command from the FONA
     ReceiveTextMsgFlag = 0; //clear for the next message
     TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the OK from the FONA
+    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the OK from the FONA
            
     // Send the command to the FONA to read a text message
     // AT+CMGR=1
@@ -366,7 +367,7 @@ void readSMSMessage(int msgNum) {
     concat(localMsg,"\r\n");   
     sendMessage(localMsg); //send command to Read message at index msgNum
     TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the command echo from the FONA
+    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the command echo from the FONA
 
     
     // There is about 17ms between the end of the echo of the command until 
@@ -374,7 +375,7 @@ void readSMSMessage(int msgNum) {
     // First we will get information about the message followed by a CR
     ReceiveTextMsgFlag = 0; //clear for the next message
     TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the first line from the FONA
+    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the first line from the FONA
     
     // Here is where I'd like to read the phone number that sent the message
     // and the status of the message
@@ -403,7 +404,7 @@ void readSMSMessage(int msgNum) {
     
     // Then the message itself is received.  
     TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<200)){  } // Read the second line from the FONA
+    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the second line from the FONA
     // The ReceiveTextMsg array should now have the message
     IEC0bits.U1RXIE = 0;  // disable Rx interrupts
 }
@@ -449,6 +450,8 @@ void interpretSMSmessage(void){
 void updateClockCalendar(){
      char MsgPart[3];
      int success = 0;
+     int ext_success = 0;  //see if you were able to change the external RTCC
+     int int_success = 0;  //see if you were able to change the internal RTCC
      // Get the new date
      strncpy(MsgPart,ReceiveTextMsg+5,2);
      char newDate = atoi(MsgPart);      
@@ -466,7 +469,7 @@ void updateClockCalendar(){
     }
     int year = BcdToDec(getYearI2C());
     int wkday = BcdToDec(getWkdayI2C());
-    setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
+    ext_success = setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
     
     // Update the settings for the internal RTCC
     setInternalRTCC(0, 0, hour, wkday, newDate, newMonth, year);
@@ -485,13 +488,23 @@ void updateClockCalendar(){
             localMsg[0] = 0;
             char hour_val[3];
             itoa(hour_val, hour, 10);
-            concat(localMsg,"Changed hour to ");
-            concat(localMsg, hour_val);
+            // concat(localMsg,"Changed hour to ");
+            if(ext_success ==1){
+                concat(localMsg,"Changed internal/external RTCC hour to ");
+                concat(localMsg, hour_val);
+            }
+            else{
+                concat(localMsg," Changed only internal RTCC hour to ");
+                concat(localMsg, hour_val);
+            }
+            
             sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
             phoneNumber = MainphoneNumber;
         }
     }
-    turnOffSIM();
+  // don't to this.  Let calling routine take care of it  turnOffSIM();
+    // Should we wait for the message to be sent before trying to work with the FONA?
+    delayMs(40);
 } 
 /*********************************************************************
  * Function: sendDebugTextMessage()
