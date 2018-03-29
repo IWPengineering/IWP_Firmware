@@ -564,7 +564,8 @@ void ClearReceiveTextMessages(int MsgNum, int ClrMode)
     concat(MessageString, ClrModeString);
     concat(MessageString, "\r\n");
     sendMessage(MessageString); 
-     delayMs(250);// Delay while the FONA replies OK
+    delayMs(250);// Delay while the FONA replies OK
+    sendMessage("\x1A"); // this terminates an AT SMS command
 }
 /*********************************************************************
  * Function: sendTextMessage()
