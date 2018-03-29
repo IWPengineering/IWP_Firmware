@@ -125,7 +125,11 @@ void main(void)
   //  readSMSMessage(4); //still not used 
  //   readSMSMessage(5); //still not used 
  //   readSMSMessage(6); //still not used 
-    interpretSMSmessage(); //still not used
+    //interpretSMSmessage(); //still not used
+    /*turnOnSIM();
+    readSMSMessage(1);
+    interpretSMSmessage();
+    turnOffSIM();*/
     //ClearReceiveTextMessages(1,0); 
 //    readSMSMessage(1); //still not used 
 //    turnOffSIM();
@@ -188,9 +192,10 @@ void main(void)
                 }
                 
                 turnOnSIM();
+                while(CheckNetworkConnection() != 1){}
                 readFonaSignalStrength();
                 turnOffSIM();
-                sendDebugMessage(ReceiveTextMsg, 0);
+                sendDebugMessage(SignalStrength, 0);
                 
                 TimeSinceLastHourCheck = 0;
             }
