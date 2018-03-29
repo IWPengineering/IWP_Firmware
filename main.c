@@ -114,7 +114,7 @@ void main(void)
     
     print_debug_messages = 2;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
-    sendDebugMessage("The hour is = ", hourVTCC);  //Debug
+    sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
@@ -134,7 +134,12 @@ void main(void)
   //  readSMSMessage(4); //still not used 
  //   readSMSMessage(5); //still not used 
  //   readSMSMessage(6); //still not used 
- //   interpretSMSmessage(); //still not used
+
+    //interpretSMSmessage(); //still not used
+    /*turnOnSIM();
+    readSMSMessage(1);
+    interpretSMSmessage();
+    turnOffSIM();*/
     //ClearReceiveTextMessages(1,0); 
 //    readSMSMessage(1); //still not used 
 //    turnOffSIM();
@@ -179,7 +184,8 @@ void main(void)
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
             TimeSinceLastHourCheck++;
             if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
-                hour = hourVTCC;
+                hour = BcdToDec(getHourI2C());
+                minute = BcdToDec(getMinuteI2C());
                 //minute = BcdToDec(getMinuteI2C());
                 //internalHour = BcdToDec(getTimeHour());
                 //internalMinute = BcdToDec(getTimeMinute());
@@ -187,18 +193,33 @@ void main(void)
                 sendDebugMessage("The VTCC minute is ", minuteVTCC);
                 sendDebugMessage("The VTCC hour is ", hourVTCC);
                 sendDebugMessage("The RTCC hour is ", BcdToDec(getHourI2C()));
+                
+                // if the VTCC reaches two minutes past the next hour, and the ext RTCC hasn't updated, use the VTCC time to update the RTCC
+                if (((hourVTCC - hour) >= 1) && (minuteVTCC >= 2)){
+                    setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
+                    hour = hourVTCC;
+                    extRTCCset = 1;
+                }
+                
+                turnOnSIM();
+                while(CheckNetworkConnection() != 1){}
+                readFonaSignalStrength();
+                turnOffSIM();
+                sendDebugMessage(SignalStrength, 0);
+                
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
             if(hour != prevHour){
             //if(TimeSinceLastHourCheck > 5000) {
               //  TimeSinceLastHourCheck = 0;
-                // Is it time to record volume from previous time bin to EEProm?
-                secondVTCC = secondVTCC + 18; // compensate for using pll
-                setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
-                rtccUpdateTime = hourVTCC;
-                EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
+                //secondVTCC = secondVTCC - 18; // compensate for using pll
+                date = BcdToDec(getDateI2C());
+                if (extRTCCset == 0) {
+                    initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
+                }
                 
+                // Is it time to record volume from previous time bin to EEProm?
                 if(hour/2 != active_volume_bin){
                     SaveVolumeToEEProm();
                     sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);  //Debug
@@ -226,14 +247,14 @@ void main(void)
                 prevHour = hour; // update so we know this is not the start of a new hour
             }
            
-            
+            /*
             //NEEDS REVIEW**********************************************************
             //NEEDS UPDATE TO SET INTERNAL RTCC MINUTE TO EXTERNAL RTCC MINUTE
             // updates either the internal clock if it lost time
             if ((hour != internalHour) && (extRtccHourSet)){ // supposing the internal clock lost the time
                 setInternalRTCC(0, 0, hour, 17, 8, 6, 17); //date values don't matter therefore random date
                 internalHour = hour;
-            }
+            }*/
             
             
             // should we be asleep to save power?   
@@ -253,7 +274,7 @@ void main(void)
                     EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
                 }
                 
-                hour = hourVTCC;
+                /*hour = hourVTCC;
                 //minute = BcdToDec(getMinuteI2C());
                 //internalHour = BcdToDec(getTimeHour());
                 //internalMinute = BcdToDec(getTimeMinute());
@@ -266,13 +287,13 @@ void main(void)
                     rtccUpdateTime = hourVTCC;
                     EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
                     prevHour = hour;
-                }
+                }*/
                 
                 sendDebugMessage("Going to sleep ", hour);  //Debug
                 PORTBbits.RB0 = 0; // DEBUG make test pin low when we are sleeping
                 Sleep(); 
                                
-                hour = hourVTCC; //still time to sleep? Don't check battery, you are here because it was low
+                hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
                 TimeSinceLastBatteryCheck++; // only check the battery every 10th time you wake up (approx 20min)
                 // check the battery every 20 min
                 if(TimeSinceLastBatteryCheck > 10){
