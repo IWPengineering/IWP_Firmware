@@ -40,6 +40,7 @@ char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS m
 char* phoneNumber = MainphoneNumber; // Randy
 int LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
 char FONAmsgStatus[11]; //Message REC/STO, UNREAD/READ, UNSENT/SENT
+char SignalStrength[2]; //hold the values of the signal strength
 char ReceiveTextMsg[160]; //This is the string used to buffer up a message read from the FONA
 char SMSMessage[160]; //A string used to hold all SMS message sent with FONA
 int NumCharInTextMsg = 0; //Keeps track of the number of characters in the received text string
@@ -943,6 +944,7 @@ int SendSavedDailyReports(void){
             sleepHrStatus = 0; // reset the slept during that hour
             EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
             extRtccManualSet = 0; 
+            extRTCCset = 0;
             phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
             break;
         }
@@ -967,13 +969,47 @@ int SendSavedDailyReports(void){
 
 }
 
+void readFonaSignalStrength(void) {
+    IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+    U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+                         // This clears the RXREG FIFO
+    IEC0bits.U1RXIE = 1;  // enable Rx interrupts
+    NumCharInTextMsg = 0; //Point to the start of the Text Message String
+    ReceiveTextMsgFlag = 0; //clear for the next message
+      
+    sendMessage("AT+CSQ\r"); //Read message at index msgNum
+    while(ReceiveTextMsgFlag<1){  } // Read the command echo from the FONA
+
+    
+    // There is about 17ms between the end of the echo of the command until 
+    // The FONA responds with what you asked for
+    ReceiveTextMsgFlag = 0; //clear for the next message
+    while(ReceiveTextMsgFlag<1){  } // Read the first line from the FONA
+    ReceiveTextMsgFlag = 0;
+
+    char *MsgPtr;
+    MsgPtr = ReceiveTextMsg; //set the pointer to the response
+    int msgLength=strlen(ReceiveTextMsg);
+    SignalStrength[1]=0;  //Reset the SignaStrength array
+    SignalStrength[2]=0;
+    while((*MsgPtr != ':')&&(MsgPtr < msgLength)){
+        MsgPtr++;
+    }
+    MsgPtr++;
+    while((*MsgPtr != ',')&&(MsgPtr < msgLength)){
+        strncat(SignalStrength, MsgPtr, 1);
+        MsgPtr++;
+    }
+    
+    IEC0bits.U1RXIE = 0;  // disable Rx interrupts
+}
 
 void createDiagnosticMessage(void) {
     char LocalString[20]; 
     float LocalFloat = hour;
     SMSMessage[0] = 0; //reset SMS message array to be empty
     LocalString[0] = 0;
-  
+    
     concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"s\":");
     EEProm_Read_Float(DiagnosticEEPromStart, &EEFloatData);
     floatToString(EEFloatData, LocalString); //populates the sleepHrStatusString with the value from EEPROM
@@ -996,9 +1032,12 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, ",\"e\":");
     floatToString(extRtccManualSet, LocalString); // external RTCC was manually set forward
     concat(SMSMessage, LocalString);
-    concat(SMSMessage, ",\"m\":");
-    floatToString((float)BcdToDec(getHourI2C()), LocalString); // external RTCC was manually set forward
+    concat(SMSMessage, ",\"x\":");
+    floatToString(extRTCCset, LocalString); // To keep track if the VTCC time was used to set the external RTCC
     concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"w\":");
+    readFonaSignalStrength();
+    concat(SMSMessage, SignalStrength); // The cellular signal
     
     concat(SMSMessage, ">))");
 }   

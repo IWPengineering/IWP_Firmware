@@ -96,6 +96,7 @@ extern float extRtccTalked; // set to 1 if the external RTCC talked during the l
 extern float numberTries; // number of times that tried to connect to network for hourly diagnostic messages 
 extern int extRtccChecked;
 extern float extRtccManualSet;
+extern float extRTCCset;
 
 extern int extRtccHourSet; //set to 0 if the external RTCC didn't update the hour in the current loop - used to check internal RTCC
 
@@ -105,7 +106,6 @@ extern char minuteVTCC;
 extern char hourVTCC;
 extern char dateVTCC;
 extern char monthVTCC;
-extern float rtccUpdateTime;
 
 extern char active_volume_bin;
 extern int noon_msg_sent;  //set to 1 when noon message has been sent
@@ -163,6 +163,9 @@ extern int hour; // Hour of day
 extern int TimeSinceLastHourCheck; //we check this when we have gone around the no pumping loop enough times that 1 minute has gone by
 extern int TimeSinceLastBatteryCheck; // we check the battery when we are sleeping because of low battery every 10 times we wake up.
 extern int minute;  //minute of the day
+extern int year;
+extern int month;
+extern int date;
 extern char active_volume_bin;
 extern char never_primed;  //set to 1 if we exit the priming loop because of timeout
 extern char print_debug_messages; //set to 1 when we want the debug messages to be sent to the Tx pin.

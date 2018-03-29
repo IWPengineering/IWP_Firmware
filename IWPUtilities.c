@@ -155,6 +155,7 @@ float numberTries = 0; // Keeps track of the number of times we attempt to conne
 int extRtccHourSet = 1;
 int extRtccChecked = 0; // how many times weve tried to update the time this hour
 float extRtccManualSet = 0;
+float extRTCCset = 0; // To keep track if the VTCC time was used to set the external RTCC
 
 //*****************VTCC Variables*******************************************
 char monthArray[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -163,7 +164,6 @@ char minuteVTCC = 0;
 char hourVTCC = 0;
 char dateVTCC = 0;
 char monthVTCC = 0;
-float rtccUpdateTime = 0; // records the hour when we last updated the ext RTCC
 
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
@@ -190,6 +190,9 @@ int hour = 0; // Hour of day according to the external RTCC
 int TimeSinceLastHourCheck = 0;  // we check this when we have gone around the no pumping loop enough times that 1 minute has gone by
 int TimeSinceLastBatteryCheck = 0; // we only check the battery every 20min when sleeping
 int minute = 0;  //minute of the day
+int year = 0; //current year
+int month = 0; //current month
+int date = 0; // current date
 //Pin assignments
 int mclrPin = 1;
 int depthSensorPin = 2;
@@ -237,10 +240,10 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 48;
+    char localMin = 54;
     char localHr = 12;
-    char localWkday = 3;
-    char localDate = 20;
+    char localWkday = 6;
+    char localDate = 23;
     char localMonth = 3;
     char localYear = 18;
 
@@ -367,7 +370,7 @@ void initialization(void) {
     if(EEFloatData == 0){
         EEProm_Read_Float(0,&leakRateLong);
         EEProm_Read_Float(1,&longestPrime);
-        updateVTCC();
+        initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
     }
     else{
         ClearEEProm();
@@ -377,13 +380,19 @@ void initialization(void) {
         print_debug_messages = 1; 
         sendDebugMessage("Program time? ", success);
         initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
+        year = BcdToDec(getYearI2C()); //just here to return value if RTCC failed to communicate
+        if (year == 0) {
+            sendDebugMessage("Was unable to read RTCC year", 0);
+        }
     }
     // just so we know the board is working
-    rtccUpdateTime = hourVTCC;
-    EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
-    hour = hourVTCC;
+    hour = BcdToDec(getHourI2C());
     active_volume_bin = hour/2;  //Which volume bin are we starting with
     prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
+    month = BcdToDec(getMonthI2C());
+    if (month == 0) {
+            sendDebugMessage("Was unable to read RTCC month", 0);
+    }
     turnOnSIM();
     delayMs(2000);
     turnOffSIM();
@@ -1560,18 +1569,5 @@ void __attribute__((interrupt, auto_psv)) _T2Interrupt(void){
                 }
             }
         }
-    }
-}
-
-void updateVTCC(void){
-    float localData;
-    EEProm_Read_Float(DiagnosticEEPromStart+1, &localData);
-    if (BcdToDec(getHourI2C()) != localData){
-        initializeVTCC(0, getMinuteI2C(), BcdToDec(getHourI2C()), getDateI2C(), getMonthI2C());
-    }
-    else{
-        //createAndSendRequestMessage('date');
-        
-        initializeVTCC(0, 0, 0, 0, 0);
     }
 }

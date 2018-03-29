@@ -30,6 +30,7 @@ extern char SendingPhoneNumber[]; //Number for the phone that sent the system a 
 extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
 extern int LeaveOnSIM;  // this is set to 1 when an external message says to not shut off the SIM
 extern char FONAmsgStatus[]; //A string indicating if the message has been sent/read
+extern char SignalStrength[]; //hold the values of the signal strength
 extern char SMSMessage[]; //A string used to hold all SMS message sent with FONA
 extern char ReceiveTextMsg[];  //String used to hold text messages received from FONA
 extern int NumCharInTextMsg; //Number of characters in the received text message 

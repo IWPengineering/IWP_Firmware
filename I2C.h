@@ -70,12 +70,16 @@ unsigned int ReadI2C(void);
 void turnOffClockOscilator_old(void);
 int turnOffClockOscilator(void);
 int getSecondI2C(void);
+int getMinuteI2C_old(void);
 int getMinuteI2C(void);
 int getHourI2C_old(void);
 int getHourI2C(void);
+int getYearI2C_old(void);
 int getYearI2C(void);
+int getMonthI2C_old(void);
 int getMonthI2C(void);
 int getWkdayI2C(void);
+int getDateI2C_old(void);
 int getDateI2C(void);
 void setTime_old(char sec, char min, char hr, char wkday,
         char date, char month, char year);
