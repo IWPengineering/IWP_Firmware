@@ -121,6 +121,15 @@ void main(void)
     
    // THIS STUFF IS JUST FOR TESTING 
     //Read received messages and act on them
+ //   int msgNum = 1;
+ //   turnOnSIM();
+ //   delayMs(2000);
+ //               for(msgNum = 1;msgNum<31;msgNum++){
+ //                   readSMSMessage(msgNum);
+ //                   interpretSMSmessage();
+ //                   ClearReceiveTextMessages(msgNum, 2); // Clear the message just read from the message storage area                    
+ //               }
+ //   turnOffSIM();
   //  turnOnSIM();
   //  readSMSMessage(4); //still not used 
  //   readSMSMessage(5); //still not used 
@@ -228,11 +237,14 @@ void main(void)
                 // Read messages sent to the system
                   // need to put the code for that here
                 int msgNum = 0;
-                for(msgNum = 1;msgNum<30;msgNum++){
+                turnOnSIM();
+                delayMs(2000);
+                for(msgNum = 1;msgNum<31;msgNum++){
                     readSMSMessage(msgNum);
                     interpretSMSmessage();
-                    ClearReceiveTextMessages(msgNum, 0); // Clear the message just read from the message storage area                    
+                    ClearReceiveTextMessages(msgNum, 2); // Clear the message just read from the message storage area                    
                 }
+                turnOffSIM();
                 prevHour = hour; // update so we know this is not the start of a new hour
             }
            
