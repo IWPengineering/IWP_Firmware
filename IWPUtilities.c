@@ -240,7 +240,7 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 54;
+    char localMin = 5;
     char localHr = 12;
     char localWkday = 6;
     char localDate = 23;
