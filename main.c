@@ -205,7 +205,8 @@ void main(void)
                 while(CheckNetworkConnection() != 1){}
                 readFonaSignalStrength();
                 turnOffSIM();
-                sendDebugMessage(SignalStrength, 0);
+                sendDebugMessage(ReceiveTextMsg, 8);
+                sendDebugMessage(SignalStrength, 9);
                 
                 TimeSinceLastHourCheck = 0;
             }

@@ -983,12 +983,14 @@ int SendSavedDailyReports(void){
 }
 
 void readFonaSignalStrength(void) {
+    int localCounter = 0;
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
     U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
                          // This clears the RXREG FIFO
     IEC0bits.U1RXIE = 1;  // enable Rx interrupts
     NumCharInTextMsg = 0; //Point to the start of the Text Message String
     ReceiveTextMsgFlag = 0; //clear for the next message
+    ReceiveTextMsg[0]=0;  //Reset the receive text message array
       
     sendMessage("AT+CSQ\r"); //Read message at index msgNum
     while(ReceiveTextMsgFlag<1){  } // Read the command echo from the FONA
@@ -999,7 +1001,10 @@ void readFonaSignalStrength(void) {
     ReceiveTextMsgFlag = 0; //clear for the next message
     while(ReceiveTextMsgFlag<1){  } // Read the first line from the FONA
     ReceiveTextMsgFlag = 0;
-
+    IEC0bits.U1RXIE = 0;  // enable Rx interrupts
+    turnOffSIM();
+    sendDebugMessage(ReceiveTextMsg, 6);
+    
     char *MsgPtr;
     MsgPtr = ReceiveTextMsg; //set the pointer to the response
     int msgLength=strlen(ReceiveTextMsg);
@@ -1009,12 +1014,13 @@ void readFonaSignalStrength(void) {
         MsgPtr++;
     }
     MsgPtr++;
+    MsgPtr++;
     while((*MsgPtr != ',')&&(MsgPtr < msgLength)){
+        //localCounter++;
+        //SignalStrength[localCounter] = *MsgPtr;
         strncat(SignalStrength, MsgPtr, 1);
         MsgPtr++;
     }
-    
-    IEC0bits.U1RXIE = 0;  // disable Rx interrupts
 }
 
 void createDiagnosticMessage(void) {
