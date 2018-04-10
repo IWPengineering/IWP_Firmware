@@ -54,12 +54,14 @@ int wasMessageSent(int msgNum); //this is being written and may not be needed
 void readSMSMessage(int msgNum); //Called as a part of the hourly tasks.  Reads msgNum msg and puts it in ReceiveTextMsg
 void interpretSMSmessage(void); //Right now only understands the AW_C command to change the clock/calendar 
 void updateClockCalendar(void); //take action when an AW command calls for a change to the clock calendar
+void enableDiagnosticTextMessages(void); //Enables (1) or disable (0) hourly diagnostic messages
 void sendDebugTextMessage(char message[160]); //I don't think this is ever used
 void ClearReceiveTextMessages(int MsgNum, int ClrMode); 
 void CreateNoonMessage(int);
 void CreateAndSaveDailyReport(void);
 int SendSavedDailyReports(void);
 void createDiagnosticMessage(void);
+void readFonaSignalStrength(void); // Asks the FONA for the strength of the network signal
 
 
 

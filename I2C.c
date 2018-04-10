@@ -9,6 +9,7 @@
 #include "xc.h"
 #include "I2C.h"
 #include "IWPUtilities.h"
+#include "FONAUtilities.h"
 #include "Pin_Manager.h"
 
 
