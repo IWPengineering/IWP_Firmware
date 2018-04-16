@@ -525,6 +525,7 @@ void updateClockCalendar(){
  *           with the AW_D prefix indicating that
  *           the hourly diagnostic messages should either be enabled (1)
  *                                                        or disabled (0)
+ * MAKE IT SO THAT A 2 CHANGES THE DIAGNOSTICE PHONE NUMBER TO BE THE NUMBER THAT SENT THIS COMMAND
  *           The cell phone number that sent the message is expected to already
  *           be in the string SendingPhoneNumber
  * Note: Library
