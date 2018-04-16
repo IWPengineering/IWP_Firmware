@@ -209,9 +209,7 @@ void main(void)
                 }
                 //while(CheckNetworkConnection() != 1){}
                 // readFonaSignalStrength();
-                turnOffSIM();
-                //sendDebugMessage(SignalStrength, 0);
-                
+                turnOffSIM();           
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
