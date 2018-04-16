@@ -148,7 +148,8 @@ void main(void)
     
           
     while (1)
-	{   
+	{
+      
         /*int localcounter = 0;
         sendDebugMessage("Starting timer", 1);
         TMR2 = 0;
@@ -202,12 +203,13 @@ void main(void)
                 }
                 
                 turnOnSIM();
-                while(CheckNetworkConnection() != 1){}
-                readFonaSignalStrength();
-                turnOffSIM();
-                sendDebugMessage(ReceiveTextMsg, 8);
-                sendDebugMessage(SignalStrength, 9);
-                
+                if(tryToConnectToNetwork()){
+                    readFonaSignalStrength();
+                    sendDebugMessage(SignalStrength, 0);
+                }
+                //while(CheckNetworkConnection() != 1){}
+                // readFonaSignalStrength();
+                turnOffSIM();           
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
