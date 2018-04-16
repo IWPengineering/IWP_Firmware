@@ -163,6 +163,7 @@ int tryToConnectToNetwork() {
             }
         }
     }
+    ClearWatchDogTimer(); // In case we were here for 45sec and the calling routine did not allow for that
     return success;
 }
 
@@ -420,8 +421,10 @@ void readSMSMessage(int msgNum) {
  *           Depending upon the message, different actions are taken.
  * Currently Understood Messages
  *      AW_C indicates changes to the RTCC date,month,hour.
- *              AW_T:sec,min,hr,wkday,date,month,year
  *              AW_C:date,month,delta_hour  ie.  March 12th add 6hrs to hour AW_C:12,03,06
+ *      AW_D enable hourly diagnostic messages
+ *              AW_D:0 (disable diagnostic messages)
+ *              AW_D:1 (enable hourly diagnostic messages)
  * Note: Library
  * TestDate: no tested
  ********************************************************************/
@@ -429,7 +432,12 @@ void interpretSMSmessage(void){
     char CmdMatch[]="AW_C";
     if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
       updateClockCalendar();
-    }    
+    }  
+    strncpy(CmdMatch,"AW_D",4);
+    if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
+      // Enable diagnostic messages.  Do we want a number to indicate how often these are sent?
+        enableDiagnosticTextMessages();
+    }   
 }
 /*********************************************************************
  * Function: updateClockCalendar()
@@ -507,6 +515,53 @@ void updateClockCalendar(){
     // Should we wait for the message to be sent before trying to work with the FONA?
     delayMs(40);
 } 
+/*********************************************************************
+ * Function: enableDiagnosticTextMessages()
+ * Input: None - must be called after the readSMSMessage
+ *                ReceiveTextMsg has the message string in it 
+ *                SendingPhoneNumber has the phone number of the sender
+ * Output: None
+ * Overview: An SMS message was received (in the string ReceiveTextMsg)
+ *           with the AW_D prefix indicating that
+ *           the hourly diagnostic messages should either be enabled (1)
+ *                                                        or disabled (0)
+ * MAKE IT SO THAT A 2 CHANGES THE DIAGNOSTICE PHONE NUMBER TO BE THE NUMBER THAT SENT THIS COMMAND
+ *           The cell phone number that sent the message is expected to already
+ *           be in the string SendingPhoneNumber
+ * Note: Library
+ * TestDate: not tested
+ ********************************************************************/
+void enableDiagnosticTextMessages(){
+    char MsgPart[3];
+    int success = 0;
+    strncpy(MsgPart,ReceiveTextMsg+5,1);
+    diagnostic = atoi(MsgPart);      
+    // Now we want to reply to the sender telling it what we just did
+    success = turnOnSIM();  // returns 1 if the SIM powered up)
+    if(success == 1){
+        // Try to establish network connection
+        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+        if(success == 1){
+        // Send off the data
+            phoneNumber = SendingPhoneNumber;
+            // Need to make dataMessage
+            char localMsg[160];
+            localMsg[0] = 0;
+            if(diagnostic == 1){
+                concat(localMsg,"Hourly Diagnostic Messages Have Been ENABLED ");
+            }
+            else{
+                concat(localMsg,"Hourly Diagnostic Messages Have Been DISABLED ");
+            }
+            
+            sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
+            phoneNumber = MainphoneNumber;
+        }
+    }
+    // Should we wait for the message to be sent before trying to work with the FONA?
+    delayMs(40);
+    
+}
 /*********************************************************************
  * Function: sendDebugTextMessage()
  * Input: String
@@ -1010,14 +1065,11 @@ void readFonaSignalStrength(void) {
     int msgLength=strlen(ReceiveTextMsg);
     SignalStrength[1]=0;  //Reset the SignaStrength array
     SignalStrength[2]=0;
-    while((*MsgPtr != ':')&&(MsgPtr < msgLength)){
+    while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
         MsgPtr++;
     }
     MsgPtr++;
-    MsgPtr++;
-    while((*MsgPtr != ',')&&(MsgPtr < msgLength)){
-        //localCounter++;
-        //SignalStrength[localCounter] = *MsgPtr;
+    while((*MsgPtr != ',')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
         strncat(SignalStrength, MsgPtr, 1);
         MsgPtr++;
     }
