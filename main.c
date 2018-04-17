@@ -183,8 +183,7 @@ void main(void)
 		while (handleMovement == 0)
 		{ 
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
-            TimeSinceLastHourCheck++;
-            if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
+            if(TimeSinceLastHourCheck == 1){ // Check every minute
                 hour = BcdToDec(getHourI2C());
                 minute = BcdToDec(getMinuteI2C());
                 //minute = BcdToDec(getMinuteI2C());
@@ -196,27 +195,15 @@ void main(void)
                 sendDebugMessage("The RTCC hour is ", BcdToDec(getHourI2C()));
                 
                 // if the VTCC reaches two minutes past the next hour, and the ext RTCC hasn't updated, use the VTCC time to update the RTCC
-                if (((hourVTCC - hour) >= 1) && (minuteVTCC >= 2)){
+                if ((hourVTCC != hour) && (minuteVTCC >= 2) && (hour == prevHour)){
                     setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
                     hour = hourVTCC;
                     extRTCCset = 1;
-                }
-                
-                turnOnSIM();
-                if(tryToConnectToNetwork()){
-                    readFonaSignalStrength();
-                    sendDebugMessage(SignalStrength, 0);
-                }
-                //while(CheckNetworkConnection() != 1){}
-                // readFonaSignalStrength();
-                turnOffSIM();           
+                }    
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
             if(hour != prevHour){
-            //if(TimeSinceLastHourCheck > 5000) {
-              //  TimeSinceLastHourCheck = 0;
-                //secondVTCC = secondVTCC - 18; // compensate for using pll
                 date = BcdToDec(getDateI2C());
                 if (extRTCCset == 0) {
                     initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
@@ -330,8 +317,6 @@ void main(void)
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
-        hour = hourVTCC; //Update the time so we know where to save this pumping event
-        TimeSinceLastHourCheck = 0;
      
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())

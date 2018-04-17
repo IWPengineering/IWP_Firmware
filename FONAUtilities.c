@@ -1038,7 +1038,7 @@ int SendSavedDailyReports(void){
 }
 
 void readFonaSignalStrength(void) {
-    int localCounter = 0;
+    int i = 0;
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
     U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
                          // This clears the RXREG FIFO
@@ -1063,8 +1063,10 @@ void readFonaSignalStrength(void) {
     char *MsgPtr;
     MsgPtr = ReceiveTextMsg; //set the pointer to the response
     int msgLength=strlen(ReceiveTextMsg);
-    SignalStrength[1]=0;  //Reset the SignaStrength array
-    SignalStrength[2]=0;
+    for (i; i < strlen; i++) {
+        SignalStrength[i]=0;
+    }
+
     while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
         MsgPtr++;
     }

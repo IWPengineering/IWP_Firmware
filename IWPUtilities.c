@@ -1553,6 +1553,7 @@ void __attribute__((interrupt, auto_psv)) _T2Interrupt(void){
     if (secondVTCC >= 60){
         secondVTCC = secondVTCC - 60;
         minuteVTCC++;
+        TimeSinceLastHourCheck = 1;
         if (minuteVTCC >= 60){
             minuteVTCC = minuteVTCC - 60;
             hourVTCC++;
