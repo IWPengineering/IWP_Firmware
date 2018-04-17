@@ -92,11 +92,9 @@ void main(void)
 	float leakRatePrevious = 0; // Stores the previous Leak Rate incase if someone stats to pump before leakage can be measured
 	float upStrokePrimeMeters = 0; // Stores the upstroke in meters
 	float leakRate = 0; // Rate at which water is leaking from the rising main
-	int currentDay;
 	/////int prevDay = getDateI2C();
     noon_msg_sent = 0; // Start with the assumption that the noon message has not been sent
     debugCounter = 0;  //DEBUG variable to track how many times it takes to send the message
-    int local_debug_hour = 1;  //just used to debug things
     
     //                    DEBUG
     // print_debug_messages controls the debug reporting
@@ -186,18 +184,17 @@ void main(void)
             
             
             //Just for testing
-            while(1) {
-                /*turnOnSIM();
+            /*while(1) {
+                turnOnSIM();
                 while(CheckNetworkConnection() != 1) {
                     ClearWatchDogTimer();
                 }
                 readFonaSignalStrength();
                 turnOffSIM();
-                sendDebugMessage(SignalStrength, 3);*/
-                RCONbits.TRAPR = 1;
+                sendDebugMessage(SignalStrength, 3);
                 sendDebugMessage(" ", resetCause);
                 ClearWatchDogTimer();
-            }
+            }*/
             
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
             if(TimeSinceLastHourCheck == 1){ // Check every minute

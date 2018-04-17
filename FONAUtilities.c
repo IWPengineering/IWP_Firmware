@@ -333,7 +333,7 @@ int wasMessageSent(int msgNum){
  * TestDate: Not Tested
  ********************************************************************/
 void readSMSMessage(int msgNum) {
-    int NoMessageThere = 1;  // Assume that there is nothing to read
+    //int NoMessageThere = 1;  // Assume that there is nothing to read
     int longest_wait = 2650;
     
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
@@ -460,7 +460,6 @@ void updateClockCalendar(){
      char MsgPart[3];
      int success = 0;
      int ext_success = 0;  //see if you were able to change the external RTCC
-     int int_success = 0;  //see if you were able to change the internal RTCC
      // Get the new date
      strncpy(MsgPart,ReceiveTextMsg+5,2);
      char newDate = atoi(MsgPart);      

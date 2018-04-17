@@ -237,13 +237,12 @@ int vcc2Pin = 28;
  * TestDate: 06-03-14
  ********************************************************************/
 void initialization(void) {
-    int i = 0; //local counter
     char localSec = 0;
     char localMin = 5;
-    char localHr = 12;
-    char localWkday = 6;
-    char localDate = 23;
-    char localMonth = 3;
+    char localHr = 16;
+    char localWkday = 3;
+    char localDate = 17;
+    char localMonth = 4;
     char localYear = 18;
 
     ////------------Sets up all ports as digital inputs-----------------------
@@ -384,7 +383,6 @@ void initialization(void) {
             sendDebugMessage("Was unable to read RTCC year", 0);
         }
     }
-    print_debug_messages = 1; 
     resetCause = checkResetStatus();
     // just so we know the board is working
     hour = BcdToDec(getHourI2C());
@@ -897,10 +895,7 @@ float checkResetStatus(void) {
         resetcause = 4; //bit 4 is the Watchdog Timer time-out reset
     }*/
     EEProm_Read_Float(DiagnosticEEPromStart + 3, &EEFloatData);
-    sendDebugMessage("EE", EEFloatData);
-    sendDebugMessage("rc", resetcause);
-    resetcause = (int)EEFloatData | resetcause;
-    sendDebugMessage("or", resetcause);
+    resetcause = (int)EEFloatData | (int)resetcause;
     EEProm_Write_Float(DiagnosticEEPromStart + 3,&resetcause);
     RCON = 0;
     return resetcause;
