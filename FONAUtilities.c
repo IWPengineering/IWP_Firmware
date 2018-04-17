@@ -40,7 +40,7 @@ char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS m
 char* phoneNumber = MainphoneNumber; // Randy
 int LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
 char FONAmsgStatus[11]; //Message REC/STO, UNREAD/READ, UNSENT/SENT
-char SignalStrength[2]; //hold the values of the signal strength
+char SignalStrength[3]; //hold the values of the signal strength
 char ReceiveTextMsg[160]; //This is the string used to buffer up a message read from the FONA
 char SMSMessage[160]; //A string used to hold all SMS message sent with FONA
 int NumCharInTextMsg = 0; //Keeps track of the number of characters in the received text string
@@ -1039,6 +1039,7 @@ int SendSavedDailyReports(void){
 
 void readFonaSignalStrength(void) {
     int i = 0; // local counter
+    int localcounter = 0;
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
     U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
                          // This clears the RXREG FIFO
@@ -1057,23 +1058,25 @@ void readFonaSignalStrength(void) {
     while(ReceiveTextMsgFlag<1){  } // Read the first line from the FONA
     ReceiveTextMsgFlag = 0; //clear for the next message
     IEC0bits.U1RXIE = 0;  // enable Rx interrupts
-    turnOffSIM();
     
     char *MsgPtr;
     MsgPtr = ReceiveTextMsg; //set the pointer to the response
     int msgLength=strlen(ReceiveTextMsg);
-    for (i; i < msgLength; i++) { // clear the signal strength array
+    for (i; i < 3; i++) { // clear the signal strength array
         SignalStrength[i]=0;
     }
 
     while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //advance pointer to the colon
         MsgPtr++;
     }
-    MsgPtr = MsgPtr + 2; //move pointer past colon and space
+    MsgPtr = MsgPtr + 1; //move pointer past colon and space
     while((*MsgPtr != ',')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //when we reach a comma, we have read over the signal strength and should stop reading
-        strncat(SignalStrength, MsgPtr, 1); //save signal strength number in array
+        //strncat(SignalStrength, MsgPtr, 1); //save signal strength number in array
+        SignalStrength[localcounter] = *MsgPtr;
         MsgPtr++;
+        localcounter++;
     }
+    SignalStrength[localcounter] = 0;
 }
 
 void createDiagnosticMessage(void) {

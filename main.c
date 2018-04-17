@@ -183,14 +183,19 @@ void main(void)
 		while (handleMovement == 0)
 		{ 
             //Just for testing
-            while(CheckNetworkConnection() != 1) {
-                ClearWatchDogTimer();
-            }
+            
+            
             //Just for testing
             while(1) {
+                /*turnOnSIM();
+                while(CheckNetworkConnection() != 1) {
+                    ClearWatchDogTimer();
+                }
                 readFonaSignalStrength();
-                sendDebugMessage(SignalStrength, 3);
-                sendDebugMessage(RCON, 4);
+                turnOffSIM();
+                sendDebugMessage(SignalStrength, 3);*/
+                RCONbits.TRAPR = 1;
+                sendDebugMessage(" ", resetCause);
                 ClearWatchDogTimer();
             }
             

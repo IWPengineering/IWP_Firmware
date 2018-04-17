@@ -370,7 +370,6 @@ void initialization(void) {
         EEProm_Read_Float(0,&leakRateLong);
         EEProm_Read_Float(1,&longestPrime);
         initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
-        resetCause = checkResetStatus();
     }
     else{
         ClearEEProm();
@@ -385,6 +384,8 @@ void initialization(void) {
             sendDebugMessage("Was unable to read RTCC year", 0);
         }
     }
+    print_debug_messages = 1; 
+    resetCause = checkResetStatus();
     // just so we know the board is working
     hour = BcdToDec(getHourI2C());
     active_volume_bin = hour/2;  //Which volume bin are we starting with
@@ -895,7 +896,13 @@ float checkResetStatus(void) {
     else if (RCONbits.WDTO == 1) {
         resetcause = 4; //bit 4 is the Watchdog Timer time-out reset
     }
-    
+    RCON = 0;
+    EEProm_Read_Float(DiagnosticEEPromStart + 3, &EEFloatData);
+    sendDebugMessage("EE", EEFloatData);
+    sendDebugMessage("rc", resetcause);
+    resetcause = (int)EEFloatData | (int)resetcause;
+    sendDebugMessage("or", resetcause);
+    EEProm_Write_Float(DiagnosticEEPromStart + 3,&resetcause);
     return resetcause;
 }
 
@@ -1548,7 +1555,7 @@ void DebugReadEEProm(void){
 void ClearEEProm(void){
     int i;
     EEFloatData = 0;
-    for (i = 0; i < DiagnosticEEPromStart + 2; i++){
+    for (i = 0; i <= DiagnosticEEPromStart + 3; i++){
         EEProm_Write_Float(i, &EEFloatData);
     }
 }
