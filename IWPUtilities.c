@@ -871,8 +871,8 @@ float readDepthSensor(void) {
  * Overview: Returns the number of the set register of the cause of the system restart
  *********************************************************************/
 float checkResetStatus(void) {
-    float resetcause = 0;
-    if ((RCONbits.BOR == 1) && (RCONbits.POR != 1)) {
+    float resetcause = RCON;
+    /*if ((RCONbits.BOR == 1) && (RCONbits.POR != 1)) {
         resetcause = 1; //bit 1 is the brown out restart
     }
     else if (RCONbits.POR == 1) {
@@ -895,14 +895,14 @@ float checkResetStatus(void) {
     }
     else if (RCONbits.WDTO == 1) {
         resetcause = 4; //bit 4 is the Watchdog Timer time-out reset
-    }
-    RCON = 0;
+    }*/
     EEProm_Read_Float(DiagnosticEEPromStart + 3, &EEFloatData);
     sendDebugMessage("EE", EEFloatData);
     sendDebugMessage("rc", resetcause);
-    resetcause = (int)EEFloatData | (int)resetcause;
+    resetcause = (int)EEFloatData | resetcause;
     sendDebugMessage("or", resetcause);
     EEProm_Write_Float(DiagnosticEEPromStart + 3,&resetcause);
+    RCON = 0;
     return resetcause;
 }
 
