@@ -152,10 +152,8 @@ int internalHour = 0; // Hour of the day according to internal RTCC
 int internalMinute = 0; // Minute of the hour according to the internal RTCC
 float extRtccTalked = 0; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
 float numberTries = 0; // Keeps track of the number of times we attempt to connect to the network to send diagnostic messages
-int extRtccHourSet = 1;
-int extRtccChecked = 0; // how many times weve tried to update the time this hour
-float extRtccManualSet = 0;
 float extRTCCset = 0; // To keep track if the VTCC time was used to set the external RTCC
+float resetCause = 0; //0 if no reset occurred, else the RCON register bit number that is set is returned
 
 //*****************VTCC Variables*******************************************
 char monthArray[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -239,6 +237,7 @@ int vcc2Pin = 28;
  * TestDate: 06-03-14
  ********************************************************************/
 void initialization(void) {
+    int i = 0; //local counter
     char localSec = 0;
     char localMin = 5;
     char localHr = 12;
@@ -371,12 +370,13 @@ void initialization(void) {
         EEProm_Read_Float(0,&leakRateLong);
         EEProm_Read_Float(1,&longestPrime);
         initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
+        resetCause = checkResetStatus();
     }
     else{
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        success = setTime(localSec,localMin,localHr,localWkday,localDate,localMonth,localYear); //  2/12/2018 
+        success = setTime(localSec,localMin,localHr,localWkday,localDate,localMonth,localYear);
         print_debug_messages = 1; 
         sendDebugMessage("Program time? ", success);
         initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
@@ -862,6 +862,42 @@ float readDepthSensor(void) {
 ////                    MISC FUNCTIONS                           ////
 ////                                                             ////
 /////////////////////////////////////////////////////////////////////
+
+/*********************************************************************
+ * Function: checkResetStatus()
+ * Input: void
+ * Output: float
+ * Overview: Returns the number of the set register of the cause of the system restart
+ *********************************************************************/
+float checkResetStatus(void) {
+    float resetcause = 0;
+    if ((RCONbits.BOR == 1) && (RCONbits.POR != 1)) {
+        resetcause = 1; //bit 1 is the brown out restart
+    }
+    else if (RCONbits.POR == 1) {
+        resetcause = 0; //bit 0 is the Power-on reset
+    }
+    else if (RCONbits.TRAPR == 1) {
+        resetcause = 15; //bit 15 is the trap conflict event
+    }
+    else if (RCONbits.IOPUWR == 1) {
+        resetcause = 14; //bit 14 is the Illegal opcode or uninitialized W register access
+    }
+    else if (RCONbits.CM == 1) {
+        resetcause = 9; //bit 9 is the configuration mismatch reset
+    }
+    else if (RCONbits.EXTR == 1) {
+        resetcause = 7; //bit 7 is the !MCLR Reset
+    }
+    else if (RCONbits.SWR == 1) {
+        resetcause = 6; //bit 6 is the RESET instruction
+    }
+    else if (RCONbits.WDTO == 1) {
+        resetcause = 4; //bit 4 is the Watchdog Timer time-out reset
+    }
+    
+    return resetcause;
+}
 
 /*********************************************************************
  * Function: degToRad()

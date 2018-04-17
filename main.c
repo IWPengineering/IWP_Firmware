@@ -149,7 +149,7 @@ void main(void)
           
     while (1)
 	{
-      
+        
         /*int localcounter = 0;
         sendDebugMessage("Starting timer", 1);
         TMR2 = 0;
@@ -182,6 +182,18 @@ void main(void)
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		while (handleMovement == 0)
 		{ 
+            //Just for testing
+            while(CheckNetworkConnection() != 1) {
+                ClearWatchDogTimer();
+            }
+            //Just for testing
+            while(1) {
+                readFonaSignalStrength();
+                sendDebugMessage(SignalStrength, 3);
+                sendDebugMessage(RCON, 4);
+                ClearWatchDogTimer();
+            }
+            
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
             if(TimeSinceLastHourCheck == 1){ // Check every minute
                 hour = BcdToDec(getHourI2C());
@@ -236,15 +248,6 @@ void main(void)
                 turnOffSIM();
                 prevHour = hour; // update so we know this is not the start of a new hour
             }
-           
-            /*
-            //NEEDS REVIEW**********************************************************
-            //NEEDS UPDATE TO SET INTERNAL RTCC MINUTE TO EXTERNAL RTCC MINUTE
-            // updates either the internal clock if it lost time
-            if ((hour != internalHour) && (extRtccHourSet)){ // supposing the internal clock lost the time
-                setInternalRTCC(0, 0, hour, 17, 8, 6, 17); //date values don't matter therefore random date
-                internalHour = hour;
-            }*/
             
             
             // should we be asleep to save power?   

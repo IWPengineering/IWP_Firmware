@@ -640,7 +640,6 @@ int getHourI2C(void) {
     
     int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
                      //quit trying if things hang. (usually takes about 410us)
-    extRtccChecked++;
     
     configI2c(); // sets up I2C
     TMR1 = 0;  
@@ -686,19 +685,15 @@ int getHourI2C(void) {
     if((TMR1 > MaxTime)||(hr > 0x24)){  //something went wrong (BCD 24)
         hr = (hour/10 *16)+(hour % 10); // If the read was unsuccessful, return the last known hour
                                         // Remember the returned value is supposed to be in BCD
-        extRtccHourSet = 0;             // Cleared because RTCC hour didn't update
+        extRtccTalked = 0;             // Cleared because RTCC hour didn't update
         sendDebugMessage("The time update failed", 0);
-        extRtccTalked++;
-        if (extRtccChecked > 60) {
-            hr++;
-            extRtccManualSet = 1;
-        }
     }
     else { // if the max time didn't elapsed, the RTCC talked so set the bit
         sendDebugMessage("The time update succeeded", 0);
+        if (extRtccTalked != 1) {
+            extRtccTalked = 1;
+        }
     }
-    
-    
     
     return hr; 
                 
@@ -746,7 +741,7 @@ int getYearI2C(void) {
     
      
     //Write I2C - specify the minute register on MCP7490N
-    I2C1TRN = 0x06; //address reg. for min
+    I2C1TRN = 0x06; //address reg. for yr
     while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT));  //PIC is transmitting. 
      // should check for an ACK'
     
@@ -766,7 +761,8 @@ int getYearI2C(void) {
 
     I2C1CONbits.ACKEN = 1; // Send the NACK set above.  This absence of a ACK' tells slave we don't want any more data
     while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN));  // Waits till ACK is sent (hardware reset)
-  
+    yr = I2C1RCV;
+    
     // Generate a STOP 
     I2C1CONbits.PEN = 1; //Generate Stop Condition
     while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)); //Wait for Stop

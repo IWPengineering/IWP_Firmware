@@ -1011,8 +1011,8 @@ int SendSavedDailyReports(void){
             extRtccTalked = 0; // reset the external clock talked bit
             sleepHrStatus = 0; // reset the slept during that hour
             EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
-            extRtccManualSet = 0; 
-            extRTCCset = 0;
+            extRTCCset = 0; // reset the RTCC was set by the VTCC bit
+            resetCause = 0; // reset the reset cause bit
             phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
             break;
         }
@@ -1038,7 +1038,7 @@ int SendSavedDailyReports(void){
 }
 
 void readFonaSignalStrength(void) {
-    int i = 0;
+    int i = 0; // local counter
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
     U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
                          // This clears the RXREG FIFO
@@ -1055,24 +1055,23 @@ void readFonaSignalStrength(void) {
     // The FONA responds with what you asked for
     ReceiveTextMsgFlag = 0; //clear for the next message
     while(ReceiveTextMsgFlag<1){  } // Read the first line from the FONA
-    ReceiveTextMsgFlag = 0;
+    ReceiveTextMsgFlag = 0; //clear for the next message
     IEC0bits.U1RXIE = 0;  // enable Rx interrupts
     turnOffSIM();
-    sendDebugMessage(ReceiveTextMsg, 6);
     
     char *MsgPtr;
     MsgPtr = ReceiveTextMsg; //set the pointer to the response
     int msgLength=strlen(ReceiveTextMsg);
-    for (i; i < strlen; i++) {
+    for (i; i < msgLength; i++) { // clear the signal strength array
         SignalStrength[i]=0;
     }
 
-    while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+    while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //advance pointer to the colon
         MsgPtr++;
     }
-    MsgPtr++;
-    while((*MsgPtr != ',')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
-        strncat(SignalStrength, MsgPtr, 1);
+    MsgPtr = MsgPtr + 2; //move pointer past colon and space
+    while((*MsgPtr != ',')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //when we reach a comma, we have read over the signal strength and should stop reading
+        strncat(SignalStrength, MsgPtr, 1); //save signal strength number in array
         MsgPtr++;
     }
 }
@@ -1093,6 +1092,9 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, ",\"r\":");
     floatToString(timeSinceLastRestart, LocalString); // hours since the system restarted
     concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"p\":");
+    floatToString(resetCause, LocalString); //0 if no reset occurred, else the RCON register bit number that is set is returned
+    concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"c\":");
     floatToString(extRtccTalked, LocalString); // if the external rtcc responded in the last hour
     concat(SMSMessage, LocalString);
@@ -1101,9 +1103,6 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"n\":");
     floatToString(numberTries, LocalString); // number of tries to connect
-    concat(SMSMessage, LocalString);
-    concat(SMSMessage, ",\"e\":");
-    floatToString(extRtccManualSet, LocalString); // external RTCC was manually set forward
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"x\":");
     floatToString(extRTCCset, LocalString); // To keep track if the VTCC time was used to set the external RTCC
