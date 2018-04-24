@@ -152,10 +152,8 @@ int internalHour = 0; // Hour of the day according to internal RTCC
 int internalMinute = 0; // Minute of the hour according to the internal RTCC
 float extRtccTalked = 0; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
 float numberTries = 0; // Keeps track of the number of times we attempt to connect to the network to send diagnostic messages
-int extRtccHourSet = 1;
-int extRtccChecked = 0; // how many times weve tried to update the time this hour
-float extRtccManualSet = 0;
 float extRTCCset = 0; // To keep track if the VTCC time was used to set the external RTCC
+float resetCause = 0; //0 if no reset occurred, else the RCON register bit number that is set is returned
 
 //*****************VTCC Variables*******************************************
 char monthArray[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -241,10 +239,10 @@ int vcc2Pin = 28;
 void initialization(void) {
     char localSec = 0;
     char localMin = 5;
-    char localHr = 12;
-    char localWkday = 6;
-    char localDate = 23;
-    char localMonth = 3;
+    char localHr = 16;
+    char localWkday = 3;
+    char localDate = 17;
+    char localMonth = 4;
     char localYear = 18;
 
     ////------------Sets up all ports as digital inputs-----------------------
@@ -370,26 +368,27 @@ void initialization(void) {
     if(EEFloatData == 0){
         EEProm_Read_Float(0,&leakRateLong);
         EEProm_Read_Float(1,&longestPrime);
-        initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
+        initializeVTCC(0, BcdToDec(getTimeI2C(0x01, 0x7f, 59)), BcdToDec(getTimeI2C(0x02, 0x3f, 23)), BcdToDec(getTimeI2C(0x04, 0x3f, 31)), BcdToDec(getTimeI2C(0x05, 0x1f, 12)));
     }
     else{
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
          //   (sec, min, hr, wkday, date, month, year)
-        success = setTime(localSec,localMin,localHr,localWkday,localDate,localMonth,localYear); //  2/12/2018 
+        success = setTime(localSec,localMin,localHr,localWkday,localDate,localMonth,localYear);
         print_debug_messages = 1; 
         sendDebugMessage("Program time? ", success);
         initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
-        year = BcdToDec(getYearI2C()); //just here to return value if RTCC failed to communicate
+        year = BcdToDec(getTimeI2C(0x06, 0xff, 99)); //just here to return value if RTCC failed to communicate
         if (year == 0) {
             sendDebugMessage("Was unable to read RTCC year", 0);
         }
     }
+    resetCause = checkResetStatus();
     // just so we know the board is working
-    hour = BcdToDec(getHourI2C());
+    hour = BcdToDec(getTimeI2C(0x02, 0x3f, 23));
     active_volume_bin = hour/2;  //Which volume bin are we starting with
     prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
-    month = BcdToDec(getMonthI2C());
+    month = BcdToDec(getTimeI2C(0x05, 0x1f, 12));
     if (month == 0) {
             sendDebugMessage("Was unable to read RTCC month", 0);
     }
@@ -864,6 +863,45 @@ float readDepthSensor(void) {
 /////////////////////////////////////////////////////////////////////
 
 /*********************************************************************
+ * Function: checkResetStatus()
+ * Input: void
+ * Output: float
+ * Overview: Returns the number of the set register of the cause of the system restart
+ *********************************************************************/
+float checkResetStatus(void) {
+    float resetcause = RCON;
+    /*if ((RCONbits.BOR == 1) && (RCONbits.POR != 1)) {
+        resetcause = 1; //bit 1 is the brown out restart
+    }
+    else if (RCONbits.POR == 1) {
+        resetcause = 0; //bit 0 is the Power-on reset
+    }
+    else if (RCONbits.TRAPR == 1) {
+        resetcause = 15; //bit 15 is the trap conflict event
+    }
+    else if (RCONbits.IOPUWR == 1) {
+        resetcause = 14; //bit 14 is the Illegal opcode or uninitialized W register access
+    }
+    else if (RCONbits.CM == 1) {
+        resetcause = 9; //bit 9 is the configuration mismatch reset
+    }
+    else if (RCONbits.EXTR == 1) {
+        resetcause = 7; //bit 7 is the !MCLR Reset
+    }
+    else if (RCONbits.SWR == 1) {
+        resetcause = 6; //bit 6 is the RESET instruction
+    }
+    else if (RCONbits.WDTO == 1) {
+        resetcause = 4; //bit 4 is the Watchdog Timer time-out reset
+    }*/
+    EEProm_Read_Float(DiagnosticEEPromStart + 3, &EEFloatData);
+    resetcause = (int)EEFloatData | (int)resetcause;
+    EEProm_Write_Float(DiagnosticEEPromStart + 3,&resetcause);
+    RCON = 0;
+    return resetcause;
+}
+
+/*********************************************************************
  * Function: degToRad()
  * Input: float
  * Output: float
@@ -1153,10 +1191,10 @@ void RTCCSet(void) {
     RTCPWC = 0b0000010100000000;
     _RTCPTR = 0b11; // decrements with read or write
     // Thanks KWHr!!!
-    RTCVAL = getYearI2C();
-    RTCVAL = getDateI2C() + (getMonthI2C() << 8);
-    RTCVAL = getHourI2C() + (getWkdayI2C() << 8);
-    RTCVAL = getSecondI2C() + (getMinuteI2C() << 8); // = binaryMinuteSecond;
+    RTCVAL = getTimeI2C(0x06, 0xff, 99);
+    RTCVAL = getTimeI2C(0x04, 0x3f, 31) + (getTimeI2C(0x05, 0x1f, 12) << 8);
+    RTCVAL = getTimeI2C(0x02, 0x3f, 23) + (getWkdayI2C() << 8);
+    RTCVAL = getSecondI2C() + (getTimeI2C(0x01, 0x7f, 59) << 8); // = binaryMinuteSecond;
     _RTCEN = 1; // = 1; //RTCC module is enabled
     _RTCWREN = 0; // = 0; // disable writing
 }
@@ -1234,7 +1272,7 @@ void midDayDepthRead(void) {
 
         digitalPinSet(depthSensorOnOffPin, 0); //turns off the depth sensor.
         delayMs(1000);
-        prevDayDepthSensor = BcdToDec(getDateI2C());
+        prevDayDepthSensor = BcdToDec(getTimeI2C(0x04, 0x3f, 31));
 
     }
 }    
@@ -1512,7 +1550,7 @@ void DebugReadEEProm(void){
 void ClearEEProm(void){
     int i;
     EEFloatData = 0;
-    for (i = 0; i < DiagnosticEEPromStart + 2; i++){
+    for (i = 0; i <= DiagnosticEEPromStart + 3; i++){
         EEProm_Write_Float(i, &EEFloatData);
     }
 }
@@ -1553,6 +1591,7 @@ void __attribute__((interrupt, auto_psv)) _T2Interrupt(void){
     if (secondVTCC >= 60){
         secondVTCC = secondVTCC - 60;
         minuteVTCC++;
+        TimeSinceLastHourCheck = 1;
         if (minuteVTCC >= 60){
             minuteVTCC = minuteVTCC - 60;
             hourVTCC++;

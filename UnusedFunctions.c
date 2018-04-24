@@ -38,13 +38,13 @@ void sendTimeMessage(void) {
     timeYearMessage[0] = 0;
 
 
-    longToString(BcdToDec(getHourI2C()), timeHourMessage);
-    longToString(BcdToDec(getMinuteI2C()), timeMinuteMessage);
+    longToString(BcdToDec(getTimeI2C(0x02, 0x3f, 23)), timeHourMessage);
+    longToString(BcdToDec(getTimeI2C(0x01, 0x7f, 59)), timeMinuteMessage);
     longToString(BcdToDec(getSecondI2C()), timeSecondMessage);
-    longToString(BcdToDec(getYearI2C()), timeYearMessage);
+    longToString(BcdToDec(getTimeI2C(0x06, 0xff, 99)), timeYearMessage);
     longToString(BcdToDec(getWkdayI2C()), timeWeekMessage);
-    longToString(BcdToDec(getDateI2C()), timeDayMessage);
-    longToString(BcdToDec(getMonthI2C()), timeMonthMessage);
+    longToString(BcdToDec(getTimeI2C(0x04, 0x3f, 31)), timeDayMessage);
+    longToString(BcdToDec(getTimeI2C(0x05, 0x1f, 12)), timeMonthMessage);
 
     concat(timeMessage, timeHourMessage);
     concat(timeMessage, ":");
