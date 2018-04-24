@@ -1057,6 +1057,7 @@ void readFonaSignalStrength(void) {
     // There is about 17ms between the end of the echo of the command until 
     // The FONA responds with what you asked for
     ReceiveTextMsgFlag = 0; //clear for the next message
+    NumCharInTextMsg = 0; //Point to the start of the Text Message String
     TMR1 = 0; // start timer for max 160characters
     while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the first line from the FONA
     ReceiveTextMsgFlag = 0; //clear for the next message
