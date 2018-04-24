@@ -471,11 +471,11 @@ void updateClockCalendar(){
      char Delta_hour = atoi(MsgPart);
    
     // Update the settings for the external RTCC
-    hour = Delta_hour + BcdToDec(getHourI2C());
+    hour = Delta_hour + BcdToDec(getTimeI2C(0x02, 0x3f, 23));
     if(hour > 23){ // If we want to change 9AM to 7AM we will ask for a change of +22
         hour = hour - 24;
     }
-    int year = BcdToDec(getYearI2C());
+    int year = BcdToDec(getTimeI2C(0x06, 0xff, 99));
     int wkday = BcdToDec(getWkdayI2C());
     ext_success = setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
     
@@ -911,8 +911,8 @@ void CreateAndSaveDailyReport(void){
         effective_address++;
     }
   // add the date stuff
-    date = 100*BcdToDec(getMonthI2C());
-    date = date + BcdToDec(getDateI2C());
+    date = 100*BcdToDec(getTimeI2C(0x05, 0x1f, 12));
+    date = date + BcdToDec(getTimeI2C(0x04, 0x3f, 31));
     EEFloatData = date;
     EEProm_Write_Float(effective_address,&EEFloatData);
 
@@ -1039,27 +1039,33 @@ int SendSavedDailyReports(void){
 void readFonaSignalStrength(void) {
     int i = 0; // local counter
     int localcounter = 0;
+    int longest_wait = 2650;
+    
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
     U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
                          // This clears the RXREG FIFO
     IEC0bits.U1RXIE = 1;  // enable Rx interrupts
     NumCharInTextMsg = 0; //Point to the start of the Text Message String
     ReceiveTextMsgFlag = 0; //clear for the next message
-    ReceiveTextMsg[0]=0;  //Reset the receive text message array
+    //ReceiveTextMsg[0]=0;  //Reset the receive text message array
       
     sendMessage("AT+CSQ\r"); //Read message at index msgNum
-    while(ReceiveTextMsgFlag<1){  } // Read the command echo from the FONA
+    TMR1 = 0; // start timer for max 160characters
+    while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the command echo from the FONA
 
     
     // There is about 17ms between the end of the echo of the command until 
     // The FONA responds with what you asked for
     ReceiveTextMsgFlag = 0; //clear for the next message
-    while(ReceiveTextMsgFlag<1){  } // Read the first line from the FONA
+    TMR1 = 0; // start timer for max 160characters
+    while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the first line from the FONA
     ReceiveTextMsgFlag = 0; //clear for the next message
-    IEC0bits.U1RXIE = 0;  // enable Rx interrupts
+     IEC0bits.U1RXIE = 0;  // enable Rx interrupts
     
     char *MsgPtr;
     MsgPtr = ReceiveTextMsg; //set the pointer to the response
+    turnOffSIM();
+    sendDebugMessage(ReceiveTextMsg, 3);
     int msgLength=strlen(ReceiveTextMsg);
     for (i; i < 3; i++) { // clear the signal strength array
         SignalStrength[i]=0;
@@ -1068,7 +1074,7 @@ void readFonaSignalStrength(void) {
     while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //advance pointer to the colon
         MsgPtr++;
     }
-    MsgPtr = MsgPtr + 1; //move pointer past colon and space
+    MsgPtr = MsgPtr + 2; //move pointer past colon and space
     while((*MsgPtr != ',')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //when we reach a comma, we have read over the signal strength and should stop reading
         //strncat(SignalStrength, MsgPtr, 1); //save signal strength number in array
         SignalStrength[localcounter] = *MsgPtr;

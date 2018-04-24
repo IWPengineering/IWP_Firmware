@@ -519,123 +519,34 @@ int getSecondI2C(void) //may want to pass char address to it in the future
     return sec; // returns the time in sec as a demimal number
 }
 
-int getMinuteI2C_old(void) {
-    int min; // temp var to hold seconds information
-    configI2c(); // sets up I2C
-    StartI2C();
-    WriteI2C(0xde); // MCP7490N device address + write command
-    IdleI2C();
-    WriteI2C(0x01); // device address for the minutes register on MCP7490N
-    IdleI2C();
-    RestartI2C();
-    IdleI2C();
-    WriteI2C(0xdf); // MCP7490N device address + read command
-    IdleI2C();
-    min = (int) ReadI2C();
-    StopI2C();
-    if (invalid == 0xFF)
-    {
-        invalid = 0;
-        min = getMinuteI2C();
-    }
-    min = min & 0x7f; // removes unused bit
-    //min = BcdToDec(min); // converts min to a decimal number
-    return min; // returns the time in min as a demimal number
-}
-
-int getMinuteI2C(void) {
-    int min = 0;
-    
-    
-    int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
-                     //quit trying if things hang. (usually takes about 410us)
-    
-    configI2c(); // sets up I2C
-    TMR1 = 0;  
-         
-    I2C1CONbits.SEN = 1; //Generate Start COndition
-    while ((TMR1<MaxTime)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
-    
-    //Write I2C Address indicating a WRITE operation
-    I2C1TRN = 0xde; //Load Device Address for RTCC + Write Command into I2C1 Transmit buffer
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
-  // should check for an ACK'
-    
-     
-    //Write I2C - specify the minute register on MCP7490N
-    I2C1TRN = 0x01; //address reg. for min
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT));  //PIC is transmitting. 
-     // should check for an ACK'
-    
-    // We want to change over to READING so we need to command a Restart
-    I2C1CONbits.RSEN = 1; //Generate Restart
-    while ((TMR1 < MaxTime) && (I2C1CONbits.RSEN)); //Wait for restart
-    
-     //Write I2C Address indicating a READ operation
-     I2C1TRN = 0xdf; //Load Device Address for RTCC + Read Command into I2C1 Transmit buffer
-     while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)); //Wait for bus to be idle 
-  // should check for an ACK'
-     
-    //Now read the value for the current hour
-    I2C1CONbits.ACKDT = 1; // Prepares to send NACK (we only want 1 byte from RTCC)
-    I2C1CONbits.RCEN = 1; // Enable receive mode
-    while ((TMR1<MaxTime)&&(!I2C1STATbits.RBF));  // Waits for register to fill up
-
-    I2C1CONbits.ACKEN = 1; // Send the NACK set above.  This absence of a ACK' tells slave we don't want any more data
-    while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN));  // Waits till ACK is sent (hardware reset)
-    min = I2C1RCV & 0x7f; //removes unused bits, expecting BCD in the range of 0 - 59
-  
-    // Generate a STOP 
-    I2C1CONbits.PEN = 1; //Generate Stop Condition
-    while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)); //Wait for Stop
-    // How do we know that the value we just got makes sense?
-    
-    
-    if((TMR1 > MaxTime)||(min > 0x60)){  //something went wrong (BCD 60)
-        min = (minute/10 *16)+(minute % 10); // If the read was unsuccessful, return the last known hour
-                                        // Remember the returned value is supposed to be in BCD
-    }
-    
-    return min; 
-                
-}
-
-int getHourI2C_old(void) {
-    int hr; // temp var to hold seconds information
-    configI2c(); // sets up I2C
-    StartI2C();
-    WriteI2C(0xde); // MCP7490N device address + write command
-    IdleI2C();
-    WriteI2C(0x02); // device address for the hours register on MCP7490N
-    IdleI2C();
-    RestartI2C();
-    IdleI2C();
-    WriteI2C(0xdf); // MCP7490N device address + read command
-    IdleI2C();
-    hr = (int) ReadI2C();
-    StopI2C();
-
-    if (invalid == 0xFF)
-    {
-        invalid = 0;
-        hr = getHourI2C_old();
-    }
-    hr = hr & 0x3f; // removes unused bits
-    //hr = BcdToDec(hr); // converts hr to a decimal number
-    return hr; // returns the time in hr as a demimal number
-}
-
 /*********************************************************************
- * Function: getHourI2C()
+ * Function: getTimeI2C()
  * Input: None
- * Output: None
+ * Output: None 02
  * Overview: Reads the current hour from the external RTCC.  If an invalid read
  *           occurs due to things taking too long or the returned value is not in 
- *          the range from 0-23, the value of hour when this was called is returned
- * Note: None
+ *          the range from 0-23, the value of hour when this was called is returned 
+ * Addresses:
+ *     minute = 0x01
+ *     hour = 0x02
+ *     date = 0x04
+ *     month = 0x05
+ *     year = 0x06
+ * bitRanges:
+ *     minute = 0x7f
+ *     hour = 0x3f
+ *     date = 0x3f
+ *     month = 0x1f
+ *     year = 0xff
+ * goodRanges:
+ *     minute = 59
+ *     hour = 23
+ *     date = 31
+ *     month = 12
+ *     year = 99
  ********************************************************************/
-int getHourI2C(void) {
-    int hr = 0;
+int getTimeI2C(int address, int bitRange, int goodRange) {
+    int time = 0;
     
     
     int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
@@ -654,7 +565,7 @@ int getHourI2C(void) {
     
      
     //Write I2C - specify the hour register on MCP7490N
-    I2C1TRN = 0x02; //address reg. for sec
+    I2C1TRN = address; //address reg. for type of time (ie. hour, second, etc.)
     while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT));  //PIC is transmitting. 
      // should check for an ACK'
     
@@ -674,7 +585,7 @@ int getHourI2C(void) {
 
     I2C1CONbits.ACKEN = 1; // Send the NACK set above.  This absence of a ACK' tells slave we don't want any more data
     while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN));  // Waits till ACK is sent (hardware reset)
-    hr = I2C1RCV & 0x3f; //removes unused bits, expecting BCD in the range of 0 - 23
+    time = I2C1RCV & bitRange; //removes unused bits, expected BCD range
   
     // Generate a STOP 
     I2C1CONbits.PEN = 1; //Generate Stop Condition
@@ -682,182 +593,22 @@ int getHourI2C(void) {
     // How do we know that the value we just got makes sense?
     
     
-    if((TMR1 > MaxTime)||(hr > 0x24)){  //something went wrong (BCD 24)
-        hr = (hour/10 *16)+(hour % 10); // If the read was unsuccessful, return the last known hour
+    if((TMR1 > MaxTime)||(time > goodRange)){  //something went wrong (BCD 24)
+        time = (hour/10 *16)+(hour % 10); // If the read was unsuccessful, return the last known hour
                                         // Remember the returned value is supposed to be in BCD
-        extRtccTalked = 0;             // Cleared because RTCC hour didn't update
-        sendDebugMessage("The time update failed", 0);
+        if (address == 2) {
+            extRtccTalked = 0;             // Cleared because RTCC hour didn't update
+            sendDebugMessage("The time update failed", 0);
+        }
     }
-    else { // if the max time didn't elapsed, the RTCC talked so set the bit
+    else if (address == 2){ // if the max time didn't elapsed, the RTCC talked so set the bit
         sendDebugMessage("The time update succeeded", 0);
         if (extRtccTalked != 1) {
             extRtccTalked = 1;
         }
     }
     
-    return hr; 
-                
-}
-
-int getYearI2C_old(void) {
-    int yr; // temp var to hold seconds information
-    configI2c(); // sets up I2C
-    StartI2C();
-    WriteI2C(0xde); // MCP7490N device address + write command
-    IdleI2C();
-    WriteI2C(0x06); // device address for the years register on MCP7490N
-    IdleI2C();
-    RestartI2C();
-    IdleI2C();
-    WriteI2C(0xdf); // MCP7490N device address + read command
-    IdleI2C();
-    yr = (int) ReadI2C();
-    StopI2C();
-    if (invalid == 0xFF)
-    {
-        invalid = 0;
-        yr = getYearI2C();
-    }
-    return yr; // returns the time in hr as a demimal number
-}
-
-int getYearI2C(void) {
-    int yr = 0;
-    
-    
-    int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
-                     //quit trying if things hang. (usually takes about 410us)
-    
-    configI2c(); // sets up I2C
-    TMR1 = 0;  
-         
-    I2C1CONbits.SEN = 1; //Generate Start COndition
-    while ((TMR1<MaxTime)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
-    
-    //Write I2C Address indicating a WRITE operation
-    I2C1TRN = 0xde; //Load Device Address for RTCC + Write Command into I2C1 Transmit buffer
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
-  // should check for an ACK'
-    
-     
-    //Write I2C - specify the minute register on MCP7490N
-    I2C1TRN = 0x06; //address reg. for yr
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT));  //PIC is transmitting. 
-     // should check for an ACK'
-    
-    // We want to change over to READING so we need to command a Restart
-    I2C1CONbits.RSEN = 1; //Generate Restart
-    while ((TMR1 < MaxTime) && (I2C1CONbits.RSEN)); //Wait for restart
-    
-     //Write I2C Address indicating a READ operation
-     I2C1TRN = 0xdf; //Load Device Address for RTCC + Read Command into I2C1 Transmit buffer
-     while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)); //Wait for bus to be idle 
-  // should check for an ACK'
-     
-    //Now read the value for the current hour
-    I2C1CONbits.ACKDT = 1; // Prepares to send NACK (we only want 1 byte from RTCC)
-    I2C1CONbits.RCEN = 1; // Enable receive mode
-    while ((TMR1<MaxTime)&&(!I2C1STATbits.RBF));  // Waits for register to fill up
-
-    I2C1CONbits.ACKEN = 1; // Send the NACK set above.  This absence of a ACK' tells slave we don't want any more data
-    while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN));  // Waits till ACK is sent (hardware reset)
-    yr = I2C1RCV;
-    
-    // Generate a STOP 
-    I2C1CONbits.PEN = 1; //Generate Stop Condition
-    while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)); //Wait for Stop
-    // How do we know that the value we just got makes sense?
-    
-    
-    if(TMR1 > MaxTime){  //something went wrong
-        yr = (year/10 *16)+(year % 10); // If the read was unsuccessful, return the last known hour
-                                        // Remember the returned value is supposed to be in BCD
-    }
-    
-    return yr; 
-                
-}
-
-
-int getMonthI2C_old(void) {
-    int mnth; // temp var to hold seconds information
-    configI2c(); // sets up I2C
-    StartI2C();
-    WriteI2C(0xde); // MCP7490N device address + write command
-    IdleI2C();
-    WriteI2C(0x05); // device address for the years register on MCP7490N
-    IdleI2C();
-    RestartI2C();
-    IdleI2C();
-    WriteI2C(0xdf); // MCP7490N device address + read command
-    IdleI2C();
-    mnth = (int) ReadI2C();
-    StopI2C();
-    if (invalid == 0xFF)
-    {
-        invalid = 0;
-        mnth = getMonthI2C();
-    }
-    mnth = mnth & 0x1F;
-    return mnth; // returns the time in hr as a demimal number
-
-}
-
-int getMonthI2C(void) {
-    int mnth = 0;
-    
-    
-    int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
-                     //quit trying if things hang. (usually takes about 410us)
-    
-    configI2c(); // sets up I2C
-    TMR1 = 0;  
-         
-    I2C1CONbits.SEN = 1; //Generate Start COndition
-    while ((TMR1<MaxTime)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
-    
-    //Write I2C Address indicating a WRITE operation
-    I2C1TRN = 0xde; //Load Device Address for RTCC + Write Command into I2C1 Transmit buffer
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
-  // should check for an ACK'
-    
-     
-    //Write I2C - specify the minute register on MCP7490N
-    I2C1TRN = 0x05; //address reg. for month
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT));  //PIC is transmitting. 
-     // should check for an ACK'
-    
-    // We want to change over to READING so we need to command a Restart
-    I2C1CONbits.RSEN = 1; //Generate Restart
-    while ((TMR1 < MaxTime) && (I2C1CONbits.RSEN)); //Wait for restart
-    
-     //Write I2C Address indicating a READ operation
-     I2C1TRN = 0xdf; //Load Device Address for RTCC + Read Command into I2C1 Transmit buffer
-     while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)); //Wait for bus to be idle 
-  // should check for an ACK'
-     
-    //Now read the value for the current hour
-    I2C1CONbits.ACKDT = 1; // Prepares to send NACK (we only want 1 byte from RTCC)
-    I2C1CONbits.RCEN = 1; // Enable receive mode
-    while ((TMR1<MaxTime)&&(!I2C1STATbits.RBF));  // Waits for register to fill up
-
-    I2C1CONbits.ACKEN = 1; // Send the NACK set above.  This absence of a ACK' tells slave we don't want any more data
-    while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN));  // Waits till ACK is sent (hardware reset)
-    mnth = I2C1RCV & 0x1f; //removes unused bits, expecting BCD in the range of 0 - 12
-  
-    // Generate a STOP 
-    I2C1CONbits.PEN = 1; //Generate Stop Condition
-    while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)); //Wait for Stop
-    // How do we know that the value we just got makes sense?
-    
-    
-    if((TMR1 > MaxTime)||(mnth > 0x12)){  //something went wrong (BCD 12)
-        mnth = (month/10 *16)+(month % 10); // If the read was unsuccessful, return the last known hour
-                                        // Remember the returned value is supposed to be in BCD
-    }
-    
-    return mnth; 
-                
+    return time;             
 }
 
 int getWkdayI2C(void) {
@@ -881,87 +632,6 @@ int getWkdayI2C(void) {
     }
     wkday = wkday & 0x07; // converts yr to a decimal number
     return wkday; // returns the time in hr as a demimal number
-}
-
-int getDateI2C_old(void) {
-    int date; // temp var to hold dat information
-    configI2c(); // sets up I2C
-    StartI2C();
-    WriteI2C(0xde); // MCP7490N device address + write command
-    IdleI2C();
-    WriteI2C(0x04); // device address for the date register on MCP7490N
-    IdleI2C();
-    RestartI2C();
-    IdleI2C();
-    WriteI2C(0xdf); // MCP7490N device address + read command
-    IdleI2C();
-    date = (int) ReadI2C();
-    StopI2C();
-    if (invalid == 0xFF)
-    {
-        invalid = 0;
-        date = getDateI2C();
-    }
-    date = date & 0x3f; // removes unused bits
-    //date = BcdToDec(date); // converts yr to a decimal number
-    return date; // returns the time in hr as a demimal number
-}
-
-int getDateI2C(void) {
-    int dt = 0;
-    
-    
-    int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
-                     //quit trying if things hang. (usually takes about 410us)
-    
-    configI2c(); // sets up I2C
-    TMR1 = 0;  
-         
-    I2C1CONbits.SEN = 1; //Generate Start COndition
-    while ((TMR1<MaxTime)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
-    
-    //Write I2C Address indicating a WRITE operation
-    I2C1TRN = 0xde; //Load Device Address for RTCC + Write Command into I2C1 Transmit buffer
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
-  // should check for an ACK'
-    
-     
-    //Write I2C - specify the minute register on MCP7490N
-    I2C1TRN = 0x04; //address reg. for date
-    while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT));  //PIC is transmitting. 
-     // should check for an ACK'
-    
-    // We want to change over to READING so we need to command a Restart
-    I2C1CONbits.RSEN = 1; //Generate Restart
-    while ((TMR1 < MaxTime) && (I2C1CONbits.RSEN)); //Wait for restart
-    
-     //Write I2C Address indicating a READ operation
-     I2C1TRN = 0xdf; //Load Device Address for RTCC + Read Command into I2C1 Transmit buffer
-     while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)); //Wait for bus to be idle 
-  // should check for an ACK'
-     
-    //Now read the value for the current hour
-    I2C1CONbits.ACKDT = 1; // Prepares to send NACK (we only want 1 byte from RTCC)
-    I2C1CONbits.RCEN = 1; // Enable receive mode
-    while ((TMR1<MaxTime)&&(!I2C1STATbits.RBF));  // Waits for register to fill up
-
-    I2C1CONbits.ACKEN = 1; // Send the NACK set above.  This absence of a ACK' tells slave we don't want any more data
-    while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN));  // Waits till ACK is sent (hardware reset)
-    dt = I2C1RCV & 0x3f; //removes unused bits, expecting BCD in the range of 0 - 31
-  
-    // Generate a STOP 
-    I2C1CONbits.PEN = 1; //Generate Stop Condition
-    while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)); //Wait for Stop
-    // How do we know that the value we just got makes sense?
-    
-    
-    if((TMR1 > MaxTime)||(dt > 0x31)){  //something went wrong (BCD 60)
-        dt = (date/10 *16)+(date % 10); // If the read was unsuccessful, return the last known hour
-                                        // Remember the returned value is supposed to be in BCD
-    }
-    
-    return dt; 
-                
 }
 
 /*********************************************************************
