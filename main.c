@@ -184,7 +184,7 @@ void main(void)
             
             
             //Just for testing
-            while(1) {
+            /*while(1) {
                 turnOnSIM();
                 while(CheckNetworkConnection() != 1) {
                     ClearWatchDogTimer();
@@ -194,7 +194,7 @@ void main(void)
                 sendDebugMessage(SignalStrength, 3);
                 //sendDebugMessage(" ", resetCause);
                 ClearWatchDogTimer();
-            }
+            }*/
             
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
             if(TimeSinceLastHourCheck == 1){ // Check every minute
