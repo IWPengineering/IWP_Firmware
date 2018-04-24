@@ -535,7 +535,16 @@ void enableDiagnosticTextMessages(){
     char MsgPart[3];
     int success = 0;
     strncpy(MsgPart,ReceiveTextMsg+5,1);
-    diagnostic = atoi(MsgPart);      
+    int diagnostic_setting = atoi(MsgPart);  
+    if(diagnostic_setting == 0){
+        diagnostic = 0;
+    }
+    if(diagnostic_setting > 0){
+        diagnostic = 1;
+        if(diagnostic_setting == 2){
+            strncpy(DebugphoneNumber,ReceiveTextMsg+7,13); // change diagnostic phone number
+         }
+    }    
     // Now we want to reply to the sender telling it what we just did
     success = turnOnSIM();  // returns 1 if the SIM powered up)
     if(success == 1){
@@ -547,11 +556,11 @@ void enableDiagnosticTextMessages(){
             // Need to make dataMessage
             char localMsg[160];
             localMsg[0] = 0;
-            if(diagnostic == 1){
-                concat(localMsg,"Hourly Diagnostic Messages Have Been ENABLED ");
+            if(diagnostic == 0){
+                concat(localMsg,"Hourly Diagnostic Messages Have Been DISABLED ");
             }
             else{
-                concat(localMsg,"Hourly Diagnostic Messages Have Been DISABLED ");
+                concat(localMsg,"Hourly Diagnostic Messages Have Been ENABLED ");
             }
             
             sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
