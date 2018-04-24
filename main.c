@@ -92,11 +92,9 @@ void main(void)
 	float leakRatePrevious = 0; // Stores the previous Leak Rate incase if someone stats to pump before leakage can be measured
 	float upStrokePrimeMeters = 0; // Stores the upstroke in meters
 	float leakRate = 0; // Rate at which water is leaking from the rising main
-	int currentDay;
 	/////int prevDay = getDateI2C();
     noon_msg_sent = 0; // Start with the assumption that the noon message has not been sent
     debugCounter = 0;  //DEBUG variable to track how many times it takes to send the message
-    int local_debug_hour = 1;  //just used to debug things
     
     //                    DEBUG
     // print_debug_messages controls the debug reporting
@@ -114,7 +112,7 @@ void main(void)
     
     print_debug_messages = 2;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
-    sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
+    sendDebugMessage("The hour is = ", BcdToDec(getTimeI2C(0x02, 0x3f, 23)));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
@@ -149,7 +147,7 @@ void main(void)
           
     while (1)
 	{
-      
+        
         /*int localcounter = 0;
         sendDebugMessage("Starting timer", 1);
         TMR2 = 0;
@@ -182,44 +180,47 @@ void main(void)
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		while (handleMovement == 0)
 		{ 
+            //Just for testing
+            
+            
+            //Just for testing
+            /*while(1) {
+                turnOnSIM();
+                while(CheckNetworkConnection() != 1) {
+                    ClearWatchDogTimer();
+                }
+                readFonaSignalStrength();
+                turnOffSIM();
+                sendDebugMessage(SignalStrength, 3);
+                //sendDebugMessage(" ", resetCause);
+                ClearWatchDogTimer();
+            }*/
+            
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
-            TimeSinceLastHourCheck++;
-            if(TimeSinceLastHourCheck > 5000){ // If no one is pumping this works out to be about every minute
-                hour = BcdToDec(getHourI2C());
-                minute = BcdToDec(getMinuteI2C());
+            if(TimeSinceLastHourCheck == 1){ // Check every minute
+                hour = BcdToDec(getTimeI2C(0x02, 0x3f, 23));
+                minute = BcdToDec(getTimeI2C(0x01, 0x7f, 59));
                 //minute = BcdToDec(getMinuteI2C());
                 //internalHour = BcdToDec(getTimeHour());
                 //internalMinute = BcdToDec(getTimeMinute());
                 sendDebugMessage("The hour is ", hour);
                 sendDebugMessage("The VTCC minute is ", minuteVTCC);
                 sendDebugMessage("The VTCC hour is ", hourVTCC);
-                sendDebugMessage("The RTCC hour is ", BcdToDec(getHourI2C()));
+                sendDebugMessage("The RTCC hour is ", BcdToDec(getTimeI2C(0x02, 0x3f, 23)));
                 
                 // if the VTCC reaches two minutes past the next hour, and the ext RTCC hasn't updated, use the VTCC time to update the RTCC
-                if (((hourVTCC - hour) >= 1) && (minuteVTCC >= 2)){
+                if ((hourVTCC != hour) && (minuteVTCC >= 2) && (hour == prevHour)){
                     setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
                     hour = hourVTCC;
                     extRTCCset = 1;
-                }
-                
-                turnOnSIM();
-                if(tryToConnectToNetwork()){
-                    readFonaSignalStrength();
-                    sendDebugMessage(SignalStrength, 0);
-                }
-                //while(CheckNetworkConnection() != 1){}
-                // readFonaSignalStrength();
-                turnOffSIM();           
+                }    
                 TimeSinceLastHourCheck = 0;
             }
             // Do hourly tasks
             if(hour != prevHour){
-            //if(TimeSinceLastHourCheck > 5000) {
-              //  TimeSinceLastHourCheck = 0;
-                //secondVTCC = secondVTCC - 18; // compensate for using pll
-                date = BcdToDec(getDateI2C());
+                date = BcdToDec(getTimeI2C(0x04, 0x3f, 31));
                 if (extRTCCset == 0) {
-                    initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
+                    initializeVTCC(0, BcdToDec(getTimeI2C(0x01, 0x7f, 59)), BcdToDec(getTimeI2C(0x02, 0x3f, 23)), BcdToDec(getTimeI2C(0x04, 0x3f, 31)), BcdToDec(getTimeI2C(0x05, 0x1f, 12)));
                 }
                 
                 // Is it time to record volume from previous time bin to EEProm?
@@ -249,15 +250,6 @@ void main(void)
                 turnOffSIM();
                 prevHour = hour; // update so we know this is not the start of a new hour
             }
-           
-            /*
-            //NEEDS REVIEW**********************************************************
-            //NEEDS UPDATE TO SET INTERNAL RTCC MINUTE TO EXTERNAL RTCC MINUTE
-            // updates either the internal clock if it lost time
-            if ((hour != internalHour) && (extRtccHourSet)){ // supposing the internal clock lost the time
-                setInternalRTCC(0, 0, hour, 17, 8, 6, 17); //date values don't matter therefore random date
-                internalHour = hour;
-            }*/
             
             
             // should we be asleep to save power?   
@@ -296,7 +288,7 @@ void main(void)
                 PORTBbits.RB0 = 0; // DEBUG make test pin low when we are sleeping
                 Sleep(); 
                                
-                hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
+                hour = BcdToDec(getTimeI2C(0x02, 0x3f, 23)); //still time to sleep? Don't check battery, you are here because it was low
                 TimeSinceLastBatteryCheck++; // only check the battery every 10th time you wake up (approx 20min)
                 // check the battery every 20 min
                 if(TimeSinceLastBatteryCheck > 10){
@@ -330,8 +322,6 @@ void main(void)
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
-        hour = hourVTCC; //Update the time so we know where to save this pumping event
-        TimeSinceLastHourCheck = 0;
      
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
 		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())

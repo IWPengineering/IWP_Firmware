@@ -40,7 +40,7 @@ char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS m
 char* phoneNumber = MainphoneNumber; // Randy
 int LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
 char FONAmsgStatus[11]; //Message REC/STO, UNREAD/READ, UNSENT/SENT
-char SignalStrength[2]; //hold the values of the signal strength
+char SignalStrength[3]; //hold the values of the signal strength
 char ReceiveTextMsg[160]; //This is the string used to buffer up a message read from the FONA
 char SMSMessage[160]; //A string used to hold all SMS message sent with FONA
 int NumCharInTextMsg = 0; //Keeps track of the number of characters in the received text string
@@ -333,7 +333,7 @@ int wasMessageSent(int msgNum){
  * TestDate: Not Tested
  ********************************************************************/
 void readSMSMessage(int msgNum) {
-    int NoMessageThere = 1;  // Assume that there is nothing to read
+    //int NoMessageThere = 1;  // Assume that there is nothing to read
     int longest_wait = 2650;
     
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
@@ -460,7 +460,6 @@ void updateClockCalendar(){
      char MsgPart[3];
      int success = 0;
      int ext_success = 0;  //see if you were able to change the external RTCC
-     int int_success = 0;  //see if you were able to change the internal RTCC
      // Get the new date
      strncpy(MsgPart,ReceiveTextMsg+5,2);
      char newDate = atoi(MsgPart);      
@@ -472,11 +471,11 @@ void updateClockCalendar(){
      char Delta_hour = atoi(MsgPart);
    
     // Update the settings for the external RTCC
-    hour = Delta_hour + BcdToDec(getHourI2C());
+    hour = Delta_hour + BcdToDec(getTimeI2C(0x02, 0x3f, 23));
     if(hour > 23){ // If we want to change 9AM to 7AM we will ask for a change of +22
         hour = hour - 24;
     }
-    int year = BcdToDec(getYearI2C());
+    int year = BcdToDec(getTimeI2C(0x06, 0xff, 99));
     int wkday = BcdToDec(getWkdayI2C());
     ext_success = setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
     
@@ -921,8 +920,8 @@ void CreateAndSaveDailyReport(void){
         effective_address++;
     }
   // add the date stuff
-    date = 100*BcdToDec(getMonthI2C());
-    date = date + BcdToDec(getDateI2C());
+    date = 100*BcdToDec(getTimeI2C(0x05, 0x1f, 12));
+    date = date + BcdToDec(getTimeI2C(0x04, 0x3f, 31));
     EEFloatData = date;
     EEProm_Write_Float(effective_address,&EEFloatData);
 
@@ -1020,8 +1019,8 @@ int SendSavedDailyReports(void){
             extRtccTalked = 0; // reset the external clock talked bit
             sleepHrStatus = 0; // reset the slept during that hour
             EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
-            extRtccManualSet = 0; 
-            extRTCCset = 0;
+            extRTCCset = 0; // reset the RTCC was set by the VTCC bit
+            resetCause = 0; // reset the reset cause bit
             phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
             break;
         }
@@ -1047,41 +1046,52 @@ int SendSavedDailyReports(void){
 }
 
 void readFonaSignalStrength(void) {
-    int localCounter = 0;
+    int i = 0; // local counter
+    int localcounter = 0;
+    int longest_wait = 2650;
+    
     IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
     U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
                          // This clears the RXREG FIFO
     IEC0bits.U1RXIE = 1;  // enable Rx interrupts
     NumCharInTextMsg = 0; //Point to the start of the Text Message String
     ReceiveTextMsgFlag = 0; //clear for the next message
-    ReceiveTextMsg[0]=0;  //Reset the receive text message array
+    //ReceiveTextMsg[0]=0;  //Reset the receive text message array
       
     sendMessage("AT+CSQ\r"); //Read message at index msgNum
-    while(ReceiveTextMsgFlag<1){  } // Read the command echo from the FONA
+    TMR1 = 0; // start timer for max 160characters
+    while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the command echo from the FONA
 
     
     // There is about 17ms between the end of the echo of the command until 
     // The FONA responds with what you asked for
     ReceiveTextMsgFlag = 0; //clear for the next message
-    while(ReceiveTextMsgFlag<1){  } // Read the first line from the FONA
-    ReceiveTextMsgFlag = 0;
-    IEC0bits.U1RXIE = 0;  // enable Rx interrupts
-    turnOffSIM();
-    sendDebugMessage(ReceiveTextMsg, 6);
+    NumCharInTextMsg = 0; //Point to the start of the Text Message String
+    TMR1 = 0; // start timer for max 160characters
+    while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the first line from the FONA
+    ReceiveTextMsgFlag = 0; //clear for the next message
+     IEC0bits.U1RXIE = 0;  // enable Rx interrupts
     
     char *MsgPtr;
     MsgPtr = ReceiveTextMsg; //set the pointer to the response
+    turnOffSIM();
+    sendDebugMessage(ReceiveTextMsg, 3);
     int msgLength=strlen(ReceiveTextMsg);
-    SignalStrength[1]=0;  //Reset the SignaStrength array
-    SignalStrength[2]=0;
-    while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+    for (i; i < 3; i++) { // clear the signal strength array
+        SignalStrength[i]=0;
+    }
+
+    while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //advance pointer to the colon
         MsgPtr++;
     }
-    MsgPtr++;
-    while((*MsgPtr != ',')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
-        strncat(SignalStrength, MsgPtr, 1);
+    MsgPtr = MsgPtr + 2; //move pointer past colon and space
+    while((*MsgPtr != ',')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //when we reach a comma, we have read over the signal strength and should stop reading
+        //strncat(SignalStrength, MsgPtr, 1); //save signal strength number in array
+        SignalStrength[localcounter] = *MsgPtr;
         MsgPtr++;
+        localcounter++;
     }
+    SignalStrength[localcounter] = 0;
 }
 
 void createDiagnosticMessage(void) {
@@ -1100,6 +1110,9 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, ",\"r\":");
     floatToString(timeSinceLastRestart, LocalString); // hours since the system restarted
     concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"p\":");
+    floatToString(resetCause, LocalString); //0 if no reset occurred, else the RCON register bit number that is set is returned
+    concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"c\":");
     floatToString(extRtccTalked, LocalString); // if the external rtcc responded in the last hour
     concat(SMSMessage, LocalString);
@@ -1108,9 +1121,6 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"n\":");
     floatToString(numberTries, LocalString); // number of tries to connect
-    concat(SMSMessage, LocalString);
-    concat(SMSMessage, ",\"e\":");
-    floatToString(extRtccManualSet, LocalString); // external RTCC was manually set forward
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"x\":");
     floatToString(extRTCCset, LocalString); // To keep track if the VTCC time was used to set the external RTCC

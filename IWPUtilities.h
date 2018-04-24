@@ -94,10 +94,8 @@ extern int internalMinute; // Minute of the hour according to the internal RTCC
 extern float debugDiagnosticCounter;  // DEBUG used as a variable for various things while debugging diagnostic message
 extern float extRtccTalked; // set to 1 if the external RTCC talked during the last hour and didn't time out every time
 extern float numberTries; // number of times that tried to connect to network for hourly diagnostic messages 
-extern int extRtccChecked;
-extern float extRtccManualSet;
-extern float extRTCCset;
-
+extern float extRTCCset; // To keep track if the VTCC time was used to set the external RTCC
+extern float resetCause; //0 if no reset occurred, else the RCON register bit number that is set is returned
 extern int extRtccHourSet; //set to 0 if the external RTCC didn't update the hour in the current loop - used to check internal RTCC
 
 //*******************VTCC Variables************************
@@ -181,6 +179,7 @@ void ClearWatchDogTimer(void);  // some user groups say using just ClrWdt() is
 //                                 an assembly command that will cause the Compiler 
 //                                 not to optimize any function, like Main, that 
 //                                 it is a part of and so suggest this wrapper
+float checkResetStatus(void);
 int longLength(long num);
 void longToString(long num, char *numString);
 int stringLength(char *string);
