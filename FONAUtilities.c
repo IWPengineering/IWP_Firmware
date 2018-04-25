@@ -992,7 +992,7 @@ int SendSavedDailyReports(void){
         // If hourly diagnostic messages are enabled and we are still ready, create and send the message
     while (diagnostic == 1){
         numberTries++;
-        if(numberTries > 75) {
+        if(numberTries > 30) {
             break;
         }
         ready = CheckNetworkConnection();
@@ -1074,8 +1074,8 @@ void readFonaSignalStrength(void) {
     
     char *MsgPtr;
     MsgPtr = ReceiveTextMsg; //set the pointer to the response
-    turnOffSIM();
-    sendDebugMessage(ReceiveTextMsg, 3);
+    //turnOffSIM();
+    //sendDebugMessage(ReceiveTextMsg, 3);
     int msgLength=strlen(ReceiveTextMsg);
     for (i; i < 3; i++) { // clear the signal strength array
         SignalStrength[i]=0;
