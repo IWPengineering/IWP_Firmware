@@ -238,10 +238,10 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 44;
-    char localHr = 10;
+    char localMin = 14;
+    char localHr = 11;
     char localWkday = 3;
-    char localDate = 25;
+    char localDate = 26;
     char localMonth = 4;
     char localYear = 18;
 
