@@ -480,8 +480,7 @@ void updateClockCalendar(){
     ext_success = setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
     
     // Update the settings for the internal RTCC
-    setInternalRTCC(0, 0, hour, wkday, newDate, newMonth, year);
-    internalHour = hour;
+    initializeVTCC(0, 0, hour, newDate, newMonth);
                
     // Now we want to reply to the sender telling it what we just did
     success = turnOnSIM();  // returns 1 if the SIM powered up)
@@ -992,7 +991,7 @@ int SendSavedDailyReports(void){
         // If hourly diagnostic messages are enabled and we are still ready, create and send the message
     while (diagnostic == 1){
         numberTries++;
-        if(numberTries > 75) {
+        if(numberTries > 30) {
             break;
         }
         ready = CheckNetworkConnection();
@@ -1003,8 +1002,8 @@ int SendSavedDailyReports(void){
             //Put the phone number back to Upside 
 
             createDiagnosticMessage();
-            
-            while(1){
+            sendTextMessage(SMSMessage);
+            /*while(1){
                 ready = sendTextMessage(SMSMessage);
                 // Check to see if the FONA replies with ERROR or not
                 char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
@@ -1012,7 +1011,7 @@ int SendSavedDailyReports(void){
                 if (ready == 1) {
                     break;
                 }
-            }
+            }*/
             // NOTE:  We should not try to send messages on the serial port while the FONA is ON
                 //sendDebugMessage("  \n The attempt to send the hourly diagnostic message to the FONA was a ", ready);  //Debug
             timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
@@ -1045,6 +1044,16 @@ int SendSavedDailyReports(void){
 
 }
 
+/*********************************************************************
+ * Function: void readFonaSignalStrength(void)
+ * Input: none
+ * Output: none
+ * Overview:  Asks the FONA what the current cellular signal strength is and then put the value
+ *           in an array. The value saved is a value corresponding to the signal strength, not the signal
+ *           strength itself.
+ * TestDate: 
+ ********************************************************************/
+
 void readFonaSignalStrength(void) {
     int i = 0; // local counter
     int localcounter = 0;
@@ -1074,8 +1083,8 @@ void readFonaSignalStrength(void) {
     
     char *MsgPtr;
     MsgPtr = ReceiveTextMsg; //set the pointer to the response
-    turnOffSIM();
-    sendDebugMessage(ReceiveTextMsg, 3);
+    //turnOffSIM();
+    //sendDebugMessage(ReceiveTextMsg, 3);
     int msgLength=strlen(ReceiveTextMsg);
     for (i; i < 3; i++) { // clear the signal strength array
         SignalStrength[i]=0;
