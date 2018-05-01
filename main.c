@@ -203,7 +203,7 @@ void main(void)
                 //minute = BcdToDec(getMinuteI2C());
                 //internalHour = BcdToDec(getTimeHour());
                 //internalMinute = BcdToDec(getTimeMinute());
-                sendDebugMessage("The hour is ", hour);
+                //sendDebugMessage("The hour is ", hour);
                 sendDebugMessage("The VTCC minute is ", minuteVTCC);
                 sendDebugMessage("The VTCC hour is ", hourVTCC);
                 sendDebugMessage("The RTCC hour is ", BcdToDec(getTimeI2C(0x02, 0x3f, 23)));

@@ -238,11 +238,11 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 14;
+    char localMin = 44;
     char localHr = 11;
     char localWkday = 3;
-    char localDate = 26;
-    char localMonth = 4;
+    char localDate = 1;
+    char localMonth = 5;
     char localYear = 18;
 
     ////------------Sets up all ports as digital inputs-----------------------
@@ -1572,6 +1572,15 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART 
 
 
 }
+
+/*********************************************************************
+ * Function: void initializeVTCC(char sec, char min, char hr, char date, char month)
+ * Input: char sec, char min, char hr, char date, char month
+ * Output: none
+ * Overview:  Sets the virtual real time clock with the passed variables. 
+ * TestDate: 
+ ********************************************************************/
+
 void initializeVTCC(char sec, char min, char hr, char date, char month){
     secondVTCC = sec;
     minuteVTCC = min;
@@ -1583,6 +1592,14 @@ void initializeVTCC(char sec, char min, char hr, char date, char month){
     IFS0bits.T2IF = 0;
     IEC0bits.T2IE = 1;
 }
+
+/*********************************************************************
+ * Function: void _T2Interrupt(void)
+ * Input: none
+ * Output: none
+ * Overview:  An interrupt that advances the virtual real time clock by four seconds and roles over each variable when necessary
+ * TestDate: 
+ ********************************************************************/
 
 void __attribute__((interrupt, auto_psv)) _T2Interrupt(void){
     // assuming we are entering this when the over flow occurs

@@ -1003,6 +1003,8 @@ int SendSavedDailyReports(void){
 
             createDiagnosticMessage();
             sendTextMessage(SMSMessage);
+            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+            ready = ReadSIMresponse(CmdMatch);
             /*while(1){
                 ready = sendTextMessage(SMSMessage);
                 // Check to see if the FONA replies with ERROR or not
@@ -1102,6 +1104,14 @@ void readFonaSignalStrength(void) {
     }
     SignalStrength[localcounter] = 0;
 }
+
+/*********************************************************************
+ * Function: void createDiagnosticMessage(void)
+ * Input: none
+ * Output: none
+ * Overview:  Creates the message to be sent in the hourly diagnostic message. 
+ * TestDate: 
+ ********************************************************************/
 
 void createDiagnosticMessage(void) {
     char LocalString[20]; 
