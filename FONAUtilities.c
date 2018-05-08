@@ -31,7 +31,7 @@
 //char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
 //char DebugphoneNumber[] = "+17177784498"; // Upside 
 
-char DebugphoneNumber[] = "+18458007595"; //Number for Paul Zwart cell phone
+char DebugphoneNumber[15]; //Number for Paul Zwart cell phone; this number is changed and default is the mainphonenumber
 //char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char MainphoneNumber[]="+17176837803"; // Randy
 char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS message default to mine
@@ -1072,7 +1072,12 @@ void readFonaSignalStrength(void) {
     sendMessage("AT+CSQ\r"); //Read message at index msgNum
     TMR1 = 0; // start timer for max 160characters
     while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the command echo from the FONA
-
+    if (TMR1 > longest_wait) {
+        for (i; i < 3; i++) { // clear the signal strength array
+            SignalStrength[i]=0;
+        }
+        return;
+    }
     
     // There is about 17ms between the end of the echo of the command until 
     // The FONA responds with what you asked for
@@ -1080,6 +1085,12 @@ void readFonaSignalStrength(void) {
     NumCharInTextMsg = 0; //Point to the start of the Text Message String
     TMR1 = 0; // start timer for max 160characters
     while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the first line from the FONA
+    if (TMR1 > longest_wait) {
+        for (i; i < 3; i++) { // clear the signal strength array
+            SignalStrength[i]=0;
+        }
+        return;
+    }
     ReceiveTextMsgFlag = 0; //clear for the next message
      IEC0bits.U1RXIE = 0;  // enable Rx interrupts
     
@@ -1151,14 +1162,64 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, ">))");
 }   
 
-/*void createRequestMessage(void) {
+/*********************************************************************
+ * Function: void checkDiagnosticStatus(void)
+ * Input: none
+ * Output: none
+ * Overview:  Check whether diagnostic messages are enabled
+ * TestDate: 
+ ********************************************************************/
+
+void checkDiagnosticStatus(void){
+    float LocalFloatUpper;
+    float LocalFloatLower;
+    char LocalStringUpper[15]; 
+    char LocalStringLower[15]; 
+    
+    EEProm_Read_Float(DiagnosticEEPromStart + 2, &EEFloatData); // lower byte of the phone number
+    LocalFloatLower = EEFloatData;
+    EEProm_Read_Float(DiagnosticEEPromStart + 3, &EEFloatData); // upper byte of the phone number
+    LocalFloatUpper = EEFloatData;
+    if ((LocalFloatLower != 0) || (LocalFloatUpper != 0)) {
+        diagnostic = 1;
+        floatToString(LocalFloatLower, LocalStringLower);
+        floatToString(LocalFloatUpper, LocalStringUpper);
+        concat(DebugphoneNumber, LocalStringUpper);
+        concat(DebugphoneNumber, LocalStringLower);
+    }
+    else {
+        diagnostic = 0;
+    }
+}
+
+/*********************************************************************
+ * Function: void createVerificationMessage(void)
+ * Input: none
+ * Output: none
+ * Overview:  Creates the message to be sent to verify that a system is working properly. 
+ * TestDate: 
+ ********************************************************************/
+
+void createVerificationMessage(void) {
     char LocalString[20]; 
     float LocalFloat = hour;
     SMSMessage[0] = 0; //reset SMS message array to be empty
     LocalString[0] = 0;
-  
-    concat(SMSMessage, "(\"t\":\"r\",\"d\":(\"r\":");
     
+    concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"b\":");
+    floatToString(batteryFloat, LocalString); //latest battery voltage
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"t\":");
+    floatToString(LocalFloat, LocalString); // what it thinks the hour is
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"d\":");
+    date = 100*BcdToDec(getTimeI2C(0x05, 0x1f, 12));
+    date = date + BcdToDec(getTimeI2C(0x04, 0x3f, 31));
+    floatToString((float)date, LocalString);
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"w\":");
+    readFonaSignalStrength();
+    concat(SMSMessage, SignalStrength); // The cellular signal
     
     concat(SMSMessage, ">))");
-}*/   
+} 

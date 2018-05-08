@@ -163,12 +163,12 @@ extern int TimeSinceLastBatteryCheck; // we check the battery when we are sleepi
 extern int minute;  //minute of the day
 extern int year;
 extern int month;
-extern int date;
+extern int day;
 extern char active_volume_bin;
 extern char never_primed;  //set to 1 if we exit the priming loop because of timeout
 extern char print_debug_messages; //set to 1 when we want the debug messages to be sent to the Tx pin.
 extern char diagnostic; //set to 1 when we want the diagnostic text messages to be sent hourly
-
+extern float date;
 
 // ****************************************************************************
 // *** Function Prototypes ****************************************************

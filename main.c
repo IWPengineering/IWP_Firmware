@@ -82,7 +82,7 @@ void main(void)
     leakRateTimeOut /= upstrokeInterval;
 	int handleMovement = 0; // Either 1 or no 0 if the handle moving upward
 	int timeOutStatus = 0; // Used to keep track of the water prime timeout
-
+    
 	float angleCurrent = 0; // Stores the current angle of the pump handle
 	float anglePrevious = 0; // Stores the last recorded angle of the pump handle
 	float angleDelta = 0; // Stores the difference between the current and previous angles
@@ -218,7 +218,7 @@ void main(void)
             }
             // Do hourly tasks
             if(hour != prevHour){
-                date = BcdToDec(getTimeI2C(0x04, 0x3f, 31));
+                day = BcdToDec(getTimeI2C(0x04, 0x3f, 31));
                 if (extRTCCset == 0) {
                     initializeVTCC(0, BcdToDec(getTimeI2C(0x01, 0x7f, 59)), BcdToDec(getTimeI2C(0x02, 0x3f, 23)), BcdToDec(getTimeI2C(0x04, 0x3f, 31)), BcdToDec(getTimeI2C(0x05, 0x1f, 12)));
                 }
