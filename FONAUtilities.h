@@ -61,6 +61,7 @@ void CreateNoonMessage(int);
 void CreateAndSaveDailyReport(void);
 int SendSavedDailyReports(void);
 void createDiagnosticMessage(void);
+void checkDiagnosticStatus(void);
 void readFonaSignalStrength(void); // Asks the FONA for the strength of the network signal
 
 

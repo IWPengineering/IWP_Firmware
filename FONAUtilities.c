@@ -31,7 +31,7 @@
 //char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
 //char DebugphoneNumber[] = "+17177784498"; // Upside 
 
-char DebugphoneNumber[] = "+18458007595"; //Number for Paul Zwart cell phone
+char DebugphoneNumber[15]; //Number for Paul Zwart cell phone; this number is changed and default is the mainphonenumber
 //char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char MainphoneNumber[]="+17176837803"; // Randy
 char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS message default to mine
@@ -480,8 +480,7 @@ void updateClockCalendar(){
     ext_success = setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
     
     // Update the settings for the internal RTCC
-    setInternalRTCC(0, 0, hour, wkday, newDate, newMonth, year);
-    internalHour = hour;
+    initializeVTCC(0, 0, hour, newDate, newMonth);
                
     // Now we want to reply to the sender telling it what we just did
     success = turnOnSIM();  // returns 1 if the SIM powered up)
@@ -992,7 +991,7 @@ int SendSavedDailyReports(void){
         // If hourly diagnostic messages are enabled and we are still ready, create and send the message
     while (diagnostic == 1){
         numberTries++;
-        if(numberTries > 75) {
+        if(numberTries > 30) {
             break;
         }
         ready = CheckNetworkConnection();
@@ -1003,8 +1002,10 @@ int SendSavedDailyReports(void){
             //Put the phone number back to Upside 
 
             createDiagnosticMessage();
-            
-            while(1){
+            sendTextMessage(SMSMessage);
+            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+            ready = ReadSIMresponse(CmdMatch);
+            /*while(1){
                 ready = sendTextMessage(SMSMessage);
                 // Check to see if the FONA replies with ERROR or not
                 char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
@@ -1012,7 +1013,7 @@ int SendSavedDailyReports(void){
                 if (ready == 1) {
                     break;
                 }
-            }
+            }*/
             // NOTE:  We should not try to send messages on the serial port while the FONA is ON
                 //sendDebugMessage("  \n The attempt to send the hourly diagnostic message to the FONA was a ", ready);  //Debug
             timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
@@ -1045,6 +1046,16 @@ int SendSavedDailyReports(void){
 
 }
 
+/*********************************************************************
+ * Function: void readFonaSignalStrength(void)
+ * Input: none
+ * Output: none
+ * Overview:  Asks the FONA what the current cellular signal strength is and then put the value
+ *           in an array. The value saved is a value corresponding to the signal strength, not the signal
+ *           strength itself.
+ * TestDate: 
+ ********************************************************************/
+
 void readFonaSignalStrength(void) {
     int i = 0; // local counter
     int localcounter = 0;
@@ -1061,7 +1072,12 @@ void readFonaSignalStrength(void) {
     sendMessage("AT+CSQ\r"); //Read message at index msgNum
     TMR1 = 0; // start timer for max 160characters
     while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the command echo from the FONA
-
+    if (TMR1 > longest_wait) {
+        for (i; i < 3; i++) { // clear the signal strength array
+            SignalStrength[i]=0;
+        }
+        return;
+    }
     
     // There is about 17ms between the end of the echo of the command until 
     // The FONA responds with what you asked for
@@ -1069,13 +1085,19 @@ void readFonaSignalStrength(void) {
     NumCharInTextMsg = 0; //Point to the start of the Text Message String
     TMR1 = 0; // start timer for max 160characters
     while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the first line from the FONA
+    if (TMR1 > longest_wait) {
+        for (i; i < 3; i++) { // clear the signal strength array
+            SignalStrength[i]=0;
+        }
+        return;
+    }
     ReceiveTextMsgFlag = 0; //clear for the next message
      IEC0bits.U1RXIE = 0;  // enable Rx interrupts
     
     char *MsgPtr;
     MsgPtr = ReceiveTextMsg; //set the pointer to the response
-    turnOffSIM();
-    sendDebugMessage(ReceiveTextMsg, 3);
+    //turnOffSIM();
+    //sendDebugMessage(ReceiveTextMsg, 3);
     int msgLength=strlen(ReceiveTextMsg);
     for (i; i < 3; i++) { // clear the signal strength array
         SignalStrength[i]=0;
@@ -1093,6 +1115,14 @@ void readFonaSignalStrength(void) {
     }
     SignalStrength[localcounter] = 0;
 }
+
+/*********************************************************************
+ * Function: void createDiagnosticMessage(void)
+ * Input: none
+ * Output: none
+ * Overview:  Creates the message to be sent in the hourly diagnostic message. 
+ * TestDate: 
+ ********************************************************************/
 
 void createDiagnosticMessage(void) {
     char LocalString[20]; 
@@ -1132,14 +1162,64 @@ void createDiagnosticMessage(void) {
     concat(SMSMessage, ">))");
 }   
 
-/*void createRequestMessage(void) {
+/*********************************************************************
+ * Function: void checkDiagnosticStatus(void)
+ * Input: none
+ * Output: none
+ * Overview:  Check whether diagnostic messages are enabled
+ * TestDate: 
+ ********************************************************************/
+
+void checkDiagnosticStatus(void){
+    float LocalFloatUpper;
+    float LocalFloatLower;
+    char LocalStringUpper[15]; 
+    char LocalStringLower[15]; 
+    
+    EEProm_Read_Float(DiagnosticEEPromStart + 2, &EEFloatData); // lower byte of the phone number
+    LocalFloatLower = EEFloatData;
+    EEProm_Read_Float(DiagnosticEEPromStart + 3, &EEFloatData); // upper byte of the phone number
+    LocalFloatUpper = EEFloatData;
+    if ((LocalFloatLower != 0) || (LocalFloatUpper != 0)) {
+        diagnostic = 1;
+        floatToString(LocalFloatLower, LocalStringLower);
+        floatToString(LocalFloatUpper, LocalStringUpper);
+        concat(DebugphoneNumber, LocalStringUpper);
+        concat(DebugphoneNumber, LocalStringLower);
+    }
+    else {
+        diagnostic = 0;
+    }
+}
+
+/*********************************************************************
+ * Function: void createVerificationMessage(void)
+ * Input: none
+ * Output: none
+ * Overview:  Creates the message to be sent to verify that a system is working properly. 
+ * TestDate: 
+ ********************************************************************/
+
+void createVerificationMessage(void) {
     char LocalString[20]; 
     float LocalFloat = hour;
     SMSMessage[0] = 0; //reset SMS message array to be empty
     LocalString[0] = 0;
-  
-    concat(SMSMessage, "(\"t\":\"r\",\"d\":(\"r\":");
     
+    concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"b\":");
+    floatToString(batteryFloat, LocalString); //latest battery voltage
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"t\":");
+    floatToString(LocalFloat, LocalString); // what it thinks the hour is
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"d\":");
+    date = 100*BcdToDec(getTimeI2C(0x05, 0x1f, 12));
+    date = date + BcdToDec(getTimeI2C(0x04, 0x3f, 31));
+    floatToString((float)date, LocalString);
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage, ",\"w\":");
+    readFonaSignalStrength();
+    concat(SMSMessage, SignalStrength); // The cellular signal
     
     concat(SMSMessage, ">))");
-}*/   
+} 
