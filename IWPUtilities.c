@@ -169,7 +169,7 @@ float batteryFloat;
 char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots is being updated
 char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
 char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
-char diagnostic = 1; //set to 1 when we want the diagnostic text messages to be sent hourly
+char diagnostic = 1; //set to 1 when we want the text messages to be sent hourly
 float debugCounter = 0;  // DEBUG used as a variable for various things while debugging 
 float volume02 = 0; // Total Volume extracted from 0:00-2:00
 float volume24 = 0;
@@ -190,7 +190,8 @@ int TimeSinceLastBatteryCheck = 0; // we only check the battery every 20min when
 int minute = 0;  //minute of the day
 int year = 0; //current year
 int month = 0; //current month
-int date = 0; // current date
+int day = 0; // current date
+float date = 0; // date variable
 //Pin assignments
 int mclrPin = 1;
 int depthSensorPin = 2;
@@ -238,13 +239,15 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 14;
+    char localMin = 44;
     char localHr = 11;
     char localWkday = 3;
-    char localDate = 26;
-    char localMonth = 4;
+    char localDate = 1;
+    char localMonth = 5;
     char localYear = 18;
-
+    
+    float LocalFloatUpper = 188;
+    float LocalFloatLower = 453612989;
     ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
     ANSA = 0; // Make PORTA digital I/O
@@ -383,8 +386,15 @@ void initialization(void) {
             sendDebugMessage("Was unable to read RTCC year", 0);
         }
     }
+    // check and update the reset cause
     resetCause = checkResetStatus();
-    // just so we know the board is working
+    
+    // check the diagnostic status and phone number
+    //EEProm_Write_Float(DiagnosticEEPromStart + 2, &LocalFloatLower);
+    //EEProm_Write_Float(DiagnosticEEPromStart + 3, &LocalFloatUpper);
+    checkDiagnosticStatus();
+    
+    // do timing things
     hour = BcdToDec(getTimeI2C(0x02, 0x3f, 23));
     active_volume_bin = hour/2;  //Which volume bin are we starting with
     prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
@@ -392,6 +402,8 @@ void initialization(void) {
     if (month == 0) {
             sendDebugMessage("Was unable to read RTCC month", 0);
     }
+    
+    // just so we know the board is working
     turnOnSIM();
     delayMs(2000);
     turnOffSIM();
@@ -894,9 +906,9 @@ float checkResetStatus(void) {
     else if (RCONbits.WDTO == 1) {
         resetcause = 4; //bit 4 is the Watchdog Timer time-out reset
     }*/
-    EEProm_Read_Float(DiagnosticEEPromStart + 3, &EEFloatData);
+    EEProm_Read_Float(DiagnosticEEPromStart + 1, &EEFloatData);
     resetcause = (int)EEFloatData | (int)resetcause;
-    EEProm_Write_Float(DiagnosticEEPromStart + 3,&resetcause);
+    EEProm_Write_Float(DiagnosticEEPromStart + 1,&resetcause);
     RCON = 0;
     return resetcause;
 }
@@ -989,15 +1001,15 @@ int getUpperBCDAsDecimal(int bcd) //Tested 06-04-2014
  * Overview: Initializes values for the internal RTCC
  * Note: 
  ********************************************************************/
-void setInternalRTCC(int sec, int min, int hr, int wkday, int date, int month, int year){
+void setInternalRTCC(int sec, int min, int hr, int wkday, int dte, int mnth, int yr){
  
     __builtin_write_RTCWEN(); //does unlock sequence to enable write to RTCC, sets RTCWEN
     
     RCFGCALbits.RTCWREN = 1; // Allow user to change RTCC values
     RCFGCALbits.RTCPTR = 0b11; //Point to the top (year) register
     
-    RTCVAL = DecToBcd(year); // RTCPTR decrements automatically after this
-    RTCVAL = DecToBcd(date) + (DecToBcd(month) << 8);
+    RTCVAL = DecToBcd(yr); // RTCPTR decrements automatically after this
+    RTCVAL = DecToBcd(dte) + (DecToBcd(mnth) << 8);
     RTCVAL = DecToBcd(hr) + (DecToBcd(wkday) << 8);
     RTCVAL = DecToBcd(sec) + (DecToBcd(min) << 8); // = binaryMinuteSecond;
  
@@ -1572,17 +1584,34 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART 
 
 
 }
-void initializeVTCC(char sec, char min, char hr, char date, char month){
+
+/*********************************************************************
+ * Function: void initializeVTCC(char sec, char min, char hr, char date, char month)
+ * Input: char sec, char min, char hr, char date, char month
+ * Output: none
+ * Overview:  Sets the virtual real time clock with the passed variables. 
+ * TestDate: 
+ ********************************************************************/
+
+void initializeVTCC(char sec, char min, char hr, char dte, char mnth){
     secondVTCC = sec;
     minuteVTCC = min;
     hourVTCC = hr;
-    dateVTCC = date;
-    monthVTCC = month;
+    dateVTCC = dte;
+    monthVTCC = mnth;
     TMR2 = 0;
     PR2 = 62500; //set cycle time to 4sec
     IFS0bits.T2IF = 0;
     IEC0bits.T2IE = 1;
 }
+
+/*********************************************************************
+ * Function: void _T2Interrupt(void)
+ * Input: none
+ * Output: none
+ * Overview:  An interrupt that advances the virtual real time clock by four seconds and roles over each variable when necessary
+ * TestDate: 
+ ********************************************************************/
 
 void __attribute__((interrupt, auto_psv)) _T2Interrupt(void){
     // assuming we are entering this when the over flow occurs

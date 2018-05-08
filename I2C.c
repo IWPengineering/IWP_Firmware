@@ -642,13 +642,13 @@ int getWkdayI2C(void) {
  * Note: uses DecToBcd and I2C functions.  This is a new version of this function
  *       which does not break the I2C functions into such small parts
  ********************************************************************/
-int setTime(char sec, char min, char hr, char wkday, char date, char month, char year){
+int setTime(char sec, char min, char hr, char wkday, char dte, char mnth, char yr){
     int success = 0;  //used to determine if sub operations worked.  Assume this is false
     int MaxTime = 20;  //number of Timer1 cycles expected for this whole function.  This is used to
                      //quit trying if things hang.  Should take about 17
     hour = hr;  //Set the system variable for hour equal to what is being sent to the external RTCC
     int leapYear;
-    if (year % 4 == 0)
+    if (yr % 4 == 0)
     {
         leapYear = 1; //Is a leap Year
     } else
@@ -659,9 +659,9 @@ int setTime(char sec, char min, char hr, char wkday, char date, char month, char
     char BCDmin = DecToBcd(min); // To BCD
     char BCDhr = DecToBcd(hr);
     char BCDwkday = DecToBcd(wkday); // To BCD
-    char BCDdate = DecToBcd(date);
-    char BCDmonth = DecToBcd(month); // To BCD
-    char BCDyear = DecToBcd(year);
+    char BCDdate = DecToBcd(dte);
+    char BCDmonth = DecToBcd(mnth); // To BCD
+    char BCDyear = DecToBcd(yr);
    
     BCDhr = BCDhr & 0b10111111; // clearing bit 6 of the hour register sets the hour to 24 hr time
     BCDwkday = BCDwkday | 0b00001000; // the 1 in this bit says the external battery backup supply is enabled.
@@ -746,9 +746,9 @@ int setTime(char sec, char min, char hr, char wkday, char date, char month, char
  * Overview: Sets time for MCP7940N
  * Note: uses DecToBcd and I2C functions
  ********************************************************************/
-void setTime_old(char sec, char min, char hr, char wkday, char date, char month, char year) {
+void setTime_old(char sec, char min, char hr, char wkday, char dte, char mnth, char yr) {
     int leapYear;
-    if (year % 4 == 0)
+    if (yr % 4 == 0)
     {
         leapYear = 1; //Is a leap Year
     } else
@@ -759,9 +759,9 @@ void setTime_old(char sec, char min, char hr, char wkday, char date, char month,
     char BCDmin = DecToBcd(min); // To BCD
     char BCDhr = DecToBcd(hr);
     char BCDwkday = DecToBcd(wkday); // To BCD
-    char BCDdate = DecToBcd(date);
-    char BCDmonth = DecToBcd(month); // To BCD
-    char BCDyear = DecToBcd(year);
+    char BCDdate = DecToBcd(dte);
+    char BCDmonth = DecToBcd(mnth); // To BCD
+    char BCDyear = DecToBcd(yr);
     BCDsec = BCDsec | 0x80; // add turn on oscilator bit
     BCDhr = BCDhr & 0b10111111; // makes 24 hr time
     BCDwkday = BCDwkday | 0b00001000; // the 1 in this bit says the external battery backup supply is enabled.
