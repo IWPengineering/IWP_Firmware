@@ -82,6 +82,7 @@ void main(void)
     leakRateTimeOut /= upstrokeInterval;
 	int handleMovement = 0; // Either 1 or no 0 if the handle moving upward
 	int timeOutStatus = 0; // Used to keep track of the water prime timeout
+    int diagPCBpluggedIn = 0; // Used to keep track of whether diagnostic PCB is plugged in or not
     
 	float angleCurrent = 0; // Stores the current angle of the pump handle
 	float anglePrevious = 0; // Stores the last recorded angle of the pump handle
@@ -112,59 +113,14 @@ void main(void)
     
     print_debug_messages = 2;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
-    sendDebugMessage("The hour is = ", BcdToDec(getTimeI2C(0x02, 0x3f, 23)));  //Debug
+    sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     
-   // THIS STUFF IS JUST FOR TESTING 
-    //Read received messages and act on them
- //   int msgNum = 1;
- //   turnOnSIM();
- //   delayMs(2000);
- //               for(msgNum = 1;msgNum<31;msgNum++){
- //                   readSMSMessage(msgNum);
- //                   interpretSMSmessage();
- //                   ClearReceiveTextMessages(msgNum, 2); // Clear the message just read from the message storage area                    
- //               }
- //   turnOffSIM();
-  //  turnOnSIM();
-  //  readSMSMessage(4); //still not used 
- //   readSMSMessage(5); //still not used 
- //   readSMSMessage(6); //still not used 
-
-    //interpretSMSmessage(); //still not used
-    /*turnOnSIM();
-    readSMSMessage(1);
-    interpretSMSmessage();
-    turnOffSIM();*/
-    //ClearReceiveTextMessages(1,0); 
-//    readSMSMessage(1); //still not used 
-//    turnOffSIM();
-    // THIS STUFF IS JUST FOR TESTING
-    
-    
-          
-    while (1)
+     while (1)
 	{
-        
-        /*int localcounter = 0;
-        sendDebugMessage("Starting timer", 1);
-        TMR2 = 0;
-        //IEC0bits.T2IE = 1;
-        IFS0bits.T2IF = 0;
-        PR2 = 0xFFFF;
-        while(localcounter < 5){ //10 seconds
-            ClearWatchDogTimer();
-            if (IFS0bits.T2IF == 1){
-                localcounter++;
-                IFS0bits.T2IF = 0;
-            }
-            sendDebugMessage("TMR2 = ", TMR2);
-            sendDebugMessage("Counter = ", localcounter);
-        }
-        sendDebugMessage("Timer end", 1);*/
-        
+         
        batteryFloat = batteryLevel();
        
         //MAIN LOOP; repeats indefinitely
@@ -180,53 +136,61 @@ void main(void)
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		while (handleMovement == 0)
 		{ 
-            //Just for testing
-            
-            
-            //Just for testing
-            /*while(1) {
-                turnOnSIM();
-                while(CheckNetworkConnection() != 1) {
-                    ClearWatchDogTimer();
-                }
-                readFonaSignalStrength();
-                turnOffSIM();
-                sendDebugMessage(SignalStrength, 3);
-                //sendDebugMessage(" ", resetCause);
-                ClearWatchDogTimer();
-            }*/
-            
-            ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
+            int msgNum = 0;        
+            ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT 
+
+           // PUT THIS CODE BACK //  if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in
+           while(1){     // DEBUG
+                 InstallationMessages(); //See if there are any text messages
+           }
+          //   }
+           //  else{
+           //     if(diagPCBpluggedIn == 1){
+            //        turnOffSIM();
+            //    }
+           //     diagPCBpluggedIn = 0;
+           // }
             if(TimeSinceLastHourCheck == 1){ // Check every minute
-                hour = BcdToDec(getTimeI2C(0x02, 0x3f, 23));
-                minute = BcdToDec(getTimeI2C(0x01, 0x7f, 59));
-                //minute = BcdToDec(getMinuteI2C());
-                //internalHour = BcdToDec(getTimeHour());
-                //internalMinute = BcdToDec(getTimeMinute());
-                //sendDebugMessage("The hour is ", hour);
-                sendDebugMessage("The VTCC minute is ", minuteVTCC);
-                sendDebugMessage("The VTCC hour is ", hourVTCC);
-                sendDebugMessage("The RTCC hour is ", BcdToDec(getTimeI2C(0x02, 0x3f, 23)));
-                
-                // if the VTCC reaches two minutes past the next hour, and the ext RTCC hasn't updated, use the VTCC time to update the RTCC
+                hour = BcdToDec(getHourI2C());
+                // not used by anything:  minute = BcdToDec(getTimeI2C(0x01, 0x7f, 59)); 
+                                
+                // if the VTCC reaches two minutes past the next hour, and the ext RTCC hasn't updated, 
+                // use the VTCC time to update the RTCC and the local variable 'hour'
                 if ((hourVTCC != hour) && (minuteVTCC >= 2) && (hour == prevHour)){
                     setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
                     hour = hourVTCC;
                     extRTCCset = 1;
                 }    
-                TimeSinceLastHourCheck = 0;
-            }
+                TimeSinceLastHourCheck = 0; //this gets updated in VTCC interrupt routine
+            }  
             // Do hourly tasks
+           //// prevHour = hour -1;  // DEBUG
             if(hour != prevHour){
-                day = BcdToDec(getTimeI2C(0x04, 0x3f, 31));
-                if (extRTCCset == 0) {
-                    initializeVTCC(0, BcdToDec(getTimeI2C(0x01, 0x7f, 59)), BcdToDec(getTimeI2C(0x02, 0x3f, 23)), BcdToDec(getTimeI2C(0x04, 0x3f, 31)), BcdToDec(getTimeI2C(0x05, 0x1f, 12)));
+                // not used by anything:  day = BcdToDec(getTimeI2C(0x04, 0x3f, 31));
+                if (extRTCCset == 0) { //external RTCC is working, update the internal virtual clock values
+                    initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
+                    //initializeVTCC(0, BcdToDec(getTimeI2C(0x01, 0x7f, 59)), BcdToDec(getTimeI2C(0x02, 0x3f, 23)), BcdToDec(getTimeI2C(0x04, 0x3f, 31)), BcdToDec(getTimeI2C(0x05, 0x1f, 12)));
                 }
                 
                 // Is it time to record volume from previous time bin to EEProm?
                 if(hour/2 != active_volume_bin){
                     SaveVolumeToEEProm();
-                    sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);  //Debug
+                    sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);
+                }
+                // Read messages sent to the system
+                turnOnSIM();
+                delayMs(10000);
+                if(AreThereTextMessagesToRead()){ //Only read messages if there are any to read
+                    int msg_remaining = 1; //There is at least one to read
+                    int msgNum = 0;
+                    for(msgNum = 1;msgNum<31;msgNum++){
+                        readSMSMessage(msgNum);
+                        interpretSMSmessage();
+                        /// DEBUG, put back msg_remaining = ClearReceiveTextMessages(msgNum, 2); // Clear the message just read from the message storage area                    
+                        if(msg_remaining == 0){
+                            msgNum = 31; //stop looking for another message
+                        }
+                    }
                 }
                 // If it is noon, save a daily report
                 if(hour == 12){
@@ -234,19 +198,10 @@ void main(void)
                 }
                 // Attempt to Send daily report
                 //if(num_unsent_daily_reports > 0){ // commented out in order to send diagnostic messages
-                    if(batteryFloat > 3.3){
-                        SendSavedDailyReports();                    
-                    }            
-                // Read messages sent to the system
-                  // need to put the code for that here
-                int msgNum = 0;
-                turnOnSIM();
-                delayMs(2000);
-                for(msgNum = 1;msgNum<31;msgNum++){
-                    readSMSMessage(msgNum);
-                    interpretSMSmessage();
-                    ClearReceiveTextMessages(msgNum, 2); // Clear the message just read from the message storage area                    
-                }
+                if(batteryFloat > 3.3){
+                   SendSavedDailyReports();                    
+                }            
+                
                 turnOffSIM();
                 prevHour = hour; // update so we know this is not the start of a new hour
             }
@@ -267,28 +222,12 @@ void main(void)
                 if (sleepHrStatus != 1){
                     sleepHrStatus = 1;
                     EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
-                }
-                
-                /*hour = hourVTCC;
-                //minute = BcdToDec(getMinuteI2C());
-                //internalHour = BcdToDec(getTimeHour());
-                //internalMinute = BcdToDec(getTimeMinute());
-                sendDebugMessage("The hour is ", hour);
-                sendDebugMessage("The VTCC minute is ", minuteVTCC);
-                sendDebugMessage("The VTCC hour is ", hourVTCC);
-                sendDebugMessage("The RTCC hour is ", BcdToDec(getHourI2C()));
-                if(hour != prevHour){
-                    setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
-                    rtccUpdateTime = hourVTCC;
-                    EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
-                    prevHour = hour;
-                }*/
-                
+                }                
                 sendDebugMessage("Going to sleep ", hour);  //Debug
                 PORTBbits.RB0 = 0; // DEBUG make test pin low when we are sleeping
                 Sleep(); 
                                
-                hour = BcdToDec(getTimeI2C(0x02, 0x3f, 23)); //still time to sleep? Don't check battery, you are here because it was low
+                hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
                 TimeSinceLastBatteryCheck++; // only check the battery every 10th time you wake up (approx 20min)
                 // check the battery every 20 min
                 if(TimeSinceLastBatteryCheck > 10){

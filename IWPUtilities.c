@@ -255,8 +255,10 @@ void initialization(void) {
     ANSB = 0; // All port B pins are digital. Individual ADC are set in the readADC function
     TRISB = 0xFFFF; // Sets all of port B to input
     TRISBbits.TRISB0 = 0; //DEBUG Make spare test pin#4 on Pic an output
+    CNPU1bits.CN5PUE = 1;  //put a weak pull up resistor on RB1 which is pin 5.
+                           // use this pin to detect when the Diagnostic board is plugged in.
     PORTBbits.RB0 = 1;  //DEBUG Set this high,  When we go to sleep we will make it low
-
+    
     // pinDirectionIO(sclI2CPin, 0);                                            //TRISBbits.TRISB8 = 0; // RB8 is an output
     //OSCCONbits.SOSCEN = 0b01;
     //OSCCONbits.COSC = 0b100;
@@ -280,19 +282,7 @@ void initialization(void) {
                             // if FNOSC = FRC, Timer Clock = 15.625khz
     T2CONbits.TON = 1; // Starts 16-bit Timer2
 
-    /*T2CONbits.PR2 = 0xf424; //0xf424 - 62500
-    T2CONbits.TMR2 = 0;
-    T2CONbits.TON = 1; // Starts 16-bit Timer2
-    
-    sendDebugMessage("Time start", 0);
-
-    while(1) {
-        if (T2CONbits.TMR2 >= T2CONbits.PR2) {
-            sendDebugMessage("Time is done", 0);
-        }
-    }*/
-    
-
+   
     // UART config
 //    U1MODE = 0x8000;  
     U1MODEbits.BRGH = 0;  // Use the standard BRG speed
@@ -371,7 +361,7 @@ void initialization(void) {
     if(EEFloatData == 0){
         EEProm_Read_Float(0,&leakRateLong);
         EEProm_Read_Float(1,&longestPrime);
-        initializeVTCC(0, BcdToDec(getTimeI2C(0x01, 0x7f, 59)), BcdToDec(getTimeI2C(0x02, 0x3f, 23)), BcdToDec(getTimeI2C(0x04, 0x3f, 31)), BcdToDec(getTimeI2C(0x05, 0x1f, 12)));
+        initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
     }
     else{
         ClearEEProm();
@@ -379,12 +369,10 @@ void initialization(void) {
          //   (sec, min, hr, wkday, date, month, year)
         success = setTime(localSec,localMin,localHr,localWkday,localDate,localMonth,localYear);
         print_debug_messages = 1; 
-        sendDebugMessage("Program time? ", success);
+        
         initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
-        year = BcdToDec(getTimeI2C(0x06, 0xff, 99)); //just here to return value if RTCC failed to communicate
-        if (year == 0) {
-            sendDebugMessage("Was unable to read RTCC year", 0);
-        }
+        year = BcdToDec(getYearI2C()); //just here to return value if RTCC failed to communicate
+        
     }
     // check and update the reset cause
     resetCause = checkResetStatus();
@@ -395,13 +383,10 @@ void initialization(void) {
     checkDiagnosticStatus();
     
     // do timing things
-    hour = BcdToDec(getTimeI2C(0x02, 0x3f, 23));
+    hour = BcdToDec(getHourI2C());
     active_volume_bin = hour/2;  //Which volume bin are we starting with
     prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
-    month = BcdToDec(getTimeI2C(0x05, 0x1f, 12));
-    if (month == 0) {
-            sendDebugMessage("Was unable to read RTCC month", 0);
-    }
+    month = BcdToDec(getMonthI2C());
     
     // just so we know the board is working
     turnOnSIM();
@@ -947,9 +932,6 @@ void delayMs(int ms) {
     while(TMR1<end_count){}
 }
 
-//Returns the decimal value for the lower 8 bits in a 16 bit BCD (Binary Coded Decimal)
-
-
 /*********************************************************************
  * Function: getLowerBCDAsDecimal
  * Input: int bcd
@@ -1203,10 +1185,10 @@ void RTCCSet(void) {
     RTCPWC = 0b0000010100000000;
     _RTCPTR = 0b11; // decrements with read or write
     // Thanks KWHr!!!
-    RTCVAL = getTimeI2C(0x06, 0xff, 99);
-    RTCVAL = getTimeI2C(0x04, 0x3f, 31) + (getTimeI2C(0x05, 0x1f, 12) << 8);
-    RTCVAL = getTimeI2C(0x02, 0x3f, 23) + (getWkdayI2C() << 8);
-    RTCVAL = getSecondI2C() + (getTimeI2C(0x01, 0x7f, 59) << 8); // = binaryMinuteSecond;
+    RTCVAL = getYearI2C();
+    RTCVAL = getDateI2C() + (getMonthI2C() << 8);
+    RTCVAL = getHourI2C() + (getWkdayI2C() << 8);
+    RTCVAL = getSecondI2C() + (getMinuteI2C() << 8); // = binaryMinuteSecond;
     _RTCEN = 1; // = 1; //RTCC module is enabled
     _RTCWREN = 0; // = 0; // disable writing
 }
@@ -1284,7 +1266,7 @@ void midDayDepthRead(void) {
 
         digitalPinSet(depthSensorOnOffPin, 0); //turns off the depth sensor.
         delayMs(1000);
-        prevDayDepthSensor = BcdToDec(getTimeI2C(0x04, 0x3f, 31));
+        prevDayDepthSensor = BcdToDec(getDateI2C());
 
     }
 }    

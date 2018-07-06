@@ -518,14 +518,90 @@ int getSecondI2C(void) //may want to pass char address to it in the future
     //sec = BcdToDec(sec); // converts sec to a decimal number
     return sec; // returns the time in sec as a demimal number
 }
-
 /*********************************************************************
- * Function: getTimeI2C()
+ * Function: getYearI2C()
  * Input: None
  * Output: None 02
- * Overview: Reads the current hour from the external RTCC.  If an invalid read
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     date = 0x06
+ * bitRanges:
+ *     date = 0xff
+ * goodRanges:
+ *     date = 99
+ ********************************************************************/
+int getYearI2C(){
+   return getI2Cdata(0x06,0xff,99);
+}
+/*********************************************************************
+ * Function: getDateI2C()
+ * Input: None
+ * Output: None 02
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     date = 0x04
+ * bitRanges:
+ *     date = 0x3f
+ * goodRanges:
+ *     date = 31
+ ********************************************************************/
+int getDateI2C(){
+   return getI2Cdata(0x04,0x3f,31);
+}
+/*********************************************************************
+ * Function: getMonthI2C()
+ * Input: None
+ * Output: None 02
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     month = 0x05
+ * bitRanges:
+ *     month = 0x1f
+ * goodRanges:
+ *     month = 12
+ ********************************************************************/
+int getMonthI2C(){
+   return getI2Cdata(0x05,0x1f,12);
+}
+/*********************************************************************
+ * Function: getMinuteI2C()
+ * Input: None
+ * Output: None 02
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     hour = 0x01
+ * bitRanges:
+ *     hour = 0x7f
+ * goodRanges:
+ *     date = 59
+ ********************************************************************/
+int getMinuteI2C(){
+   return getI2Cdata(0x01,0x7f,59);
+}
+/*********************************************************************
+ * Function: getHourI2C()
+ * Input: None
+ * Output: None 02
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     hour = 0x02
+ * bitRanges:
+ *     hour = 0x3f
+ * goodRanges:
+ *     date = 23
+ ********************************************************************/
+int getHourI2C(){
+   return getI2Cdata(0x02,0x3f,23);
+}
+/*********************************************************************
+ * Function: getI2Cdata()
+ * Input: address of desired information
+ *        the range of bits expected
+ *        the maximum valid number
+ * Output: a value in BCD
+ * Overview: Reads the requested value from the external RTCC.  If an invalid read
  *           occurs due to things taking too long or the returned value is not in 
- *          the range from 0-23, the value of hour when this was called is returned 
+ *          the range specified range, the maximum valid value is returned 
  * Addresses:
  *     minute = 0x01
  *     hour = 0x02
@@ -545,12 +621,13 @@ int getSecondI2C(void) //may want to pass char address to it in the future
  *     month = 12
  *     year = 99
  ********************************************************************/
-int getTimeI2C(int address, int bitRange, int goodRange) {
-    int time = 0;
-    
-    
+int getI2Cdata(int address, int bitRange, int goodRange) {
+    int I2Cdata = 0;
+    goodRange = (goodRange/10*16)+(goodRange % 10); // needs to be BCD
+         
     int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
-                     //quit trying if things hang. (usually takes about 410us)
+                     //quit trying if things hang. (usually takes about 410us to get the hour)
+                       // Time allowed is MaxTime * 64usec
     
     configI2c(); // sets up I2C
     TMR1 = 0;  
@@ -564,7 +641,7 @@ int getTimeI2C(int address, int bitRange, int goodRange) {
   // should check for an ACK'
     
      
-    //Write I2C - specify the hour register on MCP7490N
+    //Write I2C - specify the register on MCP7490N for the desired information
     I2C1TRN = address; //address reg. for type of time (ie. hour, second, etc.)
     while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT));  //PIC is transmitting. 
      // should check for an ACK'
@@ -578,14 +655,14 @@ int getTimeI2C(int address, int bitRange, int goodRange) {
      while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)); //Wait for bus to be idle 
   // should check for an ACK'
      
-    //Now read the value for the current hour
+    //Now read the value for the current hour, min, sec etc
     I2C1CONbits.ACKDT = 1; // Prepares to send NACK (we only want 1 byte from RTCC)
     I2C1CONbits.RCEN = 1; // Enable receive mode
     while ((TMR1<MaxTime)&&(!I2C1STATbits.RBF));  // Waits for register to fill up
 
     I2C1CONbits.ACKEN = 1; // Send the NACK set above.  This absence of a ACK' tells slave we don't want any more data
     while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN));  // Waits till ACK is sent (hardware reset)
-    time = I2C1RCV & bitRange; //removes unused bits, expected BCD range
+    I2Cdata = I2C1RCV & bitRange; //removes unused bits, expected BCD range
   
     // Generate a STOP 
     I2C1CONbits.PEN = 1; //Generate Stop Condition
@@ -593,22 +670,17 @@ int getTimeI2C(int address, int bitRange, int goodRange) {
     // How do we know that the value we just got makes sense?
     
     
-    if((TMR1 > MaxTime)||(time > goodRange)){  //something went wrong (BCD 24)
-        time = (hour/10 *16)+(hour % 10); // If the read was unsuccessful, return the last known hour
-                                        // Remember the returned value is supposed to be in BCD
+    if((TMR1 > MaxTime)||(I2Cdata > goodRange)){  //something went wrong 
+        I2Cdata = goodRange; //return the maximum value
         if (address == 2) {
-            extRtccTalked = 0;             // Cleared because RTCC hour didn't update
-            sendDebugMessage("The time update failed", 0);
+            extRtccTalked = 0;             // Cleared because RTCC hour didn't respond, we only care about hour errors
         }
     }
     else if (address == 2){ // if the max time didn't elapsed, the RTCC talked so set the bit
-        sendDebugMessage("The time update succeeded", 0);
-        if (extRtccTalked != 1) {
-            extRtccTalked = 1;
-        }
+        extRtccTalked = 1;
     }
     
-    return time;             
+    return I2Cdata;             
 }
 
 int getWkdayI2C(void) {

@@ -31,13 +31,14 @@
 //char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
 //char DebugphoneNumber[] = "+17177784498"; // Upside 
 
-char DebugphoneNumber[15]; //Number for Paul Zwart cell phone; this number is changed and default is the mainphonenumber
+char DebugphoneNumber[]="+254787620369"; //Number for Paul Zwart cell phone; this number is changed and default is the mainphonenumber
 //char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char MainphoneNumber[]="+17176837803"; // Randy
-char SendingPhoneNumber[]="+17177784498"; //this is read from the received SMS message default to mine
+char SendingPhoneNumber[]="+254787620369"; //this is read from the received SMS message default to mine
 //char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
 //char phoneNumber []="+17176837803"; // Randy
 char* phoneNumber = MainphoneNumber; // Randy
+char CountryCode[] = "+254"; // This is Kenya 
 int LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
 char FONAmsgStatus[11]; //Message REC/STO, UNREAD/READ, UNSENT/SENT
 char SignalStrength[3]; //hold the values of the signal strength
@@ -46,6 +47,10 @@ char SMSMessage[160]; //A string used to hold all SMS message sent with FONA
 int NumCharInTextMsg = 0; //Keeps track of the number of characters in the received text string
 char ReceiveTextMsgFlag = 0; //Set to 1 when a complete text message has been received
 int num_unsent_daily_reports = 0; //this is the number of saved daily reports that have not been sent
+int longest_wait = 4225; // amount of time needed to receive 260 (100header, 160msg) characters at 9600 BAUD
+int diagPCBpluggedIn = 0; // Used to keep track of whether diagnostic PCB is plugged in or not
+int MaxSMSmsgSize = 30;  // number of slots available on SIM to store text messages
+int FONAisON = 0; //Keeps track of whether the FONA has been turned on
 
 
 //char phoneNumber[] = "+2330548345382"; // Number for the Black Phone
@@ -94,7 +99,6 @@ int turnOffSIM() {
     }
     return SIM_OFF;//	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
  }
-
 /*********************************************************************
  * Function: turnOnSIM
  * Input: None
@@ -108,6 +112,36 @@ int turnOffSIM() {
  * delayMs(int ms)
  ********************************************************************/
 int turnOnSIM() {
+    int SIM_ON = 0;  // Assume the SIM is not on
+    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
+    if (digitalPinStatus(statusPin)) { //Checks see if the Fona is already on
+        SIM_ON = 1;
+    }
+    else{
+        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
+        delayMs(2000);
+        digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
+        // Experimental tests showed that it takes 0.8 - 1.3sec for the FONA to turn on
+        delayMs(2000);
+        if (digitalPinStatus(statusPin)) { // See if the FONA turned on
+            SIM_ON = 1;
+        }
+    }
+    return SIM_ON;
+}
+/*********************************************************************
+ * Function: turnOnSIM
+ * Input: None
+ * Output: SIM_ON  this is a 1 if the SIM turned on and 0 if not
+ * Overview: Turns on SIM900 - If the PS (Power Status) pin = 0 the SIM is Off
+ *                             Strobe the KEY pin low for 2 sec and then go high
+ *                            The SIM turns on (PS = 1) after approx. 0.8 - 1.3sec
+ * 
+ * Note: Pic Dependent
+ * TestDate: Not tested as of 12-22-17 RKF
+ * delayMs(int ms)
+ ********************************************************************/
+int turnOnSIM2() {
     int SIM_ON = 0;  // Assume the SIM is not on
     digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
     if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
@@ -145,6 +179,7 @@ int tryToConnectToNetwork() {
     {
         delayMs(1000); // Delay for 1 second
         // Check for network take the appropriate action
+        //if (CheckNetworkConnection()) {
         if (CheckNetworkConnection()) {
             networkConnectionCount++;
             // 4 consecutive connections means we can exit the loop
@@ -178,72 +213,92 @@ int tryToConnectToNetwork() {
  *           Spec:     3064ms if Network = YES (high = 64ms, low = 3000ms)
  *           Measured: 2840ms if Network = YES (high = 52ms, low = 2780ms)
  * 
- *           We call anything less than 1.28sec a valid connection???
- *           If there is no network, we are in this routine between 1.7-6.2 seconds
+ *           We call anything with a low less than 1.28sec No Network Connection
+ *           If there IS network, we are in this routine between 1.28 to 3seconds
+ *           If there is NO Network, we are in this routine between up to 1.8seconds
  * 
  *            * Note: Timer speed dependent
- * TestDate: Not tested as of 03-05-2015
+ * TestDate: 6/27/2018 RKF
  ********************************************************************/
 int CheckNetworkConnection(void) //True when there is a network connection
 {
-  
-    // This is function should only be called once we know the FONA is on.  
+    // This function should only be called once we know the FONA is on.  
     // If the FONA is on, the NET light will blink so we should not get stuck here
     // waiting for 1's and 0's.  Just to be safe, leave if you wait too long for
-    // the initial high or low
+    // a high or low
     
     // The timing in this routine assumes that Timer 1 is clocked at 15.625khz
 
     int network_status = 0;  // Assume there is no network connection
-    
-    // Make sure you start at the beginning of the positive pulse
-    TMR1 = 0;
-    if (digitalPinStatus(netLightPin) == 1) //(PORTBbits.RB14 == 1)
-    { // Wait until the light turns off
-        while (digitalPinStatus(netLightPin)) {
+    int LightIsFlashing = 1; //Assume the light is blinking
+
+    if (digitalPinStatus(netLightPin) == 1){ //(PORTBbits.RB14 == 1)
+    // If the light is ON when we get here, we know we don't have network if it
+    // goes low and stays low for more than 1.15 seconds (TMR1 = 18000).  In this
+    // case we are here for max 1.28sec when there IS a network connection and less if not   
+        
+        // Wait until the light turns off
+        TMR1 = 0;
+        while ((digitalPinStatus(netLightPin))&&(LightIsFlashing)) {
             if(TMR1 > 2000){
-                return network_status;   //waited longer than 128ms (high should be 64ms)
-                                  // if this happens, the light is stuck ON
+                LightIsFlashing = 0; // stop if the light is stuck ON longer than 128ms 
             }
         }
-    }
-    // Wait for rising edge
-    TMR1 = 0;
-    while ((digitalPinStatus(netLightPin) == 0)) {
-         if(TMR1 > 55000){
-                return network_status;   //waited longer than 3.5seconds (low should be 3sec when no network)
-                                  // if this happens, the light is stuck OFF
+        // Wait for next rising edge or stop if we have network
+        TMR1 = 0;
+        while ((digitalPinStatus(netLightPin) == 0)&&(LightIsFlashing)&& (!network_status)) {
+            if(TMR1 > 18000){
+                network_status = 1; 
             }
+        }    
     }
-    // We are now right at the start of a cycle and can measure the time
-    TMR1 = 0;  // Get time at start of positive pulse
-    // Wait for the pulse to go low
-    while (digitalPinStatus(netLightPin)) {
-         if(TMR1 > 2000){
-                return network_status;   //waited longer than 128ms (high should be 64ms)
-                                  // if this happens, the light is stuck ON
+    else {
+    // If the light is OFF when we get here, we need to wait till it goes ON
+    //      if it was OFF for more than 1.15 seconds we know we have network
+    //      if not, we need to wait for the next low and see if it lasts more than
+    //      1.15 seconds.   
+    //      If we enter at the start of a low, we will be here for 3seconds.  
+    //      If more than 1.15 seconds from the end of the low, we are here for less than 3 seconds
+    //      If we enter just less than 1.15 sec from end of first low, we are here for 1.15 + 0.064 + 1.15 = 2.36sec 
+        
+        // Wait for next rising edge
+        TMR1 = 0;
+        while ((digitalPinStatus(netLightPin) == 0)&&(LightIsFlashing)) {
+            if(TMR1 > 55000){
+                LightIsFlashing = 0;  // stop if the line is stuck OFF longer than 3.5 sec max should be 3sec when no network 
             }
-    } 
-    // Wait for the pulse to go high again
-    while (digitalPinStatus(netLightPin) == 0) {
-        if(TMR1 > 55000){
-                return network_status;   //waited longer than 3.5seconds (low should be 3sec when no network)
-                                  // if this happens, the light is stuck OFF
+        }
+        if((LightIsFlashing)&&(TMR1 > 18000)){
+            network_status = 1;
+        }
+        // If needed wait for the next Low
+        if(!network_status){
+            TMR1 = 0;         
+            while ((digitalPinStatus(netLightPin))&&(LightIsFlashing)) {
+                if(TMR1 > 2000){
+                    LightIsFlashing = 0; // stop if the light is stuck ON longer than 128ms 
+                }
             }
-    } 
-    if(TMR1 > 20000){ // No Network pulsing should be 864ms, If pulse is longer than 1.28 sec, Network = YES
-        network_status = 1;  
+            TMR1 = 0;
+            while ((digitalPinStatus(netLightPin) == 0)&&(LightIsFlashing)&& (!network_status)) {
+                if(TMR1 > 18000){
+                    network_status = 1; 
+                }
+            }   
+        }
     }
-    
-    return network_status;  // True, when there is a network connection. (pulses slower than 1.28sec)
-                           
-}
-void sendDebugMessage(char message[50], float value){
+  
+    return network_status;  // True, when there is a network connection. (low lasts longer than 1.1sec)                      
 
+}
+
+
+void sendDebugMessage(char message[50], float value){
+    int msg_length = stringLength(message);
     int SIMwasON = 0;
     if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, turn it off
                                             // the FONA gets messed up if the serial line
-                                            // is sending non AT commands when it is on
+                                            // is sending none AT commands when it is on
        turnOffSIM();
        SIMwasON = 1;
     }
@@ -258,10 +313,16 @@ void sendDebugMessage(char message[50], float value){
         concat(debugMsg, "\n");
         sendMessage(debugMsg);
     }
+
+ 
     if(SIMwasON ==1){
+        // we should wait for the debug message to be sent before turning on the SIM
+        // need to wait about 1ms/character
+        delayMs(msg_length+3);
         turnOnSIM(); // if the SIM was on when you got here, turn it back on
     }
 }
+
 /*********************************************************************
  * Function: sendMessage()
  * Input: String
@@ -269,63 +330,39 @@ void sendDebugMessage(char message[50], float value){
  * Overview: Transmits the characters in the string message[] using the
  *           UART.  BAUD rate is assumed to be 9600
  * Note: Library, Pic Dependent, sendTextMessage() uses this
- * TestDate: 1-26-2018
+ * TestDate: 6-28-2018
  ********************************************************************/
-int sendMessage(char message[160]) {
+int sendMessage(char message[200]) {
     int stringIndex = 0;
     int success = 0;
-   
+    int num_msg_char = 0;
+    int MaxWaitTime = 0;
+    num_msg_char = stringLength(message);
+    MaxWaitTime = num_msg_char*24; //(#char *10bits/char)*(15625/9600)*1.5 (50% safety factor
     U1STAbits.UTXEN = 1; //enable transmit
     TMR1 = 0;  // transmitting 160char (10bits each) at 9600BAUD should take less than 170ms
                // Assuming a 15.625khz clock for timer 1, that is 2656 clock cycles
-    while ((stringIndex < stringLength(message))&&(TMR1 < 2700)) {
-        while((U1STAbits.UTXBF == 1)&&(TMR1 < 2700)){ //wait for the buffer to be ready for the next character
+    while ((stringIndex < num_msg_char)&&(TMR1 < MaxWaitTime)) {
+        while((U1STAbits.UTXBF == 1)&&(TMR1 < MaxWaitTime)){ //wait for the buffer to be ready for the next character
                                                       // but don't allow us to get hung if something is wrong
         }
         U1TXREG = message[stringIndex];
         stringIndex++;
     }
-    if(stringIndex == stringLength(message)){
+    if(stringIndex == num_msg_char){
         success = 1;
     }
     return success;  // report a failure if we don't send the entire string
 }
 /*********************************************************************
- * Function: wasMessageSent
- * Input: msgNum - integer from 1 - 30 indicating which message status to check
- * Output: 0 if the last SMS message is still in the FONA waiting to be sent
- *               this is indicated by it being marked as STO UNSENT
- *         1 if the last SMS message was sent by the FONA
- *               this is indicated by it being marked as STO SENT
- * Overview: Reads the contents of message location #1 this is where all 
- *           sent messages are expected to be.  If the message is marked as STO UNSENT
- *           return a 0
- *           If it is marked as STO SENT, clear location #1 and return a 1
- * TestDate: Not Tested
- * Note:  Being Written
- ********************************************************************/
-int wasMessageSent(int msgNum){
-    int message_sent = 0;
-    readSMSMessage(msgNum);
- 
-    char CmdMatch[]="STO SENT";
-    if(strcmp(CmdMatch, FONAmsgStatus)==0){
-        //the message was sent
-        message_sent = 1;
-    }
-    else{
-        //the message was not sent
-    }
-        
-    
-    return message_sent;    
-}
-/*********************************************************************
  * Function: readMessage()
  * Input: integer between 1-30 indicating which message to read
- * Output: None - two global arrays are modified by this function
+ *        Assumes that the SIM was already turned on
+ * Output: None - three global arrays are modified by this function
  *                ReceiveTextMsg has the message string in it 
  *                SendingPhoneNumber has the phone number of the sender
+ *                FONAmsgStatus contains string indicating if the message slot 
+ *                    was read/unread, unsent/sent etc.
  * Overview: Reads a single text message from the FONA and puts it into 
  *           the string ReceiveTextMsg
  *           ReceiveTextMsgFlag = 1 when a complete message has been received
@@ -333,82 +370,73 @@ int wasMessageSent(int msgNum){
  * TestDate: Not Tested
  ********************************************************************/
 void readSMSMessage(int msgNum) {
-    //int NoMessageThere = 1;  // Assume that there is nothing to read
-    int longest_wait = 2650;
+    int success = 0;
+    success = SetFONAtoTextMode();
     
-    IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
-    U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
-                         // This clears the RXREG FIFO
-    IEC0bits.U1RXIE = 1;  // enable Rx interrupts
-    NumCharInTextMsg = 0; //Point to the start of the Text Message String
-    ReceiveTextMsgFlag = 0; //clear for the next message
-       // AT+CMGF=1  //set the mode to text 
-    sendMessage("AT+CMGF=1\r\n"); //sets to text mode
-
-    TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the echo of the AT+CMGF=1 command from the FONA
-    ReceiveTextMsgFlag = 0; //clear for the next message
-    TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the OK from the FONA
-           
+    if(success == 1){
     // Send the command to the FONA to read a text message
-    // AT+CMGR=1
+    // AT+CMGR=msg_number_to_read
     
-    IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
-    U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+        IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+        U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
                          // This clears the RXREG FIFO
-    NumCharInTextMsg = 0; // Point to the start of the Text Message String
-    ReceiveTextMsgFlag = 0; //clear for the next message
+        NumCharInTextMsg = 0; // Point to the start of the Text Message String
+        ReceiveTextMsgFlag = 0; //clear for the next message
     
-    char localMsg[160];
-    localMsg[0] = 0;
-    char msg_val[3];
-    itoa(msg_val, msgNum, 10);
-    concat(localMsg,"AT+CMGR=");
-    concat(localMsg,msg_val);
-    concat(localMsg,"\r\n");   
-    sendMessage(localMsg); //send command to Read message at index msgNum
-    TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the command echo from the FONA
-
-    
-    // There is about 17ms between the end of the echo of the command until 
-    // The FONA responds with what you asked for
-    // First we will get information about the message followed by a CR
-    ReceiveTextMsgFlag = 0; //clear for the next message
-    TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the first line from the FONA
-    
-    // Here is where I'd like to read the phone number that sent the message
-    // and the status of the message
-    //command echo then +CMGR: "REC READ","+85291234567",,"
-    char *MsgPtr;
-    int msgLength=strlen(ReceiveTextMsg);
-    FONAmsgStatus[0]=0;  //Reset the Fona Message Status array
-    MsgPtr = ReceiveTextMsg+7;// Skip over the " in the echo of the original command
-    while((*MsgPtr != '\"')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
-        MsgPtr++;
+        char localMsg[160];
+        localMsg[0] = 0;
+        char msg_val[3];
+        itoa(msg_val, msgNum, 10);
+        concat(localMsg,"AT+CMGR=");
+        concat(localMsg,msg_val);
+        concat(localMsg,"\r\n");   
+        sendMessage(localMsg); //send command to Read message at index msgNum
+        TMR1 = 0; // start timer for max 260characters (100command header + 160 message) ? what about the 25ms gap between echo and response?
+        while(TMR1<longest_wait){  }
+     
+        // Here is where I'd like to extract information if there is something there
+        FONAmsgStatus[0]=0;  //Reset the Fona Message Status array
+        SendingPhoneNumber[0]=0; //Reset the SendingPhoneNumber
+        int msgLength=strlen(ReceiveTextMsg);
+        if(msgLength > 22){ // if less, there was no message, we either just got OK or ERROR
+        //read the status of the message and the phone number that sent it
+        //command echo then +CMGR: "REC READ","+85291234567",,"
+            char *MsgPtr;
+            MsgPtr = ReceiveTextMsg;
+            // Read whether the message is REC READ, REC UNREAD etc
+            while((*MsgPtr != '\"')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+                MsgPtr++;
+            }
+            MsgPtr++;
+            while((*MsgPtr !='\"')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+                strncat(FONAmsgStatus, MsgPtr,1);
+                MsgPtr++;
+            }
+            //Now get the sending phone number
+            while((*MsgPtr != '+')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+                MsgPtr++;
+            }
+            while((*MsgPtr !='\"')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+                strncat(SendingPhoneNumber, MsgPtr,1);
+                MsgPtr++;
+            }   
+            UpdateSendingPhoneNumber(); // If the caller is local, strip off the country code and replace with 0
+            //Now extract the actual message
+            char *MsgPtr2;
+            MsgPtr2 = ReceiveTextMsg;
+            while((*MsgPtr != '\n')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+                MsgPtr++;
+            }
+            MsgPtr++;
+            while((*MsgPtr !='\n')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
+                *MsgPtr2 = *MsgPtr;
+                MsgPtr++;
+                MsgPtr2++;
+            } 
+            *MsgPtr2 = 0;
+        }    
     }
-    MsgPtr++;
-    while((*MsgPtr !='\"')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
-        //strncpy(FONAmsgStatus, MsgPtr,1);
-        strncat(FONAmsgStatus, MsgPtr,1);
-        MsgPtr++;
-    }
-   
-   // MsgPtr = ReceiveTextMsg+14; //skip over the + at the start
-    while((*MsgPtr != '+')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){
-        MsgPtr++;
-    }
-    strncpy(SendingPhoneNumber,MsgPtr,12);        
-    NumCharInTextMsg = 0; //Point to the start of the Text Message String
-    ReceiveTextMsgFlag = 0; //clear for the next message
-    
-    // Then the message itself is received.  
-    TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1)&&(TMR1<longest_wait)){  } // Read the second line from the FONA
-    // The ReceiveTextMsg array should now have the message
-    IEC0bits.U1RXIE = 0;  // disable Rx interrupts
+    IEC0bits.U1RXIE = 0;  // disable Rx interrupts    
 }
 
 /*********************************************************************
@@ -420,24 +448,41 @@ void readSMSMessage(int msgNum) {
  * Overview: Parses the ReceiveTextMsg character array 
  *           Depending upon the message, different actions are taken.
  * Currently Understood Messages
+ *      AW_I   indicates that a person at the pump wants information
  *      AW_C indicates changes to the RTCC date,month,hour.
  *              AW_C:date,month,delta_hour  ie.  March 12th add 6hrs to hour AW_C:12,03,06
- *      AW_D enable hourly diagnostic messages
+ *      AW_D enable/disable hourly diagnostic messages
  *              AW_D:0 (disable diagnostic messages)
- *              AW_D:1 (enable hourly diagnostic messages)
+ *              AW_D:1 (enable hourly diagnostic messages). When diagnostic messages are 
+ *                      enabled, the phone number sending the command is where the
+ *                      messages are sent and the diagnostic phone number in EEPROM is updated
+ *              AW_D:+############ enable hourly diagnostic messages and update the EEPROM
+ *                      phone number to send these to to the number provided
+ *      AW_P change the phone number used for daily reports
+ *      
+ * 
  * Note: Library
  * TestDate: no tested
  ********************************************************************/
 void interpretSMSmessage(void){
-    char CmdMatch[]="AW_C";
-    if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
+    char CmdMatch[]="AWC";
+    if(strncmp(CmdMatch, ReceiveTextMsg,3)==0){
       updateClockCalendar();
     }  
-    strncpy(CmdMatch,"AW_D",4);
+    strncpy(CmdMatch,"AWD",3);
+    if(strncmp(CmdMatch, ReceiveTextMsg,3)==0){
+      enableDiagnosticTextMessages();
+    } 
+    strncpy(CmdMatch,"AWPN",4);
     if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
-      // Enable diagnostic messages.  Do we want a number to indicate how often these are sent?
-        enableDiagnosticTextMessages();
-    }   
+      // Change the stored country code 
+        ChangeCountryCode();
+    } 
+    strncpy(CmdMatch,"AWI",3);
+    if(strncmp(CmdMatch, ReceiveTextMsg,3)==0){
+        // Report basic information about pump status
+        OneTimeStatusReport();
+    }
 }
 /*********************************************************************
  * Function: updateClockCalendar()
@@ -450,6 +495,8 @@ void interpretSMSmessage(void){
  *           the date, month or hour needs to be changed
  *              AW_C:date,month,delta_hour  
  *              AW_C:12,03,06  March 12th add 6hrs to hour 
+ *           
+ *              AWC 12 3 6 is also accepted
  * 
  *           The cell phone number that sent the message is expected to already
  *           be in the string SendingPhoneNumber
@@ -457,32 +504,70 @@ void interpretSMSmessage(void){
  * TestDate: not tested
  ********************************************************************/
 void updateClockCalendar(){
-     char MsgPart[3];
-     int success = 0;
-     int ext_success = 0;  //see if you were able to change the external RTCC
-     // Get the new date
-     strncpy(MsgPart,ReceiveTextMsg+5,2);
-     char newDate = atoi(MsgPart);      
+    char MsgPart[3];
+    int success = 0;
+    int ext_success = 0;  //see if you were able to change the external RTCC
+    int info_provided = 1; //assume all three fields are reasonable
+    char *MsgPtr;
+    int msgLength=strlen(ReceiveTextMsg);
+    MsgPtr = ReceiveTextMsg;
+    // Skip over to the date
+    while(((*MsgPtr < 0x30)||(*MsgPtr > 0x39))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers
+        MsgPtr++;
+    }
+    // Get the new date
+    MsgPart[0]=0;
+    while(((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers
+        strncat(MsgPart,MsgPtr,1);
+        MsgPtr++;
+    }
+    char newDate = atoi(MsgPart);   
+    if((newDate < 1)||(newDate > 31)){
+        info_provided = 0; // The value in the DATE field is incorrect
+    }
      // Get the new month
-     strncpy(MsgPart,ReceiveTextMsg+8,2);
-     char newMonth = atoi(MsgPart);
+    while(((*MsgPtr < 0x30)||(*MsgPtr > 0x39))&&(MsgPtr < ReceiveTextMsg+msgLength-1)&&(info_provided)){ // skip non-numbers
+        MsgPtr++;
+    }
+    MsgPart[0]=0;
+    while(((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)&&(info_provided)){ // accept numbers
+        strncat(MsgPart,MsgPtr,1);
+        MsgPtr++;
+    }
+    char newMonth = atoi(MsgPart);
+    if((newMonth < 1)||(newMonth > 12)){
+        info_provided = 0; // The value in the MONTH field is incorrect
+    }
      // Get the change to the hour
-     strncpy(MsgPart,ReceiveTextMsg+11,2);
-     char Delta_hour = atoi(MsgPart);
+     while((*MsgPtr != 0x2d)&&!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)&&(info_provided)){ // skip non-numbers except - (neg sign)
+        MsgPtr++;
+    }
+    MsgPart[0]=0;
+    while(((*MsgPtr == 0x2d)||((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)&&(info_provided)){ // accept numbers and - (neg sign)
+        strncat(MsgPart,MsgPtr,1);
+        MsgPtr++;
+    }
+    char Delta_hour = atoi(MsgPart);
+    if((Delta_hour < -23)||(Delta_hour > 23)){
+        info_provided = 0; // The value in the DATE field is incorrect
+    }
    
     // Update the settings for the external RTCC
-    hour = Delta_hour + BcdToDec(getTimeI2C(0x02, 0x3f, 23));
-    if(hour > 23){ // If we want to change 9AM to 7AM we will ask for a change of +22
-        hour = hour - 24;
-    }
-    int year = BcdToDec(getTimeI2C(0x06, 0xff, 99));
-    int wkday = BcdToDec(getWkdayI2C());
-    ext_success = setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
+    if(info_provided){
+        hour = Delta_hour + BcdToDec(getHourI2C());
+        if(hour > 23){ // In case someone adds time that wraps over
+            hour = hour - 24;
+        }
+        int year = BcdToDec(getYearI2C());
+        // int year = BcdToDec(getTimeI2C(0x06, 0xff, 99));
+        int wkday = BcdToDec(getWkdayI2C());
+        ext_success = setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
     
-    // Update the settings for the internal RTCC
-    initializeVTCC(0, 0, hour, newDate, newMonth);
+        // Update the settings for the internal RTCC
+        initializeVTCC(0, 0, hour, newDate, newMonth);
                
-    // Now we want to reply to the sender telling it what we just did
+        // Now we want to reply to the sender telling it what we just did
+    }
     success = turnOnSIM();  // returns 1 if the SIM powered up)
     if(success == 1){
         // Try to establish network connection
@@ -496,16 +581,22 @@ void updateClockCalendar(){
             char hour_val[3];
             itoa(hour_val, hour, 10);
             // concat(localMsg,"Changed hour to ");
-            if(ext_success ==1){
+            if((ext_success)&&(info_provided)){
                 concat(localMsg,"Changed internal/external RTCC hour to ");
                 concat(localMsg, hour_val);
             }
-            else{
-                concat(localMsg," Changed only internal RTCC hour to ");
+            else if((!ext_success)&&(info_provided)){
+                concat(localMsg,"Changed only internal RTCC hour to ");
                 concat(localMsg, hour_val);
+            }
+            else{
+                concat(localMsg,"No Change to hour, improper Date, Day or Delta hour provided ");
             }
             
             sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
+            // I think I  need to wait until it is sent.  See the Daily Report code.
+            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+            ReadSIMresponse(CmdMatch); // this looks for the response from the FONA that the message has been received
             phoneNumber = MainphoneNumber;
         }
     }
@@ -520,30 +611,116 @@ void updateClockCalendar(){
  *                SendingPhoneNumber has the phone number of the sender
  * Output: None
  * Overview: An SMS message was received (in the string ReceiveTextMsg)
- *           with the AW_D prefix indicating that
- *           the hourly diagnostic messages should either be enabled (1)
- *                                                        or disabled (0)
- * MAKE IT SO THAT A 2 CHANGES THE DIAGNOSTICE PHONE NUMBER TO BE THE NUMBER THAT SENT THIS COMMAND
- *           The cell phone number that sent the message is expected to already
- *           be in the string SendingPhoneNumber
- * Note: Library
+ *           with the AWD prefix indicating that
+ *           the hourly diagnostic messages should either be 
+ *              0 = disabled
+ *              1 = enabled
+ *              2 (phone number) = enabled and recipient phone number changed to
+ *                                 the number provided.
+  * Note: Library
  * TestDate: not tested
  ********************************************************************/
 void enableDiagnosticTextMessages(){
+    int success;
+    char *MsgPtr;
     char MsgPart[3];
-    int success = 0;
-    strncpy(MsgPart,ReceiveTextMsg+5,1);
-    int diagnostic_setting = atoi(MsgPart);  
-    if(diagnostic_setting == 0){
-        diagnostic = 0;
+    char localMsg[160];
+    localMsg[0] = 0;
+    MsgPtr = ReceiveTextMsg;
+    int DiagnosticMode = 0;
+    int msgLength=strlen(ReceiveTextMsg);
+    // Skip over to the desired mode (0,1,2)
+    while(((*MsgPtr < 0x30)||(*MsgPtr > 0x39))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers
+        MsgPtr++;
     }
-    if(diagnostic_setting > 0){
-        diagnostic = 1;
-        if(diagnostic_setting == 2){
-            strncpy(DebugphoneNumber,ReceiveTextMsg+7,13); // change diagnostic phone number
-         }
-    }    
+    // Get the Diagnostic Reporting Mode
+    MsgPart[0]=0;
+    while(((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers
+        strncat(MsgPart,MsgPtr,1);
+        MsgPtr++;
+    }
+    DiagnosticMode = atoi(MsgPart);
+    if(DiagnosticMode == 0){
+        diagnostic = 0; // Disable hourly diagnostic reporting
+        concat(localMsg,"Hourly Diagnostic Messages Have Been DISABLED ");
+    }
+    if(DiagnosticMode == 1){
+        diagnostic = 1; // Enable hourly diagnostic reporting
+        concat(localMsg,"Hourly Diagnostic Messages Have Been ENABLED ");
+    }
+    
+    if(DiagnosticMode == 2){
+        diagnostic = 1; // Enable hourly diagnostic reporting
+        
+        // Change the Diagnostic Phone Number
+        DebugphoneNumber[0]=0;  //Reset the phone number string
+         // Skip to Phone Number
+        while((*MsgPtr != 0x2b)&&!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers except + 
+            MsgPtr++;
+        }
+        if(*MsgPtr != '+'){
+            strncat(DebugphoneNumber,"+",1);
+        }
+        while(((*MsgPtr == 0x2b)||((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers and +
+            strncat(DebugphoneNumber,MsgPtr,1);
+            MsgPtr++;
+        }
+        concat(localMsg,"Hourly Diagnostic Messages Have Been ENABLED to be sent to ");
+        concat(localMsg,DebugphoneNumber);
+        
+    }  
     // Now we want to reply to the sender telling it what we just did
+    success = turnOnSIM();  // returns 1 if the SIM powered up)
+    if(success == 1){
+        // Try to establish network connection
+        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+        if(success == 1){
+        // Send off the data
+            phoneNumber = SendingPhoneNumber;
+                      
+            sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
+            // I think I  need to wait until it is sent.  See the Daily Report code.
+            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+            ReadSIMresponse(CmdMatch); // this looks for the response from the FONA that the message has been received
+            phoneNumber = MainphoneNumber;
+        }
+    }
+    // Should we wait for the message to be sent before trying to work with the FONA?
+    delayMs(40);
+    
+}
+/*********************************************************************
+ * Function: void ChangeCountryCode()
+ * Input: None - must be called after the readSMSMessage
+ *                ReceiveTextMsg has the message string in it 
+ *                SendingPhoneNumber has the phone number of the sender
+ * Output: None
+ * Overview: The received message should look like AWPN +254 where 254 is understood
+ *           to be the country code where the pump is installed.
+ *           This function changes the variable CountryCode so that other
+ *           routines can use this information to know if they are responding
+ *           locally or internationally.
+ * TestDate: June 7 2018
+ ********************************************************************/
+void ChangeCountryCode(){
+    char *MsgPtr;
+    int msgLength=strlen(ReceiveTextMsg);
+    MsgPtr = ReceiveTextMsg;
+    CountryCode[0]=0; //reset Country Code String
+
+    // Skip to Country Code
+    while((*MsgPtr != 0x2b)&&!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers except + 
+        MsgPtr++;
+    }
+    if(*MsgPtr != '+'){
+        strncat(CountryCode,"+",1);
+    }
+    while(((*MsgPtr == 0x2b)||((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers and +
+        strncat(CountryCode,MsgPtr,1);
+        MsgPtr++;
+    }
+      // Now we want to reply to the sender telling it what we just did
+    int success = 0;
     success = turnOnSIM();  // returns 1 if the SIM powered up)
     if(success == 1){
         // Try to establish network connection
@@ -554,14 +731,12 @@ void enableDiagnosticTextMessages(){
             // Need to make dataMessage
             char localMsg[160];
             localMsg[0] = 0;
-            if(diagnostic == 0){
-                concat(localMsg,"Hourly Diagnostic Messages Have Been DISABLED ");
-            }
-            else{
-                concat(localMsg,"Hourly Diagnostic Messages Have Been ENABLED ");
-            }
-            
+            concat(localMsg,"Changed Country Code to ");
+            concat(localMsg,CountryCode);
             sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
+            // I think I  need to wait until it is sent.  See the Daily Report code.
+            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+            ReadSIMresponse(CmdMatch); // this looks for the response from the FONA that the message has been received
             phoneNumber = MainphoneNumber;
         }
     }
@@ -570,32 +745,192 @@ void enableDiagnosticTextMessages(){
     
 }
 /*********************************************************************
- * Function: sendDebugTextMessage()
- * Input: String
+ * Function: void UpdateSendingPhoneNumber()
+ * Input: None - must be called after the readSMSMessage
+ *                ReceiveTextMsg has the message string in it 
+ *                SendingPhoneNumber has the phone number of the sender
  * Output: None
- * Overview: sends a Text Message to which ever phone number is in the variable 'DebugphoneNumber'
- *           we expect to be in this routine for 15.5sec, however, each character
- *           of each message takes some time that has not yet been calculated
- * Note: Library
- * TestDate: 01-12-2017
+ * Overview: If the sending phone number is from the same country, we want to 
+ *           replace the +CountryCode with a 0 before replying
+ *           If the CountryCode = 1, indicating that the system is in the USA,
+ *           the +1 should stay
+ * TestDate: June 7 2018
  ********************************************************************/
-void sendDebugTextMessage(char message[160]) 
-{
- //   turnOnSIM();
-    delayMs(10000);
+void UpdateSendingPhoneNumber(){
+    int LengthCntryCode = strlen(CountryCode);
+    int LengthSendingPhoneNumber = strlen(SendingPhoneNumber);
+    if(strncmp("+1",CountryCode,LengthCntryCode)!=0){ // We are not calling from the USA
+        if(strncmp(CountryCode, SendingPhoneNumber,LengthCntryCode)==0){
+            // replace +country_code with 0
+            SendingPhoneNumber[0]='0';
+            int i;
+            for (i=1;i<(LengthSendingPhoneNumber-LengthCntryCode+1);i++){
+                SendingPhoneNumber[i]=SendingPhoneNumber[i+LengthCntryCode-1];
+            }
+            SendingPhoneNumber[i]=0;        
+        }
+    }
+    
+}
+/*********************************************************************
+ * Function: OneTimeStatusReport()
+ * Input: None - must be called after the readSMSMessage
+ *                ReceiveTextMsg has the message string in it 
+ *                SendingPhoneNumber has the phone number of the sender
+ * Output: None
+ * Overview: An SMS message was received (in the string ReceiveTextMsg)
+ *           with the AWI prefix indicating that
+ *           system status information should be sent to the phone number
+ *           sending the message.
+ * 
+ *           Battery: 3.7
+ *           Network: 5 (number reported by SIM) bad/weak/good
+ *           Date: XX
+ *           Month: XXX
+ *           Hour: XX
+ * 
+ * Note: Library
+ * TestDate: not tested
+ ********************************************************************/
+void OneTimeStatusReport(){
+    int success = 0;
+    char reportValueString[20];
+    success = turnOnSIM();  // returns 1 if the SIM powered up)
+    if(success == 1){
+        // Try to establish network connection
+        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+        if(success == 1){
+        // Send off the data
+            phoneNumber = SendingPhoneNumber;
+            // Need to make dataMessage
+            char localMsg[160];
+            localMsg[0] = 0;
+            concat(localMsg,"Battery: ");
+            floatToString(batteryLevel(), reportValueString); 
+            concat(localMsg,reportValueString);
+            concat(localMsg,"\n Network: ");
+            readFonaSignalStrength();
+            concat(localMsg,SignalStrength); //change this to interpreting as bad,weak,good
+            concat(localMsg,"\n Date: ");
+            floatToString(BcdToDec(getDateI2C()),reportValueString);
+            concat(localMsg,reportValueString);
+            concat(localMsg,"\n Month: ");
+            floatToString(BcdToDec(getMonthI2C()),reportValueString);
+            concat(localMsg,reportValueString);
+            concat(localMsg,"\n Hour: ");
+            //other places I add 1313 to hour
+            floatToString(hour,reportValueString);
+            concat(localMsg,reportValueString);
+            
+            
+            sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
+            // I think I  need to wait until it is sent.  See the Daily Report code.
+            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+            ReadSIMresponse(CmdMatch); // this looks for the response from the FONA that the message has been received
+            phoneNumber = MainphoneNumber;
+        }
+    }
+    // Should we wait for the message to be sent before trying to work with the FONA?
+    delayMs(40);
+    
+}
+/*********************************************************************
+ * Function: int SetFONAtoTextMode(void);
+ * Inputs: None
+ * Output: 1 if the command to go to Text mode received a response of OK
+ *         0 if there was no response or not OK
+ * Overview: Call this before sending any other AT commands to make sure 
+ *           the FONA is in text mode.  This waits for the echo
+ *           of the command and an OK, or for a timeout waiting for a reply
+ * Note: Library
+ * TestDate: 6/23/2018
+ ********************************************************************/
+int SetFONAtoTextMode(void){
+    int success = 0; 
+    char CmdMatch[]="OK";
+    IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+    U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+                         // This clears the RXREG FIFO
+    IEC0bits.U1RXIE = 1;  // enable Rx interrupts
+    NumCharInTextMsg = 0; //Point to the start of the Text Message String
+    ReceiveTextMsgFlag = 0; //clear for the next message
+       // AT+CMGF=1  //set the mode to text 
     sendMessage("AT+CMGF=1\r\n"); //sets to text mode
-    delayMs(250);
-    sendMessage("AT+CMGS=\""); //beginning of allowing us to send SMS message
-    sendMessage(DebugphoneNumber);
-    sendMessage("\"\r\n"); //middle of allowing us to send SMS message
-    delayMs(250);
-    sendMessage(message);
-    delayMs(250);
-    sendMessage("\x1A"); // method 2: sending hexidecimal representation
-    // of 26 to sendMessage function (line 62)
-    // & the end of allowing us to send SMS message
-    delayMs(5000); // Give it some time to send the message
- //   turnOffSIM();
+
+    TMR1 = 0; // start timer for max 260 (100 command echo + 160 message) characters
+    while(TMR1<longest_wait){  }
+    char *MsgPtr;
+    int msgLength=strlen(ReceiveTextMsg);
+    MsgPtr = ReceiveTextMsg;// See if message contains the expected reply
+    while(MsgPtr < ReceiveTextMsg+msgLength-1){
+        if(strncmp(CmdMatch, MsgPtr,2)==0){
+            success = 1;
+        }
+        MsgPtr++;
+    }    
+    return success;
+
+}
+/*********************************************************************
+ * Function: int AreThereTextMessagesToRead(void);
+ * Inputs: None
+ * Output: 0 if there are no messages waiting
+ *         # number of unread messages
+ *         Also changes a Global variable MaxSMSmsgSize to reflect the total number of 
+ *         SMS slots available to hold messages.  This differs depending upon the SIM carrier
+ * Overview: sends the command to the FONA board to see how many of the 
+ *           30 message slots have something in them.  We don't know where
+ *           these are, we just know how many
+ * Note: Library
+ * TestDate: not yet tested
+ ********************************************************************/
+int AreThereTextMessagesToRead(void) 
+{
+    //int longest_wait = 2650;
+    int number_of_unread_messages = 0;
+    int success = 0;
+    success = SetFONAtoTextMode();
+    if(success ==1){
+         //AT+CPMS="SM" //Specifies that we are working with the message storage on the SIM card
+        IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+        U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+                         // This clears the RXREG FIFO
+        NumCharInTextMsg = 0; // Point to the start of the Text Message String
+        ReceiveTextMsgFlag = 0; //clear for the next message
+    
+        sendMessage("AT+CPMS=\"SM\"\r\n"); 
+        TMR1 = 0; // start timer for max 160characters
+        while(TMR1<longest_wait){  } // Read the command echo and the reply
+    
+        // The response is now in the array ReceiveTextMst
+        // The response looks like  +CPMS: 0,30,0,30,0,30 meaning there are 0 messages in the 30 slots
+        char *MsgPtr;
+        char unread_msg[3];
+        unread_msg[0]=0;
+        int msgLength=strlen(ReceiveTextMsg);
+        MsgPtr = ReceiveTextMsg;
+        // Get the number of messages
+        while(!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers 
+            MsgPtr++;
+        }
+        while((((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers
+            strncat(unread_msg, MsgPtr,1); // read the number of waiting messages
+            MsgPtr++;
+        }
+        number_of_unread_messages = atoi(unread_msg);
+        //Now see how many message slots there are (this varies with SIM card)
+        unread_msg[0]=0;
+        MsgPtr++;
+        while(!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers 
+            MsgPtr++;
+        }
+        while((((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers
+            strncat(unread_msg, MsgPtr,1); // read the number of waiting messages
+            MsgPtr++;
+        }
+        MaxSMSmsgSize = atoi(unread_msg);
+    } 
+    return number_of_unread_messages; 
 }
 
 /*********************************************************************
@@ -612,35 +947,81 @@ void sendDebugTextMessage(char message[160])
  *      "received read", "stored unsent" or "stored sent" from the message storage area.
  *  4 = Ignore the value of MsgNum and delete all SMS messages from the message storage area.
  * 
- * Output: None
+ * Output: The number of messages prior to clearing this one
  * Overview: sends the command to the FONA board which clears its buffer of 
  *           messages.  This includes messages that have not yet been read
  * Note: Library
  * TestDate: not yet tested
  ********************************************************************/
-void ClearReceiveTextMessages(int MsgNum, int ClrMode) 
+int ClearReceiveTextMessages(int MsgNum, int ClrMode) 
 {
+    int number_of_unread_messages = 0;
     char MsgNumString[20];
     char ClrModeString[20];
     char MessageString[20];
+    int success = 0;
     longToString(MsgNum, MsgNumString);
     longToString(ClrMode, ClrModeString);
-    //AT+CMGF=1  //set the mode to text
-    sendMessage("AT+CMGF=1\r\n"); //sets to text mode
-    delayMs(250);  // Delay while the FONA replies OK
-    //AT+CPMS="SM" //Specifies that we are working with the message storage on the SIM card
-    sendMessage("AT+CPMS=\"SM\"\r\n"); 
-     delayMs(250);  // Delay while the FONA replies with the number of messages already in storage
-    // AT+CMGD=MsgNum,ClrMode  This is the delete command 
-    MessageString[0]=0; //Clear the message string    
-    concat(MessageString, "AT+CMGD=");
-    concat(MessageString, MsgNumString);
-    concat(MessageString, ",");
-    concat(MessageString, ClrModeString);
-    concat(MessageString, "\r\n");
-    sendMessage(MessageString); 
-    delayMs(250);// Delay while the FONA replies OK
-    sendMessage("\x1A"); // this terminates an AT SMS command
+        
+    success = SetFONAtoTextMode();
+    if(success == 1){
+        //AT+CPMS="SM" //Specifies that we are working with the message storage on the SIM card
+        IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+        U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+                             // This clears the RXREG FIFO
+        NumCharInTextMsg = 0; // Point to the start of the Text Message String
+        ReceiveTextMsgFlag = 0; //clear for the next message
+        sendMessage("AT+CPMS=\"SM\"\r\n"); 
+        //We don't use the reply yet but wait for it to finish
+        TMR1 = 0; // start timer for max 260characters (100command header + 160 message) ? what about the 25ms gap between echo and response?
+        while(TMR1<longest_wait){  }
+     
+        // AT+CMGD=MsgNum,ClrMode  This is the delete command 
+        ReceiveTextMsgFlag = 0; //clear for the next message
+        NumCharInTextMsg = 0; // Point to the start of the Text Message String
+        MessageString[0]=0; //Clear the message string    
+        concat(MessageString, "AT+CMGD=");
+        concat(MessageString, MsgNumString);
+        concat(MessageString, ",");
+        concat(MessageString, ClrModeString);
+        concat(MessageString, "\r\n");
+        sendMessage(MessageString); 
+        delayMs(250);// Delay while the FONA replies OK
+        sendMessage("\x1A"); // this terminates an AT SMS command
+    
+        // We should have just deleted all READ messages.
+        // Use the AT+CPMS="SM" command to see how many UNREAD messages remain
+        number_of_unread_messages = AreThereTextMessagesToRead();
+        //IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+        //U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+                             // This clears the RXREG FIFO
+        //NumCharInTextMsg = 0; // Point to the start of the Text Message String
+        //ReceiveTextMsgFlag = 0; //clear for the next message
+        //sendMessage("AT+CPMS=\"SM\"\r\n"); 
+        //TMR1 = 0; // start timer for max 260characters (100command header + 160 message) 
+        //while(TMR1<longest_wait){  }
+        // The response is now in the array ReceiveTextMsg
+        // The response looks like  +CPMS: 0,30,0,30,0,30 meaning there are 0 messages in the 30 slots
+        //char *MsgPtr;
+        //int msgLength=strlen(ReceiveTextMsg);
+        //MsgPtr = ReceiveTextMsg;// Skip over the +CPMS: part
+        //while(((*MsgPtr < 0x30)||(*MsgPtr > 0x39))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers
+        //    MsgPtr++;
+       // }
+        // Get the number of messages
+        //char unread_msg[3];
+        //int i = 0;
+        //unread_msg[0]=0;
+        //while(((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)&&(i<3)){ // accept numbers
+        //    strncat(unread_msg,MsgPtr,1);
+        //    MsgPtr++;
+        //    i++;
+        //}
+        //number_of_unread_messages = atoi(unread_msg);
+        // End of see how many    
+    }
+    
+    return number_of_unread_messages;
 }
 /*********************************************************************
  * Function: sendTextMessage()
@@ -649,26 +1030,26 @@ void ClearReceiveTextMessages(int MsgNum, int ClrMode)
  * Overview: sends an SMS Text Message to which ever phone number is in the variable 'phoneNumber'
  *           
  * Note: Library
- * TestDate: Needs to be retested
+ * TestDate: 6/28/2018
  ********************************************************************/
 int sendTextMessage(char message[160]) 
 {
     int success = 0;
  //   The SIM should have been turned on prior to getting here;
     
-    success = sendMessage("AT+CMGF=1\r\n"); //sets to text mode
-    delayMs(250);
-    success = sendMessage("AT+CMGS=\""); //beginning of allowing us to send SMS message
-    success = sendMessage(phoneNumber);
-    success = sendMessage("\"\r\n"); //middle of allowing us to send SMS message
-    delayMs(250);
-    success = sendMessage(message);
-    delayMs(250);
-    success = sendMessage("\x1A"); // this terminates an AT SMS command
     
+    success = SetFONAtoTextMode(); //sets to text mode
+    if(success){
+        success = sendMessage("AT+CMGS=\""); //beginning of allowing us to send SMS message
+        success = sendMessage(phoneNumber);
+        success = sendMessage("\"\r\n"); //middle of allowing us to send SMS message
+        delayMs(250);
+        success = sendMessage(message);
+        delayMs(250);
+        success = sendMessage("\x1A"); // this terminates an AT SMS command
+    }
     return success;
 }
-
  
 /*********************************************************************
  * Function: CreateNoonMessage(int)
@@ -919,8 +1300,8 @@ void CreateAndSaveDailyReport(void){
         effective_address++;
     }
   // add the date stuff
-    date = 100*BcdToDec(getTimeI2C(0x05, 0x1f, 12));
-    date = date + BcdToDec(getTimeI2C(0x04, 0x3f, 31));
+    date = 100*BcdToDec(getMonthI2C());
+    date = date + BcdToDec(getDateI2C());
     EEFloatData = date;
     EEProm_Write_Float(effective_address,&EEFloatData);
 
@@ -949,7 +1330,6 @@ int SendSavedDailyReports(void){
     int message_position;
     int effective_address;  //EEProm position.  We assume each position is a float and start at 0
     // Turn on the FONA
-    sendDebugMessage("Trying to send a daily or diagnostic message", 1);
     ready = turnOnSIM();
     ready = tryToConnectToNetwork(); // This will try 7 times to connect to the network
     
@@ -994,7 +1374,7 @@ int SendSavedDailyReports(void){
         if(numberTries > 30) {
             break;
         }
-        ready = CheckNetworkConnection();
+        ready = CheckNetworkConnection(); // QUESTION:  Is the SIM ON at this point?
         if(ready == 1) {
             phoneNumber = DebugphoneNumber;
 
@@ -1053,67 +1433,47 @@ int SendSavedDailyReports(void){
  * Overview:  Asks the FONA what the current cellular signal strength is and then put the value
  *           in an array. The value saved is a value corresponding to the signal strength, not the signal
  *           strength itself.
- * TestDate: 
+ *           2-9 = Marginal (some say you can do SMS at 5, voice at 10 and data at 20)
+ *           10-14 = OK
+ *           15-19 = Good
+ *           20-30 = Excellent
+ * TestDate: 6/28/2018 RKF
  ********************************************************************/
 
 void readFonaSignalStrength(void) {
-    int i = 0; // local counter
-    int localcounter = 0;
-    int longest_wait = 2650;
+    strncpy(SignalStrength,"0",1); //Set the signal strength to a default of 0
+    int success = 0;
+    success = SetFONAtoTextMode();
     
-    IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
-    U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+    if(success == 1){
+        IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+        U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
                          // This clears the RXREG FIFO
-    IEC0bits.U1RXIE = 1;  // enable Rx interrupts
-    NumCharInTextMsg = 0; //Point to the start of the Text Message String
-    ReceiveTextMsgFlag = 0; //clear for the next message
-    //ReceiveTextMsg[0]=0;  //Reset the receive text message array
-      
-    sendMessage("AT+CSQ\r"); //Read message at index msgNum
-    TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the command echo from the FONA
-    if (TMR1 > longest_wait) {
-        for (i; i < 3; i++) { // clear the signal strength array
-            SignalStrength[i]=0;
+        NumCharInTextMsg = 0; // Point to the start of the Text Message String
+        ReceiveTextMsgFlag = 0; //clear for the next message
+        ReceiveTextMsg[0]=0;  //Reset the receive text message array
+        sendMessage("AT+CSQ\r\n"); //Request network signal strength
+        
+        TMR1 = 0; // start timer for max 260characters (100command header + 160 message) this should also cover the  approx 25ms gap between echo and response
+        while(TMR1<longest_wait){  }
+        IEC0bits.U1RXIE = 0;  // disable Rx interrupts
+        
+        // Here is where I'd like to extract information if there is something there
+        char *MsgPtr;
+        MsgPtr = ReceiveTextMsg; //set the pointer to the response
+        int msgLength=strlen(ReceiveTextMsg);
+        while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //advance pointer to the colon
+            MsgPtr++;
         }
-        return;
-    }
-    
-    // There is about 17ms between the end of the echo of the command until 
-    // The FONA responds with what you asked for
-    ReceiveTextMsgFlag = 0; //clear for the next message
-    NumCharInTextMsg = 0; //Point to the start of the Text Message String
-    TMR1 = 0; // start timer for max 160characters
-    while((ReceiveTextMsgFlag<1) && (TMR1<longest_wait)){  } // Read the first line from the FONA
-    if (TMR1 > longest_wait) {
-        for (i; i < 3; i++) { // clear the signal strength array
-            SignalStrength[i]=0;
+        MsgPtr++;
+        if(MsgPtr<ReceiveTextMsg+msgLength-1){
+            SignalStrength[0]=0; // clear the signal strength array
         }
-        return;
+        while((*MsgPtr != ',')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //when we reach a comma, we have read over the signal strength and should stop reading
+            strncat(SignalStrength, MsgPtr, 1); //save signal strength number in array
+            MsgPtr++;
+        }
     }
-    ReceiveTextMsgFlag = 0; //clear for the next message
-     IEC0bits.U1RXIE = 0;  // enable Rx interrupts
-    
-    char *MsgPtr;
-    MsgPtr = ReceiveTextMsg; //set the pointer to the response
-    //turnOffSIM();
-    //sendDebugMessage(ReceiveTextMsg, 3);
-    int msgLength=strlen(ReceiveTextMsg);
-    for (i; i < 3; i++) { // clear the signal strength array
-        SignalStrength[i]=0;
-    }
-
-    while((*MsgPtr != ':')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //advance pointer to the colon
-        MsgPtr++;
-    }
-    MsgPtr = MsgPtr + 2; //move pointer past colon and space
-    while((*MsgPtr != ',')&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ //when we reach a comma, we have read over the signal strength and should stop reading
-        //strncat(SignalStrength, MsgPtr, 1); //save signal strength number in array
-        SignalStrength[localcounter] = *MsgPtr;
-        MsgPtr++;
-        localcounter++;
-    }
-    SignalStrength[localcounter] = 0;
 }
 
 /*********************************************************************
@@ -1193,33 +1553,37 @@ void checkDiagnosticStatus(void){
 }
 
 /*********************************************************************
- * Function: void createVerificationMessage(void)
+ * Function: void InstallationMessages(void)
  * Input: none
  * Output: none
- * Overview:  Creates the message to be sent to verify that a system is working properly. 
+ * Overview:  This is only called if the external Diagnostic PCB is 
+ *            plugged in.  If that is the case, the FONA is enabled to 
+ *            continually check and respond to text messages 
  * TestDate: 
  ********************************************************************/
-
-void createVerificationMessage(void) {
-    char LocalString[20]; 
-    float LocalFloat = hour;
-    SMSMessage[0] = 0; //reset SMS message array to be empty
-    LocalString[0] = 0;
-    
-    concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"b\":");
-    floatToString(batteryFloat, LocalString); //latest battery voltage
-    concat(SMSMessage, LocalString);
-    concat(SMSMessage, ",\"t\":");
-    floatToString(LocalFloat, LocalString); // what it thinks the hour is
-    concat(SMSMessage, LocalString);
-    concat(SMSMessage, ",\"d\":");
-    date = 100*BcdToDec(getTimeI2C(0x05, 0x1f, 12));
-    date = date + BcdToDec(getTimeI2C(0x04, 0x3f, 31));
-    floatToString((float)date, LocalString);
-    concat(SMSMessage, LocalString);
-    concat(SMSMessage, ",\"w\":");
-    readFonaSignalStrength();
-    concat(SMSMessage, SignalStrength); // The cellular signal
-    
-    concat(SMSMessage, ">))");
-} 
+void InstallationMessages(void){
+    if(diagPCBpluggedIn == 0){ // did we just detect that it was plugged in?
+        delayMs(100);  //Wait for the debug message to print 1ms/char
+        FONAisON = turnOnSIM();
+        FONAisON = turnOnSIM(); // DEBUG
+        
+        delayMs(10000); // Give FONA time to get messages from the network
+        if(FONAisON){
+            diagPCBpluggedIn = 1;
+        }
+    }
+    if(FONAisON){
+        int msg_remaining = 0;
+        msg_remaining = AreThereTextMessagesToRead();
+        if(msg_remaining){ //Only read messages if there are any to read
+            int msgNum = 1;
+            while((msgNum <= MaxSMSmsgSize)&&(msg_remaining)){
+                readSMSMessage(msgNum);
+                interpretSMSmessage();
+                msg_remaining = ClearReceiveTextMessages(msgNum, 2); // Clear the message just read from the message storage area                    
+                msgNum++;
+            }
+        }
+    }
+        
+}
