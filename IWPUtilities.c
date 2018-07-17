@@ -245,9 +245,6 @@ void initialization(void) {
     char localDate = 1;
     char localMonth = 5;
     char localYear = 18;
-    
-    float LocalFloatUpper = 188;
-    float LocalFloatLower = 453612989;
     ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
     ANSA = 0; // Make PORTA digital I/O
@@ -259,23 +256,14 @@ void initialization(void) {
                            // use this pin to detect when the Diagnostic board is plugged in.
     PORTBbits.RB0 = 1;  //DEBUG Set this high,  When we go to sleep we will make it low
     
-    // pinDirectionIO(sclI2CPin, 0);                                            //TRISBbits.TRISB8 = 0; // RB8 is an output
-    //OSCCONbits.SOSCEN = 0b01;
-    //OSCCONbits.COSC = 0b100;
-    //CLKDIVbits.DOZE = 0b00;
-    
-    /*while(1){
-        LATBbits.LATB0 = 1;
-        LATBbits.LATB0 = 0;
-    }*/
-    
-    // Timer control (for WPS)
+  
+    // Timer control (for WPS and FONA interactions)
     T1CONbits.TCS = 0; // Source is Internal Clock if FNOSC = FRC, Fosc/2 = 4Mhz
     T1CONbits.TCKPS = 0b11; // Prescalar to 1:256 
                             // if FNOSC = FRC, Timer Clock = 15.625khz
     T1CONbits.TON = 1; // Enable the timer (timer 1 is used for the water sensor and checking for network)
 
-    // Timer control (for getHandleAngle())
+    // Timer control (for internal VTCC time calculations)
     T2CONbits.TCS = 0; //Source is Internal Clock Fosc/2  if #pragma config FNOSC = FRC, Fosc/2 = 4Mhz
     T2CONbits.T32 = 0; // Using 16-bit timer2
     T2CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this) 
@@ -316,7 +304,6 @@ void initialization(void) {
     pinDirectionIO(simVioPin, 0); //TRISAbits.TRISA1 = 0; //sets Vio as an output (pin 3)
     digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
     digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-    LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
     turnOffSIM();//Make sure the FONA board is powered down
 
     //depth sensor I/O         
@@ -336,23 +323,7 @@ void initialization(void) {
     angle8 = getHandleAngle();
     angle9 = getHandleAngle();
     angle10 = getHandleAngle();
-    // If this is the first time the board is programmed, you need to set the 
-    // RTCC to the proper values
-    //void setTime(char sec, char min, char hr, char wkday, char date, char month, char year)
-    //        external RTCC expects day of the week to be 1-7, internal RTCC expects 0-6 lets call Sunday 1
-    //setTime(0,10,11,6,13,01,17); //Friday Jan 13 11:10 AM
-    //  setTime(0,14,15,5,19,01,17); //Sunday Jan 15 6:11 PM - my debug system
-    //   setTime(0,30,11,1,16,01,17); //  YiWogu
-    // setTime(0,45,12,1,16,01,17); //  Kapachelo
-    //setTime(0,30,13,1,16,01,17); //  gbumgbum
-    ///setTime(0,03,15,1,16,01,17); //  Kpukpalibu
-////    setTime(0,07,14,1,17,01,17); //  fong should have been day 3
-/////       setTime(0,03,17,3,17,01,17); //  Guishigu
-/////      setTime(0,32,8,5,19,01,17); //  Zantele
- //     (sec, min, hr, wkday, date, month, year)  
- //setTime(0,18,13,6,7,07,17); //  Indoor system 7/7/2017
-   //  setTime(0,03,15,6,24,03,17); //  Outdoor system 3/23/2017
-    
+     
     // We may be waking up because the battery was dead.  If that is the case,
     // Restart Status, EEProm#20, will be zero and we want to continue using 
     // the leakRateLong and longestPrime from EEProm. Otherwise, it will be a
@@ -380,21 +351,17 @@ void initialization(void) {
     // check the diagnostic status and phone number
     //EEProm_Write_Float(DiagnosticEEPromStart + 2, &LocalFloatLower);
     //EEProm_Write_Float(DiagnosticEEPromStart + 3, &LocalFloatUpper);
-    checkDiagnosticStatus();
+    checkDiagnosticStatus(); 
     
     // do timing things
     hour = BcdToDec(getHourI2C());
     active_volume_bin = hour/2;  //Which volume bin are we starting with
     prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
-    month = BcdToDec(getMonthI2C());
-    
+        
     // just so we know the board is working
     turnOnSIM();
     delayMs(2000);
     turnOffSIM();
-
-    // Debug - not sure about this so wait until I can try it
-    //char* phoneNumber = DebugphoneNumber;
 }
 /////////////////////////////////////////////////////////////////////
 ////                                                             ////

@@ -82,7 +82,6 @@ void main(void)
     leakRateTimeOut /= upstrokeInterval;
 	int handleMovement = 0; // Either 1 or no 0 if the handle moving upward
 	int timeOutStatus = 0; // Used to keep track of the water prime timeout
-    int diagPCBpluggedIn = 0; // Used to keep track of whether diagnostic PCB is plugged in or not
     
 	float angleCurrent = 0; // Stores the current angle of the pump handle
 	float anglePrevious = 0; // Stores the last recorded angle of the pump handle
@@ -100,8 +99,8 @@ void main(void)
     //                    DEBUG
     // print_debug_messages controls the debug reporting
     //   0 = send message only at noon to upside Wireless
-    //   1 = print debug messages to Tx but send only noon message to Upside
-    //   2 = print debug messages, send hour message after power up and every hour
+    //   1 = print debug messages to Tx but send only noon message to Upside (MainphoneNumber[])
+    //  ? do we do this one still ? 2 = print debug messages, send hour message after power up and every hour
     //       to debug phone number.  Still sends noon message to Upside
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
@@ -111,7 +110,7 @@ void main(void)
     
 
     
-    print_debug_messages = 2;                                        //// We always want to print this out
+    print_debug_messages = 1;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
@@ -136,24 +135,19 @@ void main(void)
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		while (handleMovement == 0)
 		{ 
-            int msgNum = 0;        
-            ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT 
+           ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT 
 
-           // PUT THIS CODE BACK //  if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in
-           while(1){     // DEBUG
-                 InstallationMessages(); //See if there are any text messages
+           if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in
+                 CheckIncommingTextMessages(); //See if there are any text messages
+                                         // the SIM is powered ON at this point
            }
-          //   }
-           //  else{
-           //     if(diagPCBpluggedIn == 1){
-            //        turnOffSIM();
-            //    }
-           //     diagPCBpluggedIn = 0;
-           // }
-            if(TimeSinceLastHourCheck == 1){ // Check every minute
+           else{
+               if(FONAisON){
+                   turnOffSIM();
+               }
+           }
+            if(TimeSinceLastHourCheck == 1){ // Check every minute, updated in VTCC interrupt routine
                 hour = BcdToDec(getHourI2C());
-                // not used by anything:  minute = BcdToDec(getTimeI2C(0x01, 0x7f, 59)); 
-                                
                 // if the VTCC reaches two minutes past the next hour, and the ext RTCC hasn't updated, 
                 // use the VTCC time to update the RTCC and the local variable 'hour'
                 if ((hourVTCC != hour) && (minuteVTCC >= 2) && (hour == prevHour)){
@@ -164,34 +158,18 @@ void main(void)
                 TimeSinceLastHourCheck = 0; //this gets updated in VTCC interrupt routine
             }  
             // Do hourly tasks
-           //// prevHour = hour -1;  // DEBUG
-            if(hour != prevHour){
-                // not used by anything:  day = BcdToDec(getTimeI2C(0x04, 0x3f, 31));
+           if(hour != prevHour){
                 if (extRTCCset == 0) { //external RTCC is working, update the internal virtual clock values
                     initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
-                    //initializeVTCC(0, BcdToDec(getTimeI2C(0x01, 0x7f, 59)), BcdToDec(getTimeI2C(0x02, 0x3f, 23)), BcdToDec(getTimeI2C(0x04, 0x3f, 31)), BcdToDec(getTimeI2C(0x05, 0x1f, 12)));
                 }
-                
                 // Is it time to record volume from previous time bin to EEProm?
                 if(hour/2 != active_volume_bin){
                     SaveVolumeToEEProm();
                     sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);
                 }
                 // Read messages sent to the system
-                turnOnSIM();
-                delayMs(10000);
-                if(AreThereTextMessagesToRead()){ //Only read messages if there are any to read
-                    int msg_remaining = 1; //There is at least one to read
-                    int msgNum = 0;
-                    for(msgNum = 1;msgNum<31;msgNum++){
-                        readSMSMessage(msgNum);
-                        interpretSMSmessage();
-                        /// DEBUG, put back msg_remaining = ClearReceiveTextMessages(msgNum, 2); // Clear the message just read from the message storage area                    
-                        if(msg_remaining == 0){
-                            msgNum = 31; //stop looking for another message
-                        }
-                    }
-                }
+                CheckIncommingTextMessages();  // Reads and responds to any messages sent to the system
+                // The SIM is ON at this point
                 // If it is noon, save a daily report
                 if(hour == 12){
                     CreateAndSaveDailyReport();

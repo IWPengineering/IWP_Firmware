@@ -49,7 +49,6 @@ extern int FONAisON; //Keeps track of whether the FONA has been turned on
 // ****************************************************************************
 int turnOffSIM();
 int turnOnSIM();
-int turnOnSIM2();
 int tryToConnectToNetwork(); //tries to connect to the network for up to 45 seconds
 int CheckNetworkConnection(void); //checks to see if the network has been acquired
 int ReadSIMresponse(char expected_reply[10]); //called after an AT command is sent to the FONA, looks for a defined response
@@ -70,9 +69,10 @@ void checkDiagnosticStatus(void);
 void readFonaSignalStrength(void); // Asks the FONA for the strength of the network signal
 void OneTimeStatusReport(void); // reports various system status information one time to requesting phone number
 int AreThereTextMessagesToRead(void); //Checks # of waiting messages in FONA and total number of message slots for this SIM card
-void InstallationMessages(void); // This routine is called if the diagnostic PCB is plugged in
+void CheckIncommingTextMessages(void); // This routine is called to read and process text messages which have been received
 void ChangeCountryCode(void); // Changes the saved variable Country Code
 void UpdateSendingPhoneNumber(void); //If the sending number is local, remove country code
+void ChangeDailyReportPhoneNumber(void); //Changes the number used for daily reports MainphoneNumber[]
 
 
 

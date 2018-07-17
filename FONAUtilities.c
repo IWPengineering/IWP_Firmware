@@ -75,41 +75,41 @@ int hour_msg_sent = 0;  //set to 1 when the hourly message has been sent
 /*********************************************************************
  * Function: turnOffSIM
  * Input: None
- * Output: NSIM_OFF  this is a 1 if the SIM turned OFF and 0 if not
- * Overview: Turns of the SIM900
+ * Output: SIM_OFF  this is a 1 if the SIM turned OFF and 0 if not
+ * Overview: Powers Down (turns off) the SIM900
  * Note: Pic Dependent
  * TestDate: 12-22-2017 RKF
  ********************************************************************/
 int turnOffSIM() {
     int SIM_OFF = 0;  // Assume the SIM is not off
-    if(LeaveOnSIM == 0){ 
-        digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-        if (digitalPinStatus(statusPin) == 1) { //Checks see if the Fona is ON 1=Yes so turn it off
-            digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn OFF Fona
-            delayMs(2000);
-        }
-        digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned on later (pin 15)
-        // Experiments show the FONA shutting off 7ms BEFORE the KEY is brought back high
-        //    Still wait 100ms before checking.
-        delayMs(100);
-
-        if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is OFF 0 = OFF so don't do anything
-            SIM_OFF = 1;
-        }
+    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
+    if (digitalPinStatus(statusPin) == 1) { //Checks see if the Fona is ON 1=Yes so turn it off
+        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn OFF Fona
+        delayMs(2000);
     }
+    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned on later (pin 15)
+    // Experiments show the FONA shutting off 7ms BEFORE the KEY is brought back high
+    //    Still wait 100ms before checking.
+    delayMs(100);
+
+    if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is OFF 0 = OFF so don't do anything
+        SIM_OFF = 1;
+    }
+    FONAisON = !SIM_OFF; // Makes FONAisON = 0 when FONA is OFF
     return SIM_OFF;//	while (digitalPinStatus(statusPin) == 1){ //Checks see if the Fona is on pin
  }
 /*********************************************************************
  * Function: turnOnSIM
  * Input: None
  * Output: SIM_ON  this is a 1 if the SIM turned on and 0 if not
- * Overview: Turns on SIM900 - If the PS (Power Status) pin = 0 the SIM is Off
+ * Overview: Turns on SIM900 - If the SIM is already on, just return
+ *                             If it is off, the PS (Power Status) pin = 0,
  *                             Strobe the KEY pin low for 2 sec and then go high
- *                            The SIM turns on (PS = 1) after approx. 0.8 - 1.3sec
+ *                             The SIM should turn on (PS = 1) after approx. 0.8 - 1.3sec
+ *                             wait for 2sec and check to see if it turned on or not
  * 
  * Note: Pic Dependent
- * TestDate: Not tested as of 12-22-17 RKF
- * delayMs(int ms)
+ * TestDate: 7/6/2018 RKF
  ********************************************************************/
 int turnOnSIM() {
     int SIM_ON = 0;  // Assume the SIM is not on
@@ -127,36 +127,9 @@ int turnOnSIM() {
             SIM_ON = 1;
         }
     }
+    FONAisON = SIM_ON;
     return SIM_ON;
 }
-/*********************************************************************
- * Function: turnOnSIM
- * Input: None
- * Output: SIM_ON  this is a 1 if the SIM turned on and 0 if not
- * Overview: Turns on SIM900 - If the PS (Power Status) pin = 0 the SIM is Off
- *                             Strobe the KEY pin low for 2 sec and then go high
- *                            The SIM turns on (PS = 1) after approx. 0.8 - 1.3sec
- * 
- * Note: Pic Dependent
- * TestDate: Not tested as of 12-22-17 RKF
- * delayMs(int ms)
- ********************************************************************/
-int turnOnSIM2() {
-    int SIM_ON = 0;  // Assume the SIM is not on
-    digitalPinSet(simVioPin, 1); //PORTAbits.RA1 = 1; //Tells Fona what logic level to use for UART
-    if (digitalPinStatus(statusPin) == 0) { //Checks see if the Fona is off pin
-        digitalPinSet(pwrKeyPin, 0); //PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
-        delayMs(2000);
-    }
-    digitalPinSet(pwrKeyPin, 1); //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
-    // Experimental tests showed that it takes 0.8 - 1.3sec for the FONA to turn on
-    delayMs(2000);
-    if (digitalPinStatus(statusPin) != 0) { //Checks see if the Fona is off pin
-        SIM_ON = 1;
-    }
-    return SIM_ON;
-}
-
 /*********************************************************************
  * Function: tryToConnectToNetwork
  * Input: None
@@ -298,7 +271,7 @@ void sendDebugMessage(char message[50], float value){
     int SIMwasON = 0;
     if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, turn it off
                                             // the FONA gets messed up if the serial line
-                                            // is sending none AT commands when it is on
+                                            // is sending non-AT commands when it is on
        turnOffSIM();
        SIMwasON = 1;
     }
@@ -317,6 +290,8 @@ void sendDebugMessage(char message[50], float value){
  
     if(SIMwasON ==1){
         // we should wait for the debug message to be sent before turning on the SIM
+        // the sendMessage function should only return once all but the last char or two
+        // of the message was sent but we will wait enough for the whole message
         // need to wait about 1ms/character
         delayMs(msg_length+3);
         turnOnSIM(); // if the SIM was on when you got here, turn it back on
@@ -448,17 +423,17 @@ void readSMSMessage(int msgNum) {
  * Overview: Parses the ReceiveTextMsg character array 
  *           Depending upon the message, different actions are taken.
  * Currently Understood Messages
- *      AW_I   indicates that a person at the pump wants information
- *      AW_C indicates changes to the RTCC date,month,hour.
- *              AW_C:date,month,delta_hour  ie.  March 12th add 6hrs to hour AW_C:12,03,06
- *      AW_D enable/disable hourly diagnostic messages
- *              AW_D:0 (disable diagnostic messages)
- *              AW_D:1 (enable hourly diagnostic messages). When diagnostic messages are 
- *                      enabled, the phone number sending the command is where the
- *                      messages are sent and the diagnostic phone number in EEPROM is updated
- *              AW_D:+############ enable hourly diagnostic messages and update the EEPROM
- *                      phone number to send these to to the number provided
- *      AW_P change the phone number used for daily reports
+ *      AWI   indicates that a person at the pump wants information
+ *      AWC indicates changes to the RTCC date,month,hour.
+ *              AWC date,month,delta_hour  ie.  March 12th add 6hrs to hour AWC 12,03,06
+ *      AWD enable/disable hourly diagnostic messages
+ *              AWD 0 (disable diagnostic messages)
+ *              AWD 1 (enable hourly diagnostic messages). When diagnostic messages are 
+ *                    enabled, messages are sent to DebugphoneNumber
+ *              AWD 2 +############ enable hourly diagnostic messages and 
+ *                  change DebugphoneNumber to the phone provided
+ *      AWCC +### change the country code to the number provided 
+ *      AWPN    +########### change the phone number used for daily reports
  *      
  * 
  * Note: Library
@@ -473,7 +448,7 @@ void interpretSMSmessage(void){
     if(strncmp(CmdMatch, ReceiveTextMsg,3)==0){
       enableDiagnosticTextMessages();
     } 
-    strncpy(CmdMatch,"AWPN",4);
+    strncpy(CmdMatch,"AWCC",4);
     if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
       // Change the stored country code 
         ChangeCountryCode();
@@ -482,6 +457,11 @@ void interpretSMSmessage(void){
     if(strncmp(CmdMatch, ReceiveTextMsg,3)==0){
         // Report basic information about pump status
         OneTimeStatusReport();
+    }
+    strncpy(CmdMatch,"AWPN",4);
+    if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
+        // Change the phone number used for daily reports
+        ChangeDailyReportPhoneNumber();
     }
 }
 /*********************************************************************
@@ -604,6 +584,60 @@ void updateClockCalendar(){
     // Should we wait for the message to be sent before trying to work with the FONA?
     delayMs(40);
 } 
+/*********************************************************************
+ * Function: void ChangeDailyReportPhoneNumber()
+ * Input: None - must be called after the readSMSMessage
+ *                ReceiveTextMsg has the message string in it 
+ * Output: None
+ * Overview: An SMS message was received (in the string ReceiveTextMsg)
+ *           with the AWPN prefix indicating that
+ *           the phone number to be sent the daily report,MainphoneNumber[], should be changed.
+ *           If the system restarts the original number in EEPROM will again be used.
+ *           This function does not overwrite the EEPROM
+  * Note: Library
+ * TestDate: not tested
+ ********************************************************************/
+void ChangeDailyReportPhoneNumber(){
+    char *MsgPtr;
+    int msgLength=strlen(ReceiveTextMsg);
+    MsgPtr = ReceiveTextMsg;
+    MainphoneNumber[0]=0; //reset Main Phone Number String
+
+    // Skip to New Main Number
+    while((*MsgPtr != 0x2b)&&!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers except + 
+        MsgPtr++;
+    }
+    if(*MsgPtr != '+'){
+        strncat(MainphoneNumber,"+",1);
+    }
+    while(((*MsgPtr == 0x2b)||((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers and +
+        strncat(MainphoneNumber,MsgPtr,1);
+        MsgPtr++;
+    }
+      // Now we want to reply to the sender telling it what we just did
+    int success = 0;
+    success = turnOnSIM();  // returns 1 if the SIM powered up)
+    if(success == 1){
+        // Try to establish network connection
+        success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+        if(success == 1){
+        // Send off the data
+            phoneNumber = SendingPhoneNumber;
+            // Need to make dataMessage
+            char localMsg[160];
+            localMsg[0] = 0;
+            concat(localMsg,"Changed Main Reporting Phone Number to ");
+            concat(localMsg,MainphoneNumber);
+            sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
+            // I think I  need to wait until it is sent.  See the Daily Report code.
+            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+            ReadSIMresponse(CmdMatch); // this looks for the response from the FONA that the message has been received
+            phoneNumber = MainphoneNumber;
+        }
+    }
+    // Should we wait for the message to be sent before trying to work with the FONA?
+    delayMs(40);
+}
 /*********************************************************************
  * Function: enableDiagnosticTextMessages()
  * Input: None - must be called after the readSMSMessage
@@ -1553,24 +1587,18 @@ void checkDiagnosticStatus(void){
 }
 
 /*********************************************************************
- * Function: void InstallationMessages(void)
+ * Function: void CheckIncommingTextMessages(void)
  * Input: none
  * Output: none
- * Overview:  This is only called if the external Diagnostic PCB is 
- *            plugged in.  If that is the case, the FONA is enabled to 
- *            continually check and respond to text messages 
+ * Overview:  This is called if the external Diagnostic PCB is 
+ *            plugged in and each hour to see if there have been any messages sent 
+ *            to the system which require action. 
  * TestDate: 
  ********************************************************************/
-void InstallationMessages(void){
-    if(diagPCBpluggedIn == 0){ // did we just detect that it was plugged in?
-        delayMs(100);  //Wait for the debug message to print 1ms/char
-        FONAisON = turnOnSIM();
-        FONAisON = turnOnSIM(); // DEBUG
-        
+void CheckIncommingTextMessages(void){
+    if(!FONAisON){
+        turnOnSIM();
         delayMs(10000); // Give FONA time to get messages from the network
-        if(FONAisON){
-            diagPCBpluggedIn = 1;
-        }
     }
     if(FONAisON){
         int msg_remaining = 0;
