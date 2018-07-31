@@ -92,9 +92,7 @@ void main(void)
 	float leakRatePrevious = 0; // Stores the previous Leak Rate incase if someone stats to pump before leakage can be measured
 	float upStrokePrimeMeters = 0; // Stores the upstroke in meters
 	float leakRate = 0; // Rate at which water is leaking from the rising main
-	/////int prevDay = getDateI2C();
-    noon_msg_sent = 0; // Start with the assumption that the noon message has not been sent
-    debugCounter = 0;  //DEBUG variable to track how many times it takes to send the message
+	
     
     //                    DEBUG
     // print_debug_messages controls the debug reporting
@@ -114,6 +112,7 @@ void main(void)
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
+    sendDebugMessage("The hourly diagnostic reports are at ",diagnostic); //Debug
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     
@@ -136,85 +135,60 @@ void main(void)
 		while (handleMovement == 0)
 		{ 
            ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT 
-
-           if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in
+           
+           // See if the diagnostic PCB is plugged in
+           if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in (pin #5)
                  CheckIncommingTextMessages(); //See if there are any text messages
                                          // the SIM is powered ON at this point
            }
-           else{
-               if(FONAisON){
-                   turnOffSIM();
-               }
-           }
+           else{if(FONAisON){turnOffSIM();}}
+           // See if the external RTCC is keeping track of time or if we need to rely on 
+           // our less accurate internal timer VTCC
             if(TimeSinceLastHourCheck == 1){ // Check every minute, updated in VTCC interrupt routine
-                hour = BcdToDec(getHourI2C());
-                // if the VTCC reaches two minutes past the next hour, and the ext RTCC hasn't updated, 
-                // use the VTCC time to update the RTCC and the local variable 'hour'
-                if ((hourVTCC != hour) && (minuteVTCC >= 2) && (hour == prevHour)){
-                    setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
-                    hour = hourVTCC;
-                    extRTCCset = 1;
-                }    
+                VerifyProperTimeSource();
                 TimeSinceLastHourCheck = 0; //this gets updated in VTCC interrupt routine
             }  
             // Do hourly tasks
            if(hour != prevHour){
-                if (extRTCCset == 0) { //external RTCC is working, update the internal virtual clock values
-                    initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
-                }
-                // Is it time to record volume from previous time bin to EEProm?
                 if(hour/2 != active_volume_bin){
                     SaveVolumeToEEProm();
                     sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);
                 }
+                sendDebugMessage("The send debug message status is ", diagnostic);
                 // Read messages sent to the system
                 CheckIncommingTextMessages();  // Reads and responds to any messages sent to the system
-                // The SIM is ON at this point
-                // If it is noon, save a daily report
-                if(hour == 12){
+                // The SIM is ON at this point              
+                if(hour == 12){  // If it is noon, save a daily report
                     CreateAndSaveDailyReport();
                 }
-                // Attempt to Send daily report
-                //if(num_unsent_daily_reports > 0){ // commented out in order to send diagnostic messages
-                if(batteryFloat > 3.3){
-                   SendSavedDailyReports();                    
-                }            
-                
+                // Attempt to Send daily report and if enabled, diagnostic reports
+                SendSavedDailyReports();   
+                SendHourlyDiagnosticReport();
                 turnOffSIM();
                 prevHour = hour; // update so we know this is not the start of a new hour
-            }
-            
-            
+            }       
             // should we be asleep to save power?   
-            // while((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
-            while((batteryFloat < 3.3)&& (hour != 12)){
-                // Only work under 3.3V if it is noon and we want to send a message
-                // 
-            // If the battery level is too low to work without the sun, go to sleep
-            // shut down at an ODD time so that the volume pumped from 4-6PM will be saved to EEProm
-            // try to wake up at 5AM just because there is a lot of activity at this time 
-            // The WDT settings will put the PIC to sleep for about 131 seconds.  
+            while(batteryFloat < 3.3){
+                // The WDT settings will let the PIC sleep for about 131 seconds.  
                 if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
                     turnOffSIM();             
                 }
-                if (sleepHrStatus != 1){
+                if (sleepHrStatus != 1){ // Record the fact that we went to sleep for diagnostic reporting purposes
                     sleepHrStatus = 1;
-                    EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
+                    EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus); 
                 }                
-                sendDebugMessage("Going to sleep ", hour);  //Debug
-                PORTBbits.RB0 = 0; // DEBUG make test pin low when we are sleeping
+                sendDebugMessage("Going to sleep at hour = ", hour);  //Debug
+                sendDebugMessage("               battery = ", batteryFloat);  //Debug
                 Sleep(); 
-                               
-                hour = BcdToDec(getHourI2C()); //still time to sleep? Don't check battery, you are here because it was low
+                // OK, we just woke up               
                 TimeSinceLastBatteryCheck++; // only check the battery every 10th time you wake up (approx 20min)
                 // check the battery every 20 min
                 if(TimeSinceLastBatteryCheck > 10){
                     batteryFloat = batteryLevel();
                     TimeSinceLastBatteryCheck = 0;
-                    
                 }
             }
-            PORTBbits.RB0 = 1; //DEBUG make test pin high when not sleeping
+
             // OK, go ahead and look for handle movement again
 			delayMs(upstrokeInterval);                            // Delay for a short time
 			float newAngle = getHandleAngle();

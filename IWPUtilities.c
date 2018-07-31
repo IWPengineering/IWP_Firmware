@@ -239,11 +239,11 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 44;
-    char localHr = 11;
+    char localMin = 32;
+    char localHr = 19;
     char localWkday = 3;
-    char localDate = 1;
-    char localMonth = 5;
+    char localDate = 27;
+    char localMonth = 7;
     char localYear = 18;
     ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
@@ -347,14 +347,17 @@ void initialization(void) {
     }
     // check and update the reset cause
     resetCause = checkResetStatus();
+    timeSinceLastRestart = 0; 
     
     // check the diagnostic status and phone number
     //EEProm_Write_Float(DiagnosticEEPromStart + 2, &LocalFloatLower);
     //EEProm_Write_Float(DiagnosticEEPromStart + 3, &LocalFloatUpper);
-    checkDiagnosticStatus(); 
+    // Don't do this until we have the DeianoticEEProm stuff working
+    //    checkDiagnosticStatus(); 
     
     // do timing things
-    hour = BcdToDec(getHourI2C());
+    // hour = BcdToDec(getHourI2C());
+    hour = localHr; // The RTCC may not be working
     active_volume_bin = hour/2;  //Which volume bin are we starting with
     prevHour = hour;  //We use previous hour in debug to know if we should send hour message to local phone
         
@@ -1097,8 +1100,6 @@ void ResetMsgVariables() //Not Tested
     EEProm_Write_Float(17, &EEFloatData);
     EEProm_Write_Float(18, &EEFloatData);
     EEProm_Write_Float(19, &EEFloatData);
-    
-    //getTime(); //Reset RTCC
 }
 
 /*********************************************************************
@@ -1163,6 +1164,90 @@ void RTCCSet(void) {
 //Returns the minutes and seconds (in BCD) to set the alarm to.
 //Generates a random number of seconds between 1 and the alarmMinuteMax
 //global variable to use for the minutes and seconds.
+
+/*********************************************************************
+ * Function: void VerifyProperTimeSource(void)
+ * Input: None
+ * Output: None
+ * Overview: See if the RTCC is responding and the hour is not stuck.  If 
+ *           that is the case, continue using RTCC as the source of keeping
+ *           track of time.  If the RTCC is not talking or is stuck, switch
+ *           over to using the VTCC.  If the RTCC begins to work again, switch
+ *           back to it.
+ * TestDate: Not Tested
+ ********************************************************************/
+void VerifyProperTimeSource(void) {
+// Use the flow chart to write the code for this.
+    float RTCChour;
+    if(!extRTCCset){ //The RTCC is the source of system Time
+        RTCChour = BcdToDec(getHourI2C());
+        //sendDebugMessage("Using RTCC hour is = ", RTCChour);  //Debug
+        //sendDebugMessage("      RTCC min is = ", BcdToDec(getMinuteI2C()));  //Debug
+        //sendDebugMessage("      VTCC min is = ", minuteVTCC);  //Debug
+        
+        if(!extRtccTalked){ //We did not get a response from the RTCC
+            extRTCCset = 1; //The RTCC did not respond, turn control over to VTCC
+            //sendDebugMessage("The RTCC did not reply to I2C ", 0);  //Debug
+        }
+        else{ //We got a response, but it may not be good
+            if(RTCChour != prevHour){ //The hour has changed
+                //sendDebugMessage("Its a new hour and previous hour = ",prevHour);  //Debug
+                if((RTCChour == 0)&&(prevHour != 23)){
+                    extRTCCset = 1; //The RTCC value is invalid, turn control over to VTCC
+                }
+                if((RTCChour > 0)&&(RTCChour != prevHour +1)){
+                    extRTCCset = 1; //The RTCC value is invalid, turn control over to VTCC
+                }  
+            }
+            else{ //Is it OK that the hour did not change?
+                if((RTCChour != hourVTCC)&& (minuteVTCC >= 2)){//The hour has not changed, but it should have
+                    //sendDebugMessage("Must be stuck, VTCC hour is = ", hourVTCC);  //Debug
+                    //sendDebugMessage("    and VTCC minute = ", minuteVTCC);  //Debug
+                    extRTCCset = 1; //The RTCC is stuck, turn control over to VTCC
+                }
+            }
+        }
+        if(extRTCCset){// We switched over to VTCC 
+            setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18); //Try to update RTCC from VTCC
+            hour = hourVTCC;  
+            //sendDebugMessage("Just switched over to the VTCC, hour is = ", hour);  //Debug
+        }
+        // At this point we know whether or not we can trust the RTCC
+        if((RTCChour != prevHour)&&(!extRTCCset)){ // if the RTCC is good, resync the VTCC each hour
+            initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
+            hour = RTCChour;  //update the system hour to the RTCC value
+            //sendDebugMessage("We trust the RTCC, update the VTCC.  The system hour is = ", hour);  //Debug
+        }  
+    }
+    else{ // Coming into this routine, the VTCC is the source of system Time.
+        //sendDebugMessage("We are using the VTCC for time, hour is = ", hourVTCC);  //Debug    
+        //sendDebugMessage("                                minute = ", minuteVTCC);  //Debug
+        if((hourVTCC != prevHour)&&(minuteVTCC >= 2)){// Time to reevaluate the RTCC
+            hour = hourVTCC;  //Still use VTCC for system Time at this point
+            RTCChour = BcdToDec(getHourI2C()); //Check RTCC hour
+            //sendDebugMessage("Time to reevaluate the RTCC.  RTCC hour =  ",RTCChour);  //Debug
+            if(!extRtccTalked){ //We did not get a response from the RTCC
+                //continue VTCC control of system Time and try to resync RTCC
+                // Once a RESET_I2C routine is written, put it here to try to get I2C working again.                
+                //sendDebugMessage("No response from RTCC, try to set its time ",0);  //Debug
+                setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18); //Try to update RTCC from VTCC
+            }
+            else{ //We got a response, but it may not be good
+                if(RTCChour != hourVTCC){
+                    //continue VTCC control of system Time and try to resync RTCC
+                    setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18); //Try to update RTCC from VTCC
+                    //sendDebugMessage("RTCC hour does not match VTCC, must still be stuck ",0);  //Debug
+                }
+                else{// Looks like the RTCC is working again
+                    extRTCCset = 0; //Turn control over to RTCC
+                    initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));                    
+                    //sendDebugMessage("RTCC seems to be working, turn control back over to it and resync the VTCC. Use minute = ",BcdToDec(getMinuteI2C()));  //Debug
+                }
+            }  
+        }
+    }
+}
+
 
 /*********************************************************************
  * Function: getMinuteOffset()

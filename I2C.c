@@ -667,12 +667,14 @@ int getI2Cdata(int address, int bitRange, int goodRange) {
     // Generate a STOP 
     I2C1CONbits.PEN = 1; //Generate Stop Condition
     while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)); //Wait for Stop
-    // How do we know that the value we just got makes sense?
     
+    // At this point we have the response in the variable I2Cdata.  We need
+    // to see if we actually got something; in other words, the various WHILE loops
+    // did not time out, and that it could be a valid response    
     
     if((TMR1 > MaxTime)||(I2Cdata > goodRange)){  //something went wrong 
         I2Cdata = goodRange; //return the maximum value
-        if (address == 2) {
+        if (address == 2) { // were we looking for the hour?
             extRtccTalked = 0;             // Cleared because RTCC hour didn't respond, we only care about hour errors
         }
     }

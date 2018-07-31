@@ -26,14 +26,13 @@
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
-//char DebugphoneNumber[] = "0548345382"; // Number for the Black Phone - MOVED to kpachelo
-//char DebugphoneNumber[] = "0548982327"; // Number for Immanuel programmed in as debug for kpachelo
-//char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
+char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
 //char DebugphoneNumber[] = "+17177784498"; // Upside 
-
-char DebugphoneNumber[]="+254787620369"; //Number for Paul Zwart cell phone; this number is changed and default is the mainphonenumber
+//char DebugphoneNumber[]="+17176837704"; //Number for Sue Fish Cell
+//char DebugphoneNumber[]="+254787620369"; //Number for Paul Zwart cell phone; this number is changed and default is the mainphonenumber
 //char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char MainphoneNumber[]="+17176837803"; // Randy
+//char MainphoneNumber[]="+17176837704"; //Sue
 char SendingPhoneNumber[]="+254787620369"; //this is read from the received SMS message default to mine
 //char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
 //char phoneNumber []="+17176837803"; // Randy
@@ -285,15 +284,16 @@ void sendDebugMessage(char message[50], float value){
         concat(debugMsg,debugValueString);
         concat(debugMsg, "\n");
         sendMessage(debugMsg);
-    }
-
- 
-    if(SIMwasON ==1){
         // we should wait for the debug message to be sent before turning on the SIM
         // the sendMessage function should only return once all but the last char or two
         // of the message was sent but we will wait enough for the whole message
         // need to wait about 1ms/character
         delayMs(msg_length+3);
+    }
+
+ 
+    if(SIMwasON ==1){
+
         turnOnSIM(); // if the SIM was on when you got here, turn it back on
     }
 }
@@ -464,6 +464,7 @@ void interpretSMSmessage(void){
         ChangeDailyReportPhoneNumber();
     }
 }
+
 /*********************************************************************
  * Function: updateClockCalendar()
  * Input: None - must be called after the readSMSMessage
@@ -471,83 +472,108 @@ void interpretSMSmessage(void){
  *                SendingPhoneNumber has the phone number of the sender
  * Output: None
  * Overview: An SMS message was received (in the string ReceiveTextMsg)
- *           with the AW_C prefix indicating that
- *           the date, month or hour needs to be changed
- *              AW_C:date,month,delta_hour  
- *              AW_C:12,03,06  March 12th add 6hrs to hour 
- *           
+ *           with the AWC prefix indicating that
+ *           the date, month, hour or minute needs to be changed.  Depending upon
+ *           the number of parameters sent, they are interpreted differently
+ *              AWC delta_hour
+ *              AWC delta_hour delta_minute
+ *              AWC date,month,delta_hour
+ *              AWC date, month, delta_hour, delta_minute  
+ *              AWC:12,03,06  March 12th add 6hrs to hour 
  *              AWC 12 3 6 is also accepted
  * 
  *           The cell phone number that sent the message is expected to already
  *           be in the string SendingPhoneNumber
  * Note: Library
- * TestDate: not tested
+ * TestDate: 7/26/2018 RKF
  ********************************************************************/
 void updateClockCalendar(){
     char MsgPart[3];
     int success = 0;
     int ext_success = 0;  //see if you were able to change the external RTCC
-    int info_provided = 1; //assume all three fields are reasonable
+    int info_provided = 1; //assume all fields are reasonable
+    char local_val[4];
+    int val_offset = 0;
+    char delta_hour;
+    char delta_min;
+    char newDate = BcdToDec(getDateI2C()); // we may overwrite this
+    char newMonth = BcdToDec(getMonthI2C());// we may overwrite this
+    char new_hour;
+    char new_min = BcdToDec(getMinuteI2C()); // we may overwrite this
+    
     char *MsgPtr;
     int msgLength=strlen(ReceiveTextMsg);
     MsgPtr = ReceiveTextMsg;
-    // Skip over to the date
-    while(((*MsgPtr < 0x30)||(*MsgPtr > 0x39))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers
-        MsgPtr++;
+    // Extract the information provided.  This can be from 1 to 4 values
+    while((MsgPtr < ReceiveTextMsg+msgLength-1)&&(val_offset < 4)){
+        // Skip the next command value
+        while((*MsgPtr != 0x2d)&&!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers except - (neg sign)
+            MsgPtr++;
+        } 
+        // Get the value
+        MsgPart[0]=0;
+        while(((*MsgPtr == 0x2d)||((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers and - (neg sign)
+            strncat(MsgPart,MsgPtr,1);
+            MsgPtr++;
+        }
+        if(MsgPtr < ReceiveTextMsg+msgLength-1){//Make sure there will always be a character after the last value, new line?
+            local_val[val_offset] = atoi(MsgPart);
+            val_offset++;
+        }
     }
-    // Get the new date
-    MsgPart[0]=0;
-    while(((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers
-        strncat(MsgPart,MsgPtr,1);
-        MsgPtr++;
+    // Now work with what was received
+    if(val_offset == 1){// all we have is a delta hour
+        delta_hour = local_val[0];
     }
-    char newDate = atoi(MsgPart);   
-    if((newDate < 1)||(newDate > 31)){
-        info_provided = 0; // The value in the DATE field is incorrect
+    if(val_offset == 2){// we have delta hour and delta minute
+        delta_hour = local_val[0];
+        delta_min = local_val[1];
     }
-     // Get the new month
-    while(((*MsgPtr < 0x30)||(*MsgPtr > 0x39))&&(MsgPtr < ReceiveTextMsg+msgLength-1)&&(info_provided)){ // skip non-numbers
-        MsgPtr++;
+    if(val_offset == 3){// we have date, month delta hour
+        newDate = local_val[0];
+        newMonth = local_val[1];
+        delta_hour = local_val[2];
     }
-    MsgPart[0]=0;
-    while(((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)&&(info_provided)){ // accept numbers
-        strncat(MsgPart,MsgPtr,1);
-        MsgPtr++;
+    if(val_offset == 4){// we have date, month, delta hour, delta min
+        newDate = local_val[0];
+        newMonth = local_val[1];
+        delta_hour = local_val[2];
+        delta_min = local_val[3];
     }
-    char newMonth = atoi(MsgPart);
-    if((newMonth < 1)||(newMonth > 12)){
-        info_provided = 0; // The value in the MONTH field is incorrect
+    // See if the information provided is valid
+    if((delta_hour < -23)||(delta_hour > 23)){
+        info_provided = 0; // The value in the delta hour field is incorrect
     }
-     // Get the change to the hour
-     while((*MsgPtr != 0x2d)&&!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)&&(info_provided)){ // skip non-numbers except - (neg sign)
-        MsgPtr++;
+    else{
+        new_hour = delta_hour + hour;
     }
-    MsgPart[0]=0;
-    while(((*MsgPtr == 0x2d)||((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)&&(info_provided)){ // accept numbers and - (neg sign)
-        strncat(MsgPart,MsgPtr,1);
-        MsgPtr++;
+    if((val_offset == 3)||(val_offset == 4)){
+        if((newDate > 31)||(newDate < 1)||(newMonth > 12)||(newMonth < 1)){
+            info_provided = 0; // the date or month field is incorrect
+        }
     }
-    char Delta_hour = atoi(MsgPart);
-    if((Delta_hour < -23)||(Delta_hour > 23)){
-        info_provided = 0; // The value in the DATE field is incorrect
+    if((val_offset == 2)||(val_offset == 4)){
+        if((delta_min < -59)||(delta_min > 59)){
+            info_provided = 0; // the value in delta minute field is incorrect
+        }
+        else{
+            new_min = delta_min + minuteVTCC;
+        }
     }
-   
-    // Update the settings for the external RTCC
+    // Time to make the requested changes
     if(info_provided){
-        hour = Delta_hour + BcdToDec(getHourI2C());
+        hour = new_hour;
         if(hour > 23){ // In case someone adds time that wraps over
             hour = hour - 24;
         }
         int year = BcdToDec(getYearI2C());
-        // int year = BcdToDec(getTimeI2C(0x06, 0xff, 99));
         int wkday = BcdToDec(getWkdayI2C());
-        ext_success = setTime(0,0,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
+        ext_success = setTime(0,new_min,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
     
         // Update the settings for the internal RTCC
-        initializeVTCC(0, 0, hour, newDate, newMonth);
-               
-        // Now we want to reply to the sender telling it what we just did
+        initializeVTCC(0, new_min, hour, newDate, newMonth);
     }
+    // Now we want to reply to the sender telling it what we just did
     success = turnOnSIM();  // returns 1 if the SIM powered up)
     if(success == 1){
         // Try to establish network connection
@@ -558,19 +584,23 @@ void updateClockCalendar(){
             // Need to make dataMessage
             char localMsg[160];
             localMsg[0] = 0;
-            char hour_val[3];
-            itoa(hour_val, hour, 10);
-            // concat(localMsg,"Changed hour to ");
-            if((ext_success)&&(info_provided)){
-                concat(localMsg,"Changed internal/external RTCC hour to ");
-                concat(localMsg, hour_val);
-            }
-            else if((!ext_success)&&(info_provided)){
-                concat(localMsg,"Changed only internal RTCC hour to ");
-                concat(localMsg, hour_val);
+            char ClkCal_val[3];
+            if(info_provided){
+                concat(localMsg,"Changed internal/external Date-Month Hour:Minute to \n");
+                itoa(ClkCal_val,newDate,10);
+                concat(localMsg, ClkCal_val);
+                concat(localMsg,"-");
+                itoa(ClkCal_val,newMonth,10);
+                concat(localMsg, ClkCal_val);
+                concat(localMsg," ");
+                itoa(ClkCal_val,new_hour,10);
+                concat(localMsg, ClkCal_val);
+                concat(localMsg,":");
+                itoa(ClkCal_val,new_min,10);
+                concat(localMsg, ClkCal_val);                
             }
             else{
-                concat(localMsg,"No Change to hour, improper Date, Day or Delta hour provided ");
+                concat(localMsg,"No Change made, some part of information provided was incorrect ");
             }
             
             sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
@@ -821,7 +851,7 @@ void UpdateSendingPhoneNumber(){
  *           Network: 5 (number reported by SIM) bad/weak/good
  *           Date: XX
  *           Month: XXX
- *           Hour: XX
+ *           Time: HR:MIN
  * 
  * Note: Library
  * TestDate: not tested
@@ -851,9 +881,12 @@ void OneTimeStatusReport(){
             concat(localMsg,"\n Month: ");
             floatToString(BcdToDec(getMonthI2C()),reportValueString);
             concat(localMsg,reportValueString);
-            concat(localMsg,"\n Hour: ");
+            concat(localMsg,"\n Time: ");
             //other places I add 1313 to hour
             floatToString(hour,reportValueString);
+            concat(localMsg,reportValueString);
+            concat(localMsg,":");
+            floatToString(minuteVTCC,reportValueString);
             concat(localMsg,reportValueString);
             
             
@@ -1189,7 +1222,7 @@ void CreateNoonMessage(int effective_address){
         EEFloatData = (EEFloatData*100)+ hour; //Add current hour
     }
     else{
-        EEFloatData = 131300 + hour;
+        EEFloatData = 131300 + hour; // if NaN saved for date,month insert date = 13 month = 13
     }
     floatToString(EEFloatData, LocalString);
     concat(SMSMessage, LocalString);
@@ -1345,17 +1378,15 @@ void CreateAndSaveDailyReport(void){
     ResetMsgVariables();
       
 }
+
 /*********************************************************************
- * Function: int SendSavedDailyReports(void)
- * Input: none
+ * Function: int SendSavedDailyReports2(void)
+ * Input: none - Assumes the FONA is already ON
  * Output: the number of daily reports still waiting to be sent
  * Note:  Sends saved daily reports to the MainphoneNumber.  Messages are sent
  *        newest first.  As long as the network is available and messages are
  *        being sent, older saved messages not able to be sent before are sent 
  * 
- *        Once all messages are sent, received messages are read.  If they are
- *        messages from friends (AW) the appropriate action is taken.  If not, they
- *        are just deleted  
  * TestDate: 
  ********************************************************************/
 int SendSavedDailyReports(void){
@@ -1363,10 +1394,6 @@ int SendSavedDailyReports(void){
     int num_saved_messages;
     int message_position;
     int effective_address;  //EEProm position.  We assume each position is a float and start at 0
-    // Turn on the FONA
-    ready = turnOnSIM();
-    ready = tryToConnectToNetwork(); // This will try 7 times to connect to the network
-    
       
     // Send a daily report if we have network connection and there are messages to send
     EEProm_Read_Float(DailyReportEEPromStart, &EEFloatData);// Read EEPROM address, as of now 21, which contains the number of messages already saved
@@ -1374,6 +1401,9 @@ int SendSavedDailyReports(void){
     num_unsent_daily_reports = num_saved_messages;  //as long as there have been 5 or less saved messages, these are the same
     if(num_saved_messages > 5){
             num_unsent_daily_reports = 5;  //This is the maximum number of messages saved in our daily report buffer
+    }
+    if(num_saved_messages > 0){
+        ready = tryToConnectToNetwork(); // This will try 7 times to connect to the network   
     }
     while((num_unsent_daily_reports > 0 )&&(ready == 1)){
         // Find the EEPROM address of the start of the next daily report data
@@ -1399,67 +1429,64 @@ int SendSavedDailyReports(void){
         else{
             break; // we were not able to send this message so stop trying until next hour
         }
-        ready = CheckNetworkConnection(); // make sure we still have a network connection
     }
-    
-        // If hourly diagnostic messages are enabled and we are still ready, create and send the message
-    while (diagnostic == 1){
-        numberTries++;
-        if(numberTries > 30) {
-            break;
-        }
-        ready = CheckNetworkConnection(); // QUESTION:  Is the SIM ON at this point?
-        if(ready == 1) {
-            phoneNumber = DebugphoneNumber;
-
-            batteryFloat = batteryLevel();               
-            //Put the phone number back to Upside 
-
-            createDiagnosticMessage();
-            sendTextMessage(SMSMessage);
-            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
-            ready = ReadSIMresponse(CmdMatch);
-            /*while(1){
-                ready = sendTextMessage(SMSMessage);
-                // Check to see if the FONA replies with ERROR or not
-                char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
-                ready = ReadSIMresponse(CmdMatch);
-                if (ready == 1) {
-                    break;
-                }
-            }*/
-            // NOTE:  We should not try to send messages on the serial port while the FONA is ON
-                //sendDebugMessage("  \n The attempt to send the hourly diagnostic message to the FONA was a ", ready);  //Debug
-            timeSinceLastRestart++; // if first time in loop this hour, increase the hour since last restart by one
-            extRtccTalked = 0; // reset the external clock talked bit
-            sleepHrStatus = 0; // reset the slept during that hour
-            EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
-            extRTCCset = 0; // reset the RTCC was set by the VTCC bit
-            resetCause = 0; // reset the reset cause bit
-            phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
-            break;
-        }
-    }
-    numberTries = 0;
-    // after we are done sending update the number of messages still waiting to be sent
+    // after we are done sending, update the number of messages still waiting to be sent
     // if there is no problem with the network, this will be zero
     EEFloatData = num_saved_messages;  //Update the number of messages in the queue
     EEProm_Write_Float(DailyReportEEPromStart,&EEFloatData);
-    //Read received messages and act on them
-    /// BEING TESTED  readSMSMessage(int msgNum); //still not used 
-    /// BEING TESTED  interpretSMSmessage(void); //still not used
-    //  BEING TESTED   ClearReceiveTextMessages(int MsgNum, int ClrMode); 
-    //Turn off the FONA
-    turnOffSIM();
-    
-    return num_unsent_daily_reports;
-    
-
- // Taken out 4/24/17 RKF   RTCCSet(); // updates the internal time from the external RTCC if the internal RTCC got off any through out the day
-               // RKF QUESTION - Why do we do this?  I don't think we use the internal RTCC for anything
-
+    return num_unsent_daily_reports;  
 }
+/*********************************************************************
+ * Function: void SendHourlyDiagnosticReport(void)
+ * Input: none (assumes that the FONA is turned on)
+ * Output: none
+ * Overview: Creates a JSON formatted text message relaying
+ *          s	sleep hour status ? 0/1, 1 if the system went to sleep since the last report
+ *          b	battery voltage at the time the message is sent
+ *          r	Number of hours since the last system restart
+ *          p	0 - 0 if no reset occurred, if there was a restart, the value is 
+ *              the contents of the RCON register.  See Theory of Operation for RCON bits meaning
+ *          c	Did the RTCC communicate fine since the last report (or is something hung so it is not responding). 1 = good RTCC communication
+ *          t	The hour that the system believes it is when the message is sent (24hr time format)
+ *          n	# of times it tried to connect to the network to send the report
+ *          x	Is the current time being controlled by the external RTCC or the internal VTCC? 0 = RTCC, 1 = VTCC
+ *          w	cell signal strength.  See Theory of Operation for comments on the signal strength reading
+ * 
+ *  Sends the diagnostic message to the DebugphoneNumber if the network is available.
+ *      if the network is not available, the diagnostic message is not saved  
+ * TestDate: 
+ ********************************************************************/
+void SendHourlyDiagnosticReport(void){
+    int ready = 0; 
+    int numberTries = 0;
+    
+    if(diagnostic){ // If hourly diagnostic messages are enabled create and send the message
+        // Try up to 30 times to get a network connection
+        while((!ready)&&(numberTries < 31)){
+            ready = CheckNetworkConnection(); 
+            numberTries++;            
+        }
+        if((ready)&&(numberTries < 31)){
+            phoneNumber = DebugphoneNumber;
+            //batteryFloat = batteryLevel();               
+            createDiagnosticMessage();
+            sendTextMessage(SMSMessage);
+            // Check to see if the FONA replies with ERROR or not. We really do 
+            // this to make sure the FONA has time to send the message before
+            // we shut it off
+            char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+            ready = ReadSIMresponse(CmdMatch);
+            extRtccTalked = 0; // reset the external clock talked bit
+            sleepHrStatus = 0; // reset the slept during that hour
+            EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus); // Save to EEProm
+            resetCause = 0; // reset the reset cause bits
+            EEProm_Write_Float(DiagnosticEEPromStart + 1,&resetCause); // Save to EEProm
+        }
+    }
+    timeSinceLastRestart++; // increase the # of hours since the last system restart (cleared during initialization)
 
+    phoneNumber = MainphoneNumber; //Put the phone number back to Upside 
+}
 /*********************************************************************
  * Function: void readFonaSignalStrength(void)
  * Input: none
@@ -1529,6 +1556,7 @@ void createDiagnosticMessage(void) {
     floatToString(EEFloatData, LocalString); //populates the sleepHrStatusString with the value from EEPROM
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"b\":");
+    batteryFloat = batteryLevel();  
     floatToString(batteryFloat, LocalString); //latest battery voltage
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"r\":");
@@ -1538,10 +1566,11 @@ void createDiagnosticMessage(void) {
     floatToString(resetCause, LocalString); //0 if no reset occurred, else the RCON register bit number that is set is returned
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"c\":");
-    floatToString(extRtccTalked, LocalString); // if the external rtcc responded in the last hour
+    floatToString(extRtccTalked, LocalString); // if the external rtcc responded the last time the hour was checked
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"t\":");
-    floatToString(LocalFloat, LocalString); // what it thinks the hour is
+    //floatToString(LocalFloat, LocalString); // what it thinks the hour is (LocalFloat = hour)
+    floatToString(hour, LocalString); // what it thinks the hour is (LocalFloat = hour)
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"n\":");
     floatToString(numberTries, LocalString); // number of tries to connect

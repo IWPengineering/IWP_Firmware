@@ -202,6 +202,7 @@ long timeStamp(void);
 void ResetMsgVariables();
 int translate(char digit);
 void RTCCSet(void);
+void VerifyProperTimeSource(void); // Uses RTCC if it is working VTCC if it is not
 int getMinuteOffset();
 char BcdToDec(char val);
 char DecToBcd(char val);
