@@ -1161,7 +1161,7 @@ void RTCCSet(void) {
     RTCVAL = getYearI2C();
     RTCVAL = getDateI2C() + (getMonthI2C() << 8);
     RTCVAL = getHourI2C() + (1 << 8); // assume 1st day of the week
-    RTCVAL = getSecondI2C() + (getMinuteI2C() << 8); // = binaryMinuteSecond;
+    RTCVAL = 0 + (getMinuteI2C() << 8); // = binaryMinuteSecond; (assume seconds = 0)
     _RTCEN = 1; // = 1; //RTCC module is enabled
     _RTCWREN = 0; // = 0; // disable writing
 }
