@@ -57,7 +57,7 @@ int sendTextMessage(char message[160]); //transmits UART characters necessary to
 void sendDebugMessage(char message[50], float value); //sends message meant to be read by diagnostic equipment not to be sent by FONA
 void readSMSMessage(int msgNum); //Called as a part of the hourly tasks.  Reads msgNum msg and puts it in ReceiveTextMsg
 int SetFONAtoTextMode(void); // Used before other AT commands to put FONA in TEXT mode
-void interpretSMSmessage(void); //Right now only understands the AW_C command to change the clock/calendar 
+void interpretSMSmessage(void); //Decide which AW command was received 
 void updateClockCalendar(void); //take action when an AW command calls for a change to the clock calendar
 void enableDiagnosticTextMessages(void); //Enables (1) or disable (0) hourly diagnostic messages
 int ClearReceiveTextMessages(int MsgNum, int ClrMode); 
@@ -66,7 +66,7 @@ void CreateAndSaveDailyReport(void);
 int SendSavedDailyReports(void);
 void SendHourlyDiagnosticReport(void);
 void createDiagnosticMessage(void);
-void checkDiagnosticStatus(void);
+void checkDiagnosticStatus(void); //NOT CURRENTLY USED
 void readFonaSignalStrength(void); // Asks the FONA for the strength of the network signal
 void OneTimeStatusReport(void); // reports various system status information one time to requesting phone number
 int AreThereTextMessagesToRead(void); //Checks # of waiting messages in FONA and total number of message slots for this SIM card

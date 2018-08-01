@@ -684,7 +684,7 @@ int getI2Cdata(int address, int bitRange, int goodRange) {
     
     return I2Cdata;             
 }
-
+// This recursively calls itself.  We need to fix that or get rid of it.
 int getWkdayI2C(void) {
     unsigned char wkday; // temp var to hold seconds information
     configI2c(); // sets up I2C

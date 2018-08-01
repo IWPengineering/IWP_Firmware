@@ -57,18 +57,18 @@
 /*
  Public Functions
  */
-void SoftwareResetRKF(void);
+void SoftwareResetRKF(void); //Not used
 unsigned int IdleI2C(void);
-unsigned int StartI2C(void);
-unsigned int StopI2C(void);
-void RestartI2C(void);
-void NackI2C(void);
-void AckI2C(void);
-void configI2c(void);
-void WriteI2C(unsigned char byte);
-unsigned int ReadI2C(void);
-void turnOffClockOscilator_old(void);
-int turnOffClockOscilator(void);
+unsigned int StartI2C(void); //Not used
+unsigned int StopI2C(void); //Not used
+void RestartI2C(void); //Not used
+void NackI2C(void); //Not used
+void AckI2C(void); //Not used
+void configI2c(void); //Not used
+void WriteI2C(unsigned char byte); //Not used
+unsigned int ReadI2C(void); //Not used
+void turnOffClockOscilator_old(void); //Not used
+int turnOffClockOscilator(void); //Not used
 int getSecondI2C(void);
 int getI2Cdata(int address, int bitRange, int goodRange);
 int getYearI2C(void);
@@ -76,9 +76,9 @@ int getDateI2C(void);
 int getMonthI2C(void);
 int getHourI2C(void);
 int getMinuteI2C(void);
-int getWkdayI2C(void);
+int getWkdayI2C(void); //Just calls itself
 void setTime_old(char sec, char min, char hr, char wkday,
-        char date, char month, char year);
+        char date, char month, char year); //Not used
 int setTime(char sec, char min, char hr, char wkday, char date, char month, char year);
 
 /*

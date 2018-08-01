@@ -567,7 +567,7 @@ void updateClockCalendar(){
             hour = hour - 24;
         }
         int year = BcdToDec(getYearI2C());
-        int wkday = BcdToDec(getWkdayI2C());
+        int wkday = 1; //just always assume its the 1st day of the week
         ext_success = setTime(0,new_min,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
     
         // Update the settings for the internal RTCC
@@ -946,7 +946,7 @@ int SetFONAtoTextMode(void){
  *         Also changes a Global variable MaxSMSmsgSize to reflect the total number of 
  *         SMS slots available to hold messages.  This differs depending upon the SIM carrier
  * Overview: sends the command to the FONA board to see how many of the 
- *           30 message slots have something in them.  We don't know where
+ *           30 or more message slots have something in them.  We don't know where
  *           these are, we just know how many
  * Note: Library
  * TestDate: not yet tested

@@ -21,8 +21,6 @@
       <itemPath>Pin_Manager.h</itemPath>
       <itemPath>FONAUtilities.h</itemPath>
       <itemPath>FONAUtilities.c</itemPath>
-      <itemPath>UnusedFunctions.c</itemPath>
-      <itemPath>UnusedFunctions.h</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

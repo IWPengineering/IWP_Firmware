@@ -92,6 +92,8 @@ void main(void)
 	float leakRatePrevious = 0; // Stores the previous Leak Rate incase if someone stats to pump before leakage can be measured
 	float upStrokePrimeMeters = 0; // Stores the upstroke in meters
 	float leakRate = 0; // Rate at which water is leaking from the rising main
+    
+    
 	
     
     //                    DEBUG
@@ -154,7 +156,11 @@ void main(void)
                     SaveVolumeToEEProm();
                     sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);
                 }
-                sendDebugMessage("The send debug message status is ", diagnostic);
+                //Update the Battery level Array
+                BatteryLevelArray[0]=BatteryLevelArray[1];
+                BatteryLevelArray[1]=BatteryLevelArray[2];
+                BatteryLevelArray[2]=batteryLevel();
+                //sendDebugMessage("The send debug message status is ", diagnostic);
                 // Read messages sent to the system
                 CheckIncommingTextMessages();  // Reads and responds to any messages sent to the system
                 // The SIM is ON at this point              
@@ -167,27 +173,33 @@ void main(void)
                 turnOffSIM();
                 prevHour = hour; // update so we know this is not the start of a new hour
             }       
-            // should we be asleep to save power?   
-            while(batteryFloat < 3.3){
+            // should we be asleep to save power?
+           if(((BatteryLevelArray[0]-BatteryLevelArray[2])>BatteryDyingThreshold)||(batteryFloat<=3.2)){
+               while(BatteryLevelArray[2]<BatteryLevelArray[0]){
+            //while(batteryFloat < 3.3){
                 // The WDT settings will let the PIC sleep for about 131 seconds.  
-                if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
-                    turnOffSIM();             
+                    if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
+                        turnOffSIM();             
+                    }
+                    if (sleepHrStatus != 1){ // Record the fact that we went to sleep for diagnostic reporting purposes
+                        sleepHrStatus = 1;
+                        EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus); 
+                    }                
+                    sendDebugMessage("Going to sleep at hour = ", hour);  //Debug
+                    sendDebugMessage("               battery = ", batteryFloat);  //Debug
+                    Sleep(); 
+                    // OK, we just woke up               
+                    TimeSinceLastBatteryCheck++; // only check the battery every 11th time you wake up (approx 24min)
+                    // check the battery every 24 min
+                    if(TimeSinceLastBatteryCheck >= 11){
+                        BatteryLevelArray[2]=batteryLevel();
+                        TimeSinceLastBatteryCheck = 0;
+                        secondVTCC = secondVTCC + 131*TimeSinceLastBatteryCheck;
+                        updateVTCC(); //Try to keep VTCC as accurate as possible
+                    }
                 }
-                if (sleepHrStatus != 1){ // Record the fact that we went to sleep for diagnostic reporting purposes
-                    sleepHrStatus = 1;
-                    EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus); 
-                }                
-                sendDebugMessage("Going to sleep at hour = ", hour);  //Debug
-                sendDebugMessage("               battery = ", batteryFloat);  //Debug
-                Sleep(); 
-                // OK, we just woke up               
-                TimeSinceLastBatteryCheck++; // only check the battery every 10th time you wake up (approx 20min)
-                // check the battery every 20 min
-                if(TimeSinceLastBatteryCheck > 10){
-                    batteryFloat = batteryLevel();
-                    TimeSinceLastBatteryCheck = 0;
-                }
-            }
+                batteryFloat = BatteryLevelArray[2];
+           }
 
             // OK, go ahead and look for handle movement again
 			delayMs(upstrokeInterval);                            // Delay for a short time

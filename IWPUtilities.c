@@ -105,6 +105,7 @@ const int minimumAngleDelta = 10;
 const float batteryLevelConstant = 8.86; // this is the average value s I'm puttig in in Yiwogu
 //This number is used to convert fraction of full range to a voltage Vcc(Batt_Level/V_Batt) 
 //                                          Nominal value is 8.748 (Vin = 3.6 and resistor divider values are exact)
+const int BatteryDyingThreshold = 0.05; //When the battery voltage drops this much in 2 hours, go to sleep
 const int secondI2Cvar = 0x00;
 const int minuteI2Cvar = 0x01;
 const int hourI2Cvar = 0x02;
@@ -166,6 +167,7 @@ char monthVTCC = 0;
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
 float batteryFloat;
+float BatteryLevelArray[3];
 char active_volume_bin = 0;  //keeps track of which of the 12 volume time slots is being updated
 char never_primed = 0;  //set to 1 if the priming loop is exited without detecting water
 char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
@@ -312,6 +314,9 @@ void initialization(void) {
     initAdc();
 
     batteryFloat = batteryLevel();
+    BatteryLevelArray[0]=0; //Used to track change in battery voltage
+    BatteryLevelArray[1]=0; //Used to track change in battery voltage
+    BatteryLevelArray[2]=0; //Used to track change in battery voltage
     
     
     angle2 = getHandleAngle();
@@ -1155,7 +1160,7 @@ void RTCCSet(void) {
     // Thanks KWHr!!!
     RTCVAL = getYearI2C();
     RTCVAL = getDateI2C() + (getMonthI2C() << 8);
-    RTCVAL = getHourI2C() + (getWkdayI2C() << 8);
+    RTCVAL = getHourI2C() + (1 << 8); // assume 1st day of the week
     RTCVAL = getSecondI2C() + (getMinuteI2C() << 8); // = binaryMinuteSecond;
     _RTCEN = 1; // = 1; //RTCC module is enabled
     _RTCWREN = 0; // = 0; // disable writing
@@ -1638,7 +1643,39 @@ void initializeVTCC(char sec, char min, char hr, char dte, char mnth){
     IFS0bits.T2IF = 0;
     IEC0bits.T2IE = 1;
 }
+/*********************************************************************
+ * Function: void updateVTCC(void)
+ * Input: none - add to secondVTCC prior to calling this function.
+ * Output: none
+ * Overview:  Both the T2 interrupt and the Sleep routine need to update the VTCC
+ *            to keep it as accurate as possible in the event that it is our
+ *            source of system time.
+ *             
+ * TestDate: 
+ ********************************************************************/
 
+void updateVTCC(void){
+    while (secondVTCC >= 60){
+        secondVTCC = secondVTCC - 60;
+        minuteVTCC++;
+        TimeSinceLastHourCheck = 1;
+    }
+    while (minuteVTCC >= 60){
+        minuteVTCC = minuteVTCC - 60;
+        hourVTCC++;
+    }
+    while (hourVTCC >= 24){
+        hourVTCC = hourVTCC - 24;
+        dateVTCC++;
+    }
+    if (dateVTCC >= monthArray[monthVTCC]){
+        dateVTCC = 1;
+        monthVTCC++;
+        if (monthVTCC == 13){
+            monthVTCC = monthVTCC - 12;
+        }
+    }
+}
 /*********************************************************************
  * Function: void _T2Interrupt(void)
  * Input: none
@@ -1651,25 +1688,5 @@ void __attribute__((interrupt, auto_psv)) _T2Interrupt(void){
     // assuming we are entering this when the over flow occurs
     IFS0bits.T2IF = 0; //clear the flag
     secondVTCC = secondVTCC + 4;
-    if (secondVTCC >= 60){
-        secondVTCC = secondVTCC - 60;
-        minuteVTCC++;
-        TimeSinceLastHourCheck = 1;
-        if (minuteVTCC >= 60){
-            minuteVTCC = minuteVTCC - 60;
-            hourVTCC++;
-            if (hourVTCC >= 24){
-                hourVTCC = hourVTCC - 24;
-                dateVTCC++;
-                if (dateVTCC >= monthArray[monthVTCC]){
-                    dateVTCC = 1;
-                    monthVTCC++;
-                    if (monthVTCC == 13){
-                        monthVTCC = monthVTCC - 12;
-                    }
-                    
-                }
-            }
-        }
-    }
+    updateVTCC();
 }

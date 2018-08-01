@@ -51,6 +51,7 @@ extern const float PI;
 extern const float upstrokeToMeters;
 extern const int minimumAngleDelta;
 extern const float batteryLevelConstant;       //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476
+extern const int BatteryDyingThreshold;
 extern int queueCount;
 extern int queueLength; //don't forget to change angleQueue to this number also
 extern float angleQueue[7];
@@ -111,7 +112,8 @@ extern int hour_msg_sent;  //set to 1 when hourly message has been sent
 extern float longestPrime; // total upstroke for the longest priming event of the day
 
 extern float leakRateLong; // largest leak rate recorded for the day
-extern float batteryFloat; // batteryLevel before sends text message commences
+extern float batteryFloat; // batteryLevel measured by scaled A/D
+extern float BatteryLevelArray[3]; //Used to keep track of the rate of change of the battery voltage
 extern float volume02; // Total Volume extracted from 0:00-2:00
 extern float volume24;
 extern float volume46;
@@ -201,7 +203,7 @@ int getTimeHour(void);
 long timeStamp(void);
 void ResetMsgVariables();
 int translate(char digit);
-void RTCCSet(void);
+void RTCCSet(void); //Never Used
 void VerifyProperTimeSource(void); // Uses RTCC if it is working VTCC if it is not
 int getMinuteOffset();
 char BcdToDec(char val);
