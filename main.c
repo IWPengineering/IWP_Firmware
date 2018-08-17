@@ -121,7 +121,7 @@ void main(void)
      while (1)
 	{
          
-       batteryFloat = batteryLevel();
+       //batteryFloat = batteryLevel();
        
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
@@ -156,7 +156,7 @@ void main(void)
                     SaveVolumeToEEProm();
                     sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);
                 }
-                //Update the Battery level Array
+                //Update the Battery level Array used in sleep decision
                 BatteryLevelArray[0]=BatteryLevelArray[1];
                 BatteryLevelArray[1]=BatteryLevelArray[2];
                 BatteryLevelArray[2]=batteryLevel();
@@ -174,7 +174,7 @@ void main(void)
                 prevHour = hour; // update so we know this is not the start of a new hour
             }       
             // should we be asleep to save power?
-           if(((BatteryLevelArray[0]-BatteryLevelArray[2])>BatteryDyingThreshold)||(batteryFloat<=3.2)){
+           if(((BatteryLevelArray[0]-BatteryLevelArray[2])>BatteryDyingThreshold)||(BatteryLevelArray[2]<=3.2)){
                while(BatteryLevelArray[2]<BatteryLevelArray[0]){
             //while(batteryFloat < 3.3){
                 // The WDT settings will let the PIC sleep for about 131 seconds.  
@@ -184,21 +184,109 @@ void main(void)
                     if (sleepHrStatus != 1){ // Record the fact that we went to sleep for diagnostic reporting purposes
                         sleepHrStatus = 1;
                         EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus); 
+                        ////////////////////////////////////////////////////////
+                        // this message is just being sent for debug purposes
+                        ////////////////////////////////////////////////////////
+                         if(diagnostic){
+                            int success = 0;
+                            char LocalString[20]; 
+                            SMSMessage[0]=0;
+                            LocalString[0] = 0;
+                            concat(SMSMessage, "Going to sleep at ");
+                            floatToString(hourVTCC, LocalString); // get the current hour
+                            concat(SMSMessage, LocalString);
+                            concat(SMSMessage, ":");
+                            floatToString(minuteVTCC, LocalString);
+                            concat(SMSMessage, LocalString);
+                            concat(SMSMessage, "\n battery = ");
+                            floatToString(BatteryLevelArray[0], LocalString);
+                            concat(SMSMessage, LocalString);
+                            concat(SMSMessage, ", ");
+                            floatToString(BatteryLevelArray[1], LocalString);
+                            concat(SMSMessage, LocalString);
+                            concat(SMSMessage, ", ");
+                            floatToString(BatteryLevelArray[2], LocalString);
+                            concat(SMSMessage, LocalString);
+                    
+                            success = turnOnSIM();  // returns 1 if the SIM powered up)
+                            if(success == 1){
+                                // Try to establish network connection
+                                success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+                                if(success == 1){
+                                    // Send off the data
+                                    phoneNumber = DebugphoneNumber;
+                                    sendTextMessage(SMSMessage);
+                                    char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+                                    ReadSIMresponse(CmdMatch); // this looks for the response from the FONA that the message has been received
+                                    phoneNumber = MainphoneNumber;
+                                }
+                            }
+                            // Should we wait for the message to be sent before trying to work with the FONA?
+                            delayMs(40);
+                        }
+                    ////////////////////////////////////////////////////////
+                    // this message is just being sent for debug purposes
+                    ////////////////////////////////////////////////////////
                     }                
                     sendDebugMessage("Going to sleep at hour = ", hour);  //Debug
-                    sendDebugMessage("               battery = ", batteryFloat);  //Debug
+                    sendDebugMessage("               battery = ", BatteryLevelArray[2]);  //Debug
+                    
+                    
                     Sleep(); 
-                    // OK, we just woke up               
+                    // OK, we just woke up  
+                    secondVTCC = secondVTCC + 131;
+                    updateVTCC(); //Try to keep VTCC as accurate as possible
                     TimeSinceLastBatteryCheck++; // only check the battery every 11th time you wake up (approx 24min)
                     // check the battery every 24 min
                     if(TimeSinceLastBatteryCheck >= 11){
                         BatteryLevelArray[2]=batteryLevel();
                         TimeSinceLastBatteryCheck = 0;
-                        secondVTCC = secondVTCC + 131*TimeSinceLastBatteryCheck;
-                        updateVTCC(); //Try to keep VTCC as accurate as possible
                     }
                 }
-                batteryFloat = BatteryLevelArray[2];
+               // We are waking up. Let's send a message we know just what was going on at that point.
+               ////////////////////////////////////////////////////////
+               // this message is just being sent for debug purposes
+               ////////////////////////////////////////////////////////
+               if(diagnostic){
+                   int success = 0;
+                            char LocalString[20]; 
+                            SMSMessage[0]=0;
+                            LocalString[0] = 0;
+                            concat(SMSMessage, "Going to sleep at ");
+                            floatToString(hourVTCC, LocalString); // get the current hour
+                            concat(SMSMessage, LocalString);
+                            concat(SMSMessage, ":");
+                            floatToString(minuteVTCC, LocalString);
+                            concat(SMSMessage, LocalString);
+                            concat(SMSMessage, "\n battery = ");
+                            floatToString(BatteryLevelArray[0], LocalString);
+                            concat(SMSMessage, LocalString);
+                            concat(SMSMessage, ", ");
+                            floatToString(BatteryLevelArray[1], LocalString);
+                            concat(SMSMessage, LocalString);
+                            concat(SMSMessage, ", ");
+                            floatToString(BatteryLevelArray[2], LocalString);
+                            concat(SMSMessage, LocalString);
+                    
+                            success = turnOnSIM();  // returns 1 if the SIM powered up)
+                            if(success == 1){
+                                // Try to establish network connection
+                                success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
+                                if(success == 1){
+                                    // Send off the data
+                                    phoneNumber = DebugphoneNumber;
+                                    sendTextMessage(SMSMessage);
+                                    char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
+                                    ReadSIMresponse(CmdMatch); // this looks for the response from the FONA that the message has been received
+                                    phoneNumber = MainphoneNumber;
+                                }
+                            }
+                            // Should we wait for the message to be sent before trying to work with the FONA?
+                            delayMs(40);
+                        }
+                    ////////////////////////////////////////////////////////
+                    // this message is just being sent for debug purposes
+                    ////////////////////////////////////////////////////////
            }
 
             // OK, go ahead and look for handle movement again
@@ -254,7 +342,7 @@ void main(void)
         if(timeOutStatus >= waterPrimeTimeOut){
             never_primed = 1;          
         }
-        sendDebugMessage("The time spent trying to prime = ",timeOutStatus*10);
+        sendDebugMessage("The time (ms) spent trying to prime = ",timeOutStatus*upstrokeInterval);
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
         sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
         sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug

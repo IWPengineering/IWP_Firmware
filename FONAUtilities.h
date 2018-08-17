@@ -23,10 +23,13 @@
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
-extern char MainphoneNumber[15]; // Upside Wireless
-extern char DebugphoneNumber[15]; // Number for the Black Phone
-extern char SendingPhoneNumber[15]; //Number for the phone that sent the system a message
+extern char MainphoneNumber[]; // Upside Wireless
+extern char origMainphoneNumber[15]; //set when originally programming the system
+extern char DebugphoneNumber[];
+extern char origDebugphoneNumber[15]; // Number for the Black Phone
 extern char CountryCode[]; // The country code for the country where the pump is installed
+extern char origCountryCode[6]; // The country code for the country where the pump is installed
+extern char SendingPhoneNumber[15]; //Number for the phone that sent the system a message
 //extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
 extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
 extern int LeaveOnSIM;  // this is set to 1 when an external message says to not shut off the SIM
@@ -66,7 +69,7 @@ void CreateAndSaveDailyReport(void);
 int SendSavedDailyReports(void);
 void SendHourlyDiagnosticReport(void);
 void createDiagnosticMessage(void);
-void checkDiagnosticStatus(void); //NOT CURRENTLY USED
+//void checkDiagnosticStatus(void); //NOT CURRENTLY USED
 void readFonaSignalStrength(void); // Asks the FONA for the strength of the network signal
 void OneTimeStatusReport(void); // reports various system status information one time to requesting phone number
 int AreThereTextMessagesToRead(void); //Checks # of waiting messages in FONA and total number of message slots for this SIM card
@@ -74,6 +77,8 @@ void CheckIncommingTextMessages(void); // This routine is called to read and pro
 void ChangeCountryCode(void); // Changes the saved variable Country Code
 void UpdateSendingPhoneNumber(void); //If the sending number is local, remove country code
 void ChangeDailyReportPhoneNumber(void); //Changes the number used for daily reports MainphoneNumber[]
+void PhonenumberToEEPROM(int,char*); // Saves a phone number string to two EEPROM locations
+void EEPROMtoPhonenumber(int EEoffset, char *DynamicPhoneNumber);
 
 
 

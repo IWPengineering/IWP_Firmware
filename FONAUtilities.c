@@ -26,13 +26,17 @@
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
-char DebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
+char origDebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
+char DebugphoneNumber[15]; //Defined during initialization 
 //char DebugphoneNumber[] = "+17177784498"; // Upside 
-//char DebugphoneNumber[]="+17176837704"; //Number for Sue Fish Cell
+//char origDebugphoneNumber[]="+17176837704"; //Number for Sue Fish Cell
 //char DebugphoneNumber[]="+254787620369"; //Number for Paul Zwart cell phone; this number is changed and default is the mainphonenumber
 //char MainphoneNumber[]="+17177784498"; // Upside Wireless
-char MainphoneNumber[]="+17176837803"; // Randy
-//char MainphoneNumber[]="+17176837704"; //Sue
+char origMainphoneNumber[]="+17176837803"; // Randy
+char MainphoneNumber[15]; //Defined during initialization
+//char origMainphoneNumber[]="+17176837704"; //Sue
+char origCountryCode[] = "+254"; // This is Kenya 
+char CountryCode[6];
 char SendingPhoneNumber[]="+254787620369"; //this is read from the received SMS message default to mine
 //char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
 //char phoneNumber []="+17176837803"; // Randy
@@ -280,8 +284,10 @@ void sendDebugMessage(char message[50], float value){
         debugMsg[0] = 0;
         
         concat(debugMsg, message);
-        floatToString(value, debugValueString); 
-        concat(debugMsg,debugValueString);
+        if(value != 0){
+            floatToString(value, debugValueString); 
+            concat(debugMsg,debugValueString);
+        }
         concat(debugMsg, "\n");
         sendMessage(debugMsg);
         // we should wait for the debug message to be sent before turning on the SIM
@@ -492,14 +498,14 @@ void updateClockCalendar(){
     int success = 0;
     int ext_success = 0;  //see if you were able to change the external RTCC
     int info_provided = 1; //assume all fields are reasonable
-    char local_val[4];
+    int local_val[4];
     int val_offset = 0;
-    char delta_hour;
-    char delta_min;
+    char delta_hour = 0;
+    char delta_min = 0;
     char newDate = BcdToDec(getDateI2C()); // we may overwrite this
     char newMonth = BcdToDec(getMonthI2C());// we may overwrite this
-    char new_hour;
-    char new_min = BcdToDec(getMinuteI2C()); // we may overwrite this
+    char new_hour = hourVTCC;
+    char new_min = minuteVTCC; // we may overwrite this
     
     char *MsgPtr;
     int msgLength=strlen(ReceiveTextMsg);
@@ -541,37 +547,41 @@ void updateClockCalendar(){
         delta_min = local_val[3];
     }
     // See if the information provided is valid
-    if((delta_hour < -23)||(delta_hour > 23)){
+    if((delta_hour < -23)||(delta_hour > 23)||(delta_min < -59)||(delta_min > 59)){
         info_provided = 0; // The value in the delta hour field is incorrect
     }
     else{
-        new_hour = delta_hour + hour;
+        new_min = delta_min + new_min;
+            if(new_min >= 60){
+                new_min = new_min - 60;
+                new_hour++;
+            }
+            if(new_min < 0){
+                new_min = new_min + 60;
+                new_hour--;
+            }
+        new_hour = delta_hour + new_hour;
+        if(new_hour >= 24){new_hour = new_hour - 24;}
+        if(new_hour < 0){new_hour = new_hour + 24;}
     }
     if((val_offset == 3)||(val_offset == 4)){
         if((newDate > 31)||(newDate < 1)||(newMonth > 12)||(newMonth < 1)){
             info_provided = 0; // the date or month field is incorrect
         }
     }
-    if((val_offset == 2)||(val_offset == 4)){
-        if((delta_min < -59)||(delta_min > 59)){
-            info_provided = 0; // the value in delta minute field is incorrect
-        }
-        else{
-            new_min = delta_min + minuteVTCC;
-        }
-    }
     // Time to make the requested changes
     if(info_provided){
         hour = new_hour;
+        min = new_min;
         if(hour > 23){ // In case someone adds time that wraps over
             hour = hour - 24;
         }
         int year = BcdToDec(getYearI2C());
         int wkday = 1; //just always assume its the 1st day of the week
-        ext_success = setTime(0,new_min,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
+        ext_success = setTime(0,min,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
     
         // Update the settings for the internal RTCC
-        initializeVTCC(0, new_min, hour, newDate, newMonth);
+        initializeVTCC(0, min, hour, newDate, newMonth);
     }
     // Now we want to reply to the sender telling it what we just did
     success = turnOnSIM();  // returns 1 if the SIM powered up)
@@ -644,6 +654,7 @@ void ChangeDailyReportPhoneNumber(){
         strncat(MainphoneNumber,MsgPtr,1);
         MsgPtr++;
     }
+    PhonenumberToEEPROM(EEpromMainphoneNumber,MainphoneNumber);// Save this new number to EEPROM
       // Now we want to reply to the sender telling it what we just did
     int success = 0;
     success = turnOnSIM();  // returns 1 if the SIM powered up)
@@ -708,14 +719,7 @@ void enableDiagnosticTextMessages(){
         diagnostic = 0; // Disable hourly diagnostic reporting
         concat(localMsg,"Hourly Diagnostic Messages Have Been DISABLED ");
     }
-    if(DiagnosticMode == 1){
-        diagnostic = 1; // Enable hourly diagnostic reporting
-        concat(localMsg,"Hourly Diagnostic Messages Have Been ENABLED ");
-    }
-    
     if(DiagnosticMode == 2){
-        diagnostic = 1; // Enable hourly diagnostic reporting
-        
         // Change the Diagnostic Phone Number
         DebugphoneNumber[0]=0;  //Reset the phone number string
          // Skip to Phone Number
@@ -729,10 +733,15 @@ void enableDiagnosticTextMessages(){
             strncat(DebugphoneNumber,MsgPtr,1);
             MsgPtr++;
         }
+        PhonenumberToEEPROM(EEpromDebugphoneNumber,DebugphoneNumber); // Save new debug phone number to EEPROM   
+    }  
+    if(DiagnosticMode > 0){ // We are either just enabling or enabling and changing the phone number
+        diagnostic = 1; // Enable hourly diagnostic reporting
         concat(localMsg,"Hourly Diagnostic Messages Have Been ENABLED to be sent to ");
         concat(localMsg,DebugphoneNumber);
-        
-    }  
+    }
+    EEProm_Write_Float(EEpromDiagStatus,&diagnostic); //Save the new Diagnostic Status to EEPROM  
+   
     // Now we want to reply to the sender telling it what we just did
     success = turnOnSIM();  // returns 1 if the SIM powered up)
     if(success == 1){
@@ -783,6 +792,8 @@ void ChangeCountryCode(){
         strncat(CountryCode,MsgPtr,1);
         MsgPtr++;
     }
+    // Save this new value in EEPROM in case we have a reset
+    PhonenumberToEEPROM(EEpromCountryCode,CountryCode); 
       // Now we want to reply to the sender telling it what we just did
     int success = 0;
     success = turnOnSIM();  // returns 1 if the SIM powered up)
@@ -835,6 +846,69 @@ void UpdateSendingPhoneNumber(){
         }
     }
     
+}
+/*********************************************************************
+ * Function: void PhonenumberToEEPROM(int EEoffset,char PhoneNumber)
+ * Input: EEoffset - this is the location expected for the floats 
+ *                   used to save the phone number value
+ *        PhoneNumber - the string which holds the phone number to be saved
+ * 
+ * Output: None
+ * Overview: A phone number (which is assumed to have a + in the first position)
+ *           is broken into a 7 character string and a second string long enough
+ *           to accommodate the remaining characters is the passed phone number.
+ *           the length of the string is limited to know more than 7 characters
+ *           so that its mantissa will fit in a float.
+ *           The upper part of the string is saved at EEPROMbase + EEoffset
+ *           The lower part is saved at EEPROMbase + EEoffset + 1
+ * TestDate: 8/11/2018 RKF
+ ********************************************************************/
+void PhonenumberToEEPROM(int EEoffset,char *PhoneNumber){
+        char LocalPhoneNumber[8];
+        char *MsgPtr=PhoneNumber+1;
+        char LengthOfPhoneNumber = stringLength(PhoneNumber);
+        float PhoneNum;
+        if(LengthOfPhoneNumber < 7){ //This is what we do when we are saving the Country Code
+            strncpy(LocalPhoneNumber,MsgPtr,LengthOfPhoneNumber);
+            PhoneNum = atof(LocalPhoneNumber);
+            EEProm_Write_Float(EEoffset,&PhoneNum); 
+        }
+        else{
+            strncpy(LocalPhoneNumber,MsgPtr,7);
+            PhoneNum = atof(LocalPhoneNumber);
+            EEProm_Write_Float(EEoffset,&PhoneNum);
+            MsgPtr=PhoneNumber+8;
+            strncpy(LocalPhoneNumber,MsgPtr,LengthOfPhoneNumber-7);
+            PhoneNum = atof(LocalPhoneNumber);
+            EEProm_Write_Float(EEoffset+1,&PhoneNum);
+        }
+}
+
+/*********************************************************************
+ * Function: void EEPROMtoPhonenumber(int EEoffset, char *DynamicPhoneNumber)
+ * Input: EEoffset - this is the location expected for the floats 
+ *                   from which to recover saved phone number value
+ *        DynamicPhoneNumber - the string which should be set from the values in EEPROM
+ * 
+ * Output: None
+ * Overview: A phone number is expected to be saved in two locations in EEPROM
+ *           these values are recovered and converted back to a single string.
+ *           the + is added to the start of the phone number
+ * TestDate: 8/11/2018 RKF
+ ********************************************************************/
+void EEPROMtoPhonenumber(int EEoffset, char *DynamicPhoneNumber){
+    char PhoneNumber[8];    
+    EEProm_Read_Float(EEoffset, &EEFloatData);
+    floatToString(EEFloatData, PhoneNumber);
+    DynamicPhoneNumber[0]=0;
+    concat(DynamicPhoneNumber,"+");
+    concat(DynamicPhoneNumber, PhoneNumber);
+    if((stringLength(PhoneNumber))< 7){ }// Just the one float CountryCode
+    else{
+        EEProm_Read_Float(EEoffset+1, &EEFloatData);
+        floatToString(EEFloatData, PhoneNumber);
+        concat(DynamicPhoneNumber, PhoneNumber);
+    }
 }
 /*********************************************************************
  * Function: OneTimeStatusReport()
@@ -1547,7 +1621,6 @@ void readFonaSignalStrength(void) {
 
 void createDiagnosticMessage(void) {
     char LocalString[20]; 
-    float LocalFloat = hour;
     SMSMessage[0] = 0; //reset SMS message array to be empty
     LocalString[0] = 0;
     
@@ -1556,8 +1629,9 @@ void createDiagnosticMessage(void) {
     floatToString(EEFloatData, LocalString); //populates the sleepHrStatusString with the value from EEPROM
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"b\":");
-    batteryFloat = batteryLevel();  
-    floatToString(batteryFloat, LocalString); //latest battery voltage
+    //batteryFloat = batteryLevel();  
+    //floatToString(batteryFloat, LocalString); //latest battery voltage
+    floatToString(batteryLevel(), LocalString); //latest battery voltage
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"r\":");
     floatToString(timeSinceLastRestart, LocalString); // hours since the system restarted
@@ -1593,27 +1667,27 @@ void createDiagnosticMessage(void) {
  * TestDate: 
  ********************************************************************/
 
-void checkDiagnosticStatus(void){
-    float LocalFloatUpper;
-    float LocalFloatLower;
-    char LocalStringUpper[15]; 
-    char LocalStringLower[15]; 
-    
-    EEProm_Read_Float(DiagnosticEEPromStart + 2, &EEFloatData); // lower byte of the phone number
-    LocalFloatLower = EEFloatData;
-    EEProm_Read_Float(DiagnosticEEPromStart + 3, &EEFloatData); // upper byte of the phone number
-    LocalFloatUpper = EEFloatData;
-    if ((LocalFloatLower != 0) || (LocalFloatUpper != 0)) {
-        diagnostic = 1;
-        floatToString(LocalFloatLower, LocalStringLower);
-        floatToString(LocalFloatUpper, LocalStringUpper);
-        concat(DebugphoneNumber, LocalStringUpper);
-        concat(DebugphoneNumber, LocalStringLower);
-    }
-    else {
-        diagnostic = 0;
-    }
-}
+//void checkDiagnosticStatus(void){
+//    float LocalFloatUpper;
+//    float LocalFloatLower;
+//    char LocalStringUpper[15]; 
+//    char LocalStringLower[15]; 
+//    
+//    EEProm_Read_Float(DiagnosticEEPromStart + 2, &EEFloatData); // lower byte of the phone number
+//    LocalFloatLower = EEFloatData;
+//    EEProm_Read_Float(DiagnosticEEPromStart + 3, &EEFloatData); // upper byte of the phone number
+//    LocalFloatUpper = EEFloatData;
+//    if ((LocalFloatLower != 0) || (LocalFloatUpper != 0)) {
+//        diagnostic = 1;
+//        floatToString(LocalFloatLower, LocalStringLower);
+//        floatToString(LocalFloatUpper, LocalStringUpper);
+//        concat(DebugphoneNumber, LocalStringUpper);
+//        concat(DebugphoneNumber, LocalStringLower);
+//    }
+//    else {
+//        diagnostic = 0;
+//    }
+//}
 
 /*********************************************************************
  * Function: void CheckIncommingTextMessages(void)
@@ -1631,7 +1705,15 @@ void CheckIncommingTextMessages(void){
     }
     if(FONAisON){
         int msg_remaining = 0;
-        msg_remaining = AreThereTextMessagesToRead();
+        // Try for up to three minutes
+        int num_tries = 0;
+        while((!msg_remaining)&&(num_tries < 36)){
+            msg_remaining = AreThereTextMessagesToRead();
+            delayMs(5000); //wait for 5 seconds
+            num_tries++;    
+            ClearWatchDogTimer(); 
+        }
+        //msg_remaining = AreThereTextMessagesToRead();
         if(msg_remaining){ //Only read messages if there are any to read
             int msgNum = 1;
             while((msgNum <= MaxSMSmsgSize)&&(msg_remaining)){

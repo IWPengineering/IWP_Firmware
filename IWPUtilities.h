@@ -51,7 +51,7 @@ extern const float PI;
 extern const float upstrokeToMeters;
 extern const int minimumAngleDelta;
 extern const float batteryLevelConstant;       //This number is found by Vout = (R32 * Vin) / (R32 + R31), Yields Vin = Vout / 0.476
-extern const int BatteryDyingThreshold;
+extern const float BatteryDyingThreshold;
 extern int queueCount;
 extern int queueLength; //don't forget to change angleQueue to this number also
 extern float angleQueue[7];
@@ -71,6 +71,10 @@ extern double timeStep;
 extern int prevTimer2;
 extern int DailyReportEEPromStart; // this is the EEPROM slot that Daily Report Messages will begin to be saved
 extern int DiagnosticEEPromStart;  // this is the EEPROM slot that Diagnostic information can begin to be saved
+extern int EEpromDiagStatus; // 1 means report hourly to diagnostic phone number, 0 = don't report
+extern int EEpromCountryCode;
+extern int EEpromMainphoneNumber;
+extern int EEpromDebugphoneNumber;
 
 
 // ****************************************************************************
@@ -100,7 +104,7 @@ extern float resetCause; //0 if no reset occurred, else the RCON register bit nu
 extern int extRtccHourSet; //set to 0 if the external RTCC didn't update the hour in the current loop - used to check internal RTCC
 
 //*******************VTCC Variables************************
-extern char secondVTCC;
+extern int secondVTCC; //this needs to be an int to handle the time updates during sleep mode
 extern char minuteVTCC;
 extern char hourVTCC;
 extern char dateVTCC;
@@ -112,7 +116,7 @@ extern int hour_msg_sent;  //set to 1 when hourly message has been sent
 extern float longestPrime; // total upstroke for the longest priming event of the day
 
 extern float leakRateLong; // largest leak rate recorded for the day
-extern float batteryFloat; // batteryLevel measured by scaled A/D
+//extern float batteryFloat; // batteryLevel measured by scaled A/D
 extern float BatteryLevelArray[3]; //Used to keep track of the rate of change of the battery voltage
 extern float volume02; // Total Volume extracted from 0:00-2:00
 extern float volume24;
@@ -159,7 +163,8 @@ extern int GNDPin;
 extern int vcc2Pin;
 // other global variables
 extern float debugCounter; // DEBUG DEBUG DEBUG DEBUG DEBUG
-extern int hour; // Hour of day
+extern int hour; // Hour of the day
+extern int min; // Minute of the day
 extern int TimeSinceLastHourCheck; //we check this when we have gone around the no pumping loop enough times that 1 minute has gone by
 extern int TimeSinceLastBatteryCheck; // we check the battery when we are sleeping because of low battery every 10 times we wake up.
 extern int minute;  //minute of the day
@@ -188,7 +193,7 @@ int stringLength(char *string);
 void concat(char *dest, const char *src);
 void floatToString(float myValue, char *myString);
 int readWaterSensor(void);
-float readDepthSensor(void); 
+float readDepthSensor(void); //Only used by Midday depth read which is not used
 void initAdc(void);
 int readAdc(int channel);
 float getHandleAngle();
@@ -202,7 +207,7 @@ void setInternalRTCC(int sec, int min, int hr, int wkday, int date, int month, i
 int getTimeHour(void);
 long timeStamp(void);
 void ResetMsgVariables();
-int translate(char digit);
+int translate(char digit); //Not used
 void RTCCSet(void); //Never Used
 void VerifyProperTimeSource(void); // Uses RTCC if it is working VTCC if it is not
 int getMinuteOffset();
