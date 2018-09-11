@@ -85,9 +85,10 @@ const int pulseWidthThreshold = 20; // The value to check the pulse width agains
 ///const int pulseWidthThreshold = 130; // This is just for Zantele we see about 160hz, not when water is there.  Not sure what we would see with no water
 
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
+const int max_pause_while_pumping = 1000; //The maximum time (in ms) that the pump handle is not moving before we say that the person stopped trying
 int waterPrimeTimeOut = 7000; // This * upstrokeInterval is the maximum amount of time we will wait for the pump to prime.
                               // with current setting, this is 70 seconds 
-long leakRateTimeOut = 3000; // Equivalent to 3 seconds (in "upstrokeInterval" millisecond intervals); 
+long leakRateTimeOut = 3000; // Maximum number of milliseconds to wait for water to drain when calculating leak rate 
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
 const float angleThresholdSmall = 0.1; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
@@ -248,11 +249,11 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 25;
+    char localMin = 14;
     char localHr = 16;
     char localWkday = 3;
-    char localDate = 15;
-    char localMonth = 8;
+    char localDate = 5;
+    char localMonth = 9;
     char localYear = 18;
     ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
@@ -593,6 +594,7 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
 int readWaterSensor(void) // RB5 is one water sensor
 {
     int WaterPresent = 0; //assume there is no water
+    int QuitLooking = 0; // set to 1 if we know there is no water
     // turn WPS on and off in the Main loop 
     delayMs(5); //make sure the 555 has had time to turn on 
 
@@ -603,15 +605,17 @@ int readWaterSensor(void) // RB5 is one water sensor
         while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)) { //quit if the line is high for too long
         };
     }
+    if(TMR1 > pulseWidthThreshold){QuitLooking = 1;}
     //wait for rising edge
     TMR1 = 0;
-    while ((digitalPinStatus(waterPresenceSensorPin) == 0)&&(TMR1 <= pulseWidthThreshold)) { //quit if the line is low for too long
+    while ((digitalPinStatus(waterPresenceSensorPin) == 0)&&(TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) { //quit if the line is low for too long
     };
+    if(TMR1 > pulseWidthThreshold){QuitLooking = 1;}
     //Now measure the high part of the signal
     TMR1 = 0;
-    while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)) { //quit if the line is high for too long
+    while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) { //quit if the line is high for too long
     };
-    if (TMR1 <= pulseWidthThreshold) {
+    if ((TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) {
         WaterPresent = 1;
     }
     return WaterPresent;
@@ -1687,7 +1691,7 @@ void updateVTCC(void) {
         hourVTCC = hourVTCC - 24;
         dateVTCC++;
     }
-    if (dateVTCC >= monthArray[monthVTCC]) {
+    if (dateVTCC > monthArray[monthVTCC-1]) {
         dateVTCC = 1;
         monthVTCC++;
         if (monthVTCC == 13) {
@@ -1695,6 +1699,30 @@ void updateVTCC(void) {
         }
     }
 }
+/*********************************************************************
+ * Function: int HasTheHandleMoved(float rest_position)
+ * Input: angle in degrees of the handle when it is assumed to be at rest.  
+ *        This does not need to be at one of the stops.  A person could be holdig it anywhere but not moving it up and down.
+ * Output: 0 if the handle has not moved enough (handleMovementThreshold) to say that it is really moving
+ *         1 if the current position is at least handleMovementThreshold away from the assumed rest position
+ * Overview:  Before pumping begins, or when it stops the handle position is noted.
+ *            by looking at the current position relative to this measured resting position,
+ *            we can decide if there has been enough movement to indicate that
+ *            someone is deliberately moving it to try to pump water. *             
+ * TestDate: NOT TESTED
+ ********************************************************************/
+int HasTheHandleMoved(float rest_position){
+    int moving = 0;  // assume that the handle is not moving
+    float deltaAngle = getHandleAngle() - rest_position;
+    if(deltaAngle < 0) {
+        deltaAngle *= -1;
+    }
+    if(deltaAngle > handleMovementThreshold){ // The total movement of the handle from rest has been exceeded
+		moving = 1;
+    }
+    return moving;
+}
+
 
 /*********************************************************************
  * Function: void _T2Interrupt(void)

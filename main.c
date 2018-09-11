@@ -85,6 +85,7 @@ void main(void)
     
 	float angleCurrent = 0; // Stores the current angle of the pump handle
 	float anglePrevious = 0; // Stores the last recorded angle of the pump handle
+    float angleAtRest = 0; // Used to store the handle angle when it is not moving
 	float angleDelta = 0; // Stores the difference between the current and previous angles
 	float upStrokePrime = 0; // Stores the sum of the upstrokes for calculating the prime
 	float upStrokeExtract = 0; // Stores the sum of the upstrokes for calculating volume
@@ -111,7 +112,7 @@ void main(void)
 
     
     print_debug_messages = 1;                                        //// We always want to print this out
-    sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
+    sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ",-0.1);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     sendDebugMessage("The hourly diagnostic reports are at ",diagnostic); //Debug
@@ -130,7 +131,7 @@ void main(void)
 		// motion in the upward direction by comparing angles
 		////////////////////////////////////////////////////////////
 
-		anglePrevious = getHandleAngle();                            // Get the angle of the pump handle to measure against.  
+		angleAtRest = getHandleAngle();                            // Get the angle of the pump handle to measure against.  
                                                                      // This is our reference when looking for sufficient movement to say the handle is actually moving.  
                                                                      // the "moving" threshold is defined by handleMovementThreshold in IWPUtilities
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
@@ -184,54 +185,7 @@ void main(void)
                     if (sleepHrStatus != 1){ // Record the fact that we went to sleep for diagnostic reporting purposes
                         sleepHrStatus = 1;
                         EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus); 
-                        ////////////////////////////////////////////////////////
-                        // this message is just being sent for debug purposes
-                        ////////////////////////////////////////////////////////
-                         if(diagnostic){
-                            int success = 0;
-                            char LocalString[20]; 
-                            SMSMessage[0]=0;
-                            LocalString[0] = 0;
-                            concat(SMSMessage, "Going to sleep at ");
-                            floatToString(hourVTCC, LocalString); // get the current hour
-                            concat(SMSMessage, LocalString);
-                            concat(SMSMessage, ":");
-                            floatToString(minuteVTCC, LocalString);
-                            concat(SMSMessage, LocalString);
-                            concat(SMSMessage, "\n battery = ");
-                            floatToString(BatteryLevelArray[0], LocalString);
-                            concat(SMSMessage, LocalString);
-                            concat(SMSMessage, ", ");
-                            floatToString(BatteryLevelArray[1], LocalString);
-                            concat(SMSMessage, LocalString);
-                            concat(SMSMessage, ", ");
-                            floatToString(BatteryLevelArray[2], LocalString);
-                            concat(SMSMessage, LocalString);
-                    
-                            success = turnOnSIM();  // returns 1 if the SIM powered up)
-                            if(success == 1){
-                                // Try to establish network connection
-                                success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
-                                if(success == 1){
-                                    // Send off the data
-                                    phoneNumber = DebugphoneNumber;
-                                    sendTextMessage(SMSMessage);
-                                    char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
-                                    ReadSIMresponse(CmdMatch); // this looks for the response from the FONA that the message has been received
-                                    phoneNumber = MainphoneNumber;
-                                }
-                            }
-                            // Should we wait for the message to be sent before trying to work with the FONA?
-                            delayMs(40);
-                        }
-                    ////////////////////////////////////////////////////////
-                    // this message is just being sent for debug purposes
-                    ////////////////////////////////////////////////////////
                     }                
-                    sendDebugMessage("Going to sleep at hour = ", hour);  //Debug
-                    sendDebugMessage("               battery = ", BatteryLevelArray[2]);  //Debug
-                    
-                    
                     Sleep(); 
                     // OK, we just woke up  
                     secondVTCC = secondVTCC + 131;
@@ -243,62 +197,19 @@ void main(void)
                         TimeSinceLastBatteryCheck = 0;
                     }
                 }
-               // We are waking up. Let's send a message we know just what was going on at that point.
-               ////////////////////////////////////////////////////////
-               // this message is just being sent for debug purposes
-               ////////////////////////////////////////////////////////
-               if(diagnostic){
-                   int success = 0;
-                            char LocalString[20]; 
-                            SMSMessage[0]=0;
-                            LocalString[0] = 0;
-                            concat(SMSMessage, "Going to sleep at ");
-                            floatToString(hourVTCC, LocalString); // get the current hour
-                            concat(SMSMessage, LocalString);
-                            concat(SMSMessage, ":");
-                            floatToString(minuteVTCC, LocalString);
-                            concat(SMSMessage, LocalString);
-                            concat(SMSMessage, "\n battery = ");
-                            floatToString(BatteryLevelArray[0], LocalString);
-                            concat(SMSMessage, LocalString);
-                            concat(SMSMessage, ", ");
-                            floatToString(BatteryLevelArray[1], LocalString);
-                            concat(SMSMessage, LocalString);
-                            concat(SMSMessage, ", ");
-                            floatToString(BatteryLevelArray[2], LocalString);
-                            concat(SMSMessage, LocalString);
-                    
-                            success = turnOnSIM();  // returns 1 if the SIM powered up)
-                            if(success == 1){
-                                // Try to establish network connection
-                                success = tryToConnectToNetwork();  // if we fail to connect, don't send the message
-                                if(success == 1){
-                                    // Send off the data
-                                    phoneNumber = DebugphoneNumber;
-                                    sendTextMessage(SMSMessage);
-                                    char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
-                                    ReadSIMresponse(CmdMatch); // this looks for the response from the FONA that the message has been received
-                                    phoneNumber = MainphoneNumber;
-                                }
-                            }
-                            // Should we wait for the message to be sent before trying to work with the FONA?
-                            delayMs(40);
-                        }
-                    ////////////////////////////////////////////////////////
-                    // this message is just being sent for debug purposes
-                    ////////////////////////////////////////////////////////
            }
 
             // OK, go ahead and look for handle movement again
-			delayMs(upstrokeInterval);                            // Delay for a short time
-			float newAngle = getHandleAngle();
-			float deltaAngle = newAngle - anglePrevious;
-			if(deltaAngle < 0) {
-				deltaAngle *= -1;
-			}
-            if(deltaAngle > handleMovementThreshold){            // The total movement of the handle from rest has been exceeded
-				handleMovement = 1;
-			}
+           handleMovement = HasTheHandleMoved(angleAtRest);
+           delayMs(upstrokeInterval);                            // Delay for a short time
+//			float newAngle = getHandleAngle();
+//			float deltaAngle = newAngle - angleAtRest;
+//			if(deltaAngle < 0) {
+//				deltaAngle *= -1;
+//			}
+//            if(deltaAngle > handleMovementThreshold){            // The total movement of the handle from rest has been exceeded
+//				handleMovement = 1;
+//			}
 		}
 
 		/////////////////////////////////////////////////////////
@@ -307,10 +218,11 @@ void main(void)
 		// upper water sensor is checked to determine if the
 		// pump has been primed
 		/////////////////////////////////////////////////////////
-        sendDebugMessage("\n\n We are in the Priming Loop ", 0);  //Debug
-        int i = 0; 
+        sendDebugMessage("\n\n We are in the Priming Loop ", -0.1);  //Debug
+        int stopped_pumping_index = 0; 
 		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
+        angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
      
@@ -322,21 +234,21 @@ void main(void)
 			anglePrevious = angleCurrent;                         //Prepares anglePrevious for the next loop
 			if(angleDelta > 0){                                   //Determines direction of handle movement
 				upStrokePrime += angleDelta;                  //If the valve is moving upward, the movement is added to an
-                                                             //accumlation var (even if it was smaller than angleThresholdSmall)
+                                                             //accumulation var (even if it was smaller than angleThresholdSmall)
 			}
             // If they have stopped, pumping we should give up too
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-                i++; // we want to stop if the user stops pumping              
+                stopped_pumping_index++; // we want to stop if the user stops pumping              
 			}
 			else{
-                i=0;   // they are still trying
+                stopped_pumping_index=0;   // they are still trying
 			} 
-            if(i == 100){  // They quit trying for at least 1 second
+            if((stopped_pumping_index * upstrokeInterval) > max_pause_while_pumping){  // They quit trying for at least 1 second (SHOULD THIS BE LONGER??)
                 never_primed = 1;
                 sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
                 break;
             }
-            timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping
+            timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping (WHY TIME OUT? IF THEY KEEP PUMPING WITHOUT WATER WHY NOT RECORD IT)
 			delayMs(upstrokeInterval); 
         }
         if(timeOutStatus >= waterPrimeTimeOut){
@@ -357,12 +269,12 @@ void main(void)
 		// Tracks the upStroke for the water being extracted
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
-        sendDebugMessage("\n We are in the Volume Loop ", 0);  //Debug
+        sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
         upStrokeExtract = 0;                                                 // gets variable ready for new volume event
-        sendDebugMessage("starting extract handle degrees ", upStrokeExtract);  //Debug
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
-		i = 0;                                                      //Index to keep track of no movement cycles
+		int i = 0;                                                      //Index to keep track of no movement cycles
+        anglePrevious = getHandleAngle();
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 							                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
@@ -371,7 +283,7 @@ void main(void)
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
 			if(angleDelta > 0){                                     //Determines direction of handle movement
 				upStrokeExtract += angleDelta;                  //If the valve is moving upward, the movement is added to an
-										//accumlation var
+										                        //accumlation var
 			}
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				i++;
@@ -385,43 +297,45 @@ void main(void)
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////
-        sendDebugMessage("\n We are in the Leak Rate Loop ", 0);  //Debug
+        sendDebugMessage("\n We are in the Leak Rate Loop ", -0.1);  //Debug
 		// Get the angle of the pump handle to measure against
 		int leakCondition = 3;  // Assume that we are going to be able to calculate a valid leak rate
+        
       
         if(!readWaterSensor()){  // If there is already no water when we get here, something strange is happening, don't calculate leak
             leakCondition = 4;
-             sendDebugMessage("There is no water as soon as we get here ", 0);  //Debug
+             sendDebugMessage("There is no water as soon as we get here ", -0.1);  //Debug
         }
         if(never_primed == 1){
             leakCondition = 4;   // there was never any water
-            sendDebugMessage("There never was any water ", 0);  //Debug
+            sendDebugMessage("There never was any water ", -0.1);  //Debug
         }
         i = 0;  
         anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
 		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 150 milliseconds of delay 
-                                                                                // if no water or no handle movement before entry.
-        while (readWaterSensor()){
-			angleCurrent = getHandleAngle();                                //Get the current angle of the pump handle
-			angleDelta = angleCurrent - anglePrevious;                      //Calculate the change in angle of the pump handle
-            anglePrevious = angleCurrent;                                   // Update the previous angle for the next calculation
-											                                                               // intentional pump and break out of the loop (2 is in radians)
-			// If the handle starts moving we will abandon calculating a new leak rate
-            //  Moving is the same criterion as stopping in volume calculation loop
-            if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-				i=0;
+        angleAtRest = getHandleAngle();                                                                        // if no water or no handle movement before entry.
+        while ((readWaterSensor())&&(leakCondition == 3)){
+            if(HasTheHandleMoved(angleAtRest)){ // if they start pumping, stop calculating leak
+                leakCondition = 1;
             }
-			else{
-				i++;
- 			}             
-            if (i >= volumeLoopCounter){
-				leakCondition = 1;
-				break;
-			}
-			if (leakDurationCounter >= leakRateTimeOut){                              // (was 100 - 10/8/2015 KK)
-				leakCondition = 2; //Jump to condition for no leak if while is broken out of on condition of
-                                    //exceeding the leakRateTimeOut wait.
-				break;
+//			angleCurrent = getHandleAngle();                                //Get the current angle of the pump handle
+//			angleDelta = angleCurrent - anglePrevious;                      //Calculate the change in angle of the pump handle
+//            anglePrevious = angleCurrent;                                   // Update the previous angle for the next calculation
+//											                                                               // intentional pump and break out of the loop (2 is in radians)
+//			// If the handle starts moving we will abandon calculating a new leak rate
+//            //  Moving is the same criterion as stopping in volume calculation loop
+//            if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
+//				i=0;
+//            }
+//			else{
+//				i++;
+// 			}             
+//            if (i >= volumeLoopCounter){
+//				leakCondition = 1;
+//				break;
+//			}
+			if ((leakDurationCounter * upstrokeInterval) >= leakRateTimeOut){  
+				leakCondition = 2;  // The leak is slow enough to call it zero 
 			}
 			delayMs(upstrokeInterval);
 			leakDurationCounter++;
@@ -444,7 +358,7 @@ void main(void)
 			leakRate = 0;
 			leakRatePrevious = leakRate;  
 			break;
-		case 3:                         // The pump did prime but water leaked out in less than our max time to wait.  So calculate a new value
+		case 3:                         // The pump did prime and water leaked out in less than our max time to wait.  So calculate a new value
 			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
 			leakRatePrevious = leakRate;    
             break;           
@@ -455,7 +369,7 @@ void main(void)
             break;
         
         case 5:
-			leakRate = leakRatePrevious; // They started pumping again so can't calculate a new leak rate, use the last one when calculating volume pumped
+			leakRate = leakRatePrevious; // Not sure that the rising main was full at the end of pumping so don't calculate a new leak rate
 			break;
         }
         sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug

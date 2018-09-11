@@ -282,9 +282,8 @@ void sendDebugMessage(char message[50], float value){
         char debugMsg[150];
         char debugValueString[20];
         debugMsg[0] = 0;
-        
-        concat(debugMsg, message);
-        if(value != 0){
+        concat(debugMsg, message); // Text part of message
+        if(value != -0.1){ // -0.1 is used when there is no valid value to report and we just want the text
             floatToString(value, debugValueString); 
             concat(debugMsg,debugValueString);
         }
@@ -596,7 +595,7 @@ void updateClockCalendar(){
             localMsg[0] = 0;
             char ClkCal_val[3];
             if(info_provided){
-                concat(localMsg,"Changed internal/external Date-Month Hour:Minute to \n");
+                concat(localMsg,"Changed Date-Month Hour:Minute to \n");
                 itoa(ClkCal_val,newDate,10);
                 concat(localMsg, ClkCal_val);
                 concat(localMsg,"-");

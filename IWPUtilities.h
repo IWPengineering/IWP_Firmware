@@ -40,6 +40,7 @@ extern const int signedNumAdjustADC; // Used to divide the total range of the ou
 extern const int pulseWidthThreshold; // The value to check the pulse width against (2048)
 
 extern const int upstrokeInterval; // The number of milliseconds to delay before reading the upstroke
+extern const int max_pause_while_pumping; //The maximum time (in ms) that the pump handle is not moving before we say that the person stopped trying
 extern int waterPrimeTimeOut; // Equivalent to 7 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
 extern long leakRateTimeOut; // Equivalent to 18 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
 //extern long timeBetweenUpstrokes; // 3 seconds (based on upstrokeInterval)
@@ -198,6 +199,7 @@ void initAdc(void);
 int readAdc(int channel);
 float getHandleAngle();
 float batteryLevel(void);
+int HasTheHandleMoved(float rest_position);
 
 float degToRad(float degrees);
 void delayMs(int ms);
