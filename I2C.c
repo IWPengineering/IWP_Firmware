@@ -26,39 +26,40 @@
  * Overview: Resets software for I2C
  * Note: Contains a timeout loop that will disable then enable I2C
  ********************************************************************/
-void SoftwareReset(void) {
-    I2C1CONbits.I2CEN = 0; // Disconnect I2C function from I2C pins (on pins 17 an 18)
-    configI2c(); // Configure 12C pins as 12C (on pins 17 and 18
-
-    IdleI2C(); // Ensure module is idle
-    StartI2C(); // Initiate START condition
-    while (I2C1CONbits.SEN)
-    { // Wait until START condition is complete
-        // do nothing
-    }
-    int pulsesCreated = 0;
-    pinDirectionIO(sclI2CPin, 1); // input
-    pinDirectionIO(sdaI2CPin, 1); // input
-    if ((digitalPinStatus(sclI2CPin) == 1) && (digitalPinStatus(sdaI2CPin) == 0))
-    {
-        pinDirectionIO(sdaI2CPin, 0); // make SDA an output
-        digitalPinSet(sdaI2CPin, 0); // set SDA
-        while ((pulsesCreated < 9) && digitalPinStatus(sdaI2CPin) == 0)
-        { //PORTBbits.RB9 == 0){
-            delaySCL();
-            digitalPinSet(sclI2CPin, 1); //PORTBbits.RB9 = 1; // SCL
-            delaySCL();
-            digitalPinSet(sdaI2CPin, 0); //PORTBbits.RB9 = 0; // SCL
-            delaySCL();
-            pulsesCreated++;
-        }
-    }
-    // put pulse code here
-    RestartI2C(); // Initiate START condition
-    while (I2C1CONbits.RSEN); // Wait until START condition is complete
-    StopI2C(); // Initiate STOP condition
-    while (I2C1CONbits.PEN); // Wait until STOP condition is complete
-}
+// This calls IdleI2C which in turn calls it.  ?? NOT GOOD
+//void SoftwareReset(void) {
+//    I2C1CONbits.I2CEN = 0; // Disconnect I2C function from I2C pins (on pins 17 an 18)
+//    configI2c(); // Configure 12C pins as 12C (on pins 17 and 18
+//
+//    IdleI2C(); // Ensure module is idle
+//    StartI2C(); // Initiate START condition
+//    while (I2C1CONbits.SEN)
+//    { // Wait until START condition is complete
+//        // do nothing
+//    }
+//    int pulsesCreated = 0;
+//    pinDirectionIO(sclI2CPin, 1); // input
+//    pinDirectionIO(sdaI2CPin, 1); // input
+//    if ((digitalPinStatus(sclI2CPin) == 1) && (digitalPinStatus(sdaI2CPin) == 0))
+//    {
+//        pinDirectionIO(sdaI2CPin, 0); // make SDA an output
+//        digitalPinSet(sdaI2CPin, 0); // set SDA
+//        while ((pulsesCreated < 9) && digitalPinStatus(sdaI2CPin) == 0)
+//        { //PORTBbits.RB9 == 0){
+//            delaySCL();
+//            digitalPinSet(sclI2CPin, 1); //PORTBbits.RB9 = 1; // SCL
+//            delaySCL();
+//            digitalPinSet(sdaI2CPin, 0); //PORTBbits.RB9 = 0; // SCL
+//            delaySCL();
+//            pulsesCreated++;
+//        }
+//    }
+//    // put pulse code here
+//    RestartI2C(); // Initiate START condition
+//    while (I2C1CONbits.RSEN); // Wait until START condition is complete
+//    StopI2C(); // Initiate STOP condition
+//    while (I2C1CONbits.PEN); // Wait until STOP condition is complete
+//}
 
 /*********************************************************************
  * Function: SoftwareResetRKF()
@@ -68,45 +69,45 @@ void SoftwareReset(void) {
  * Note: Contains a timeout loop that will disable then enable I2C
  ********************************************************************/
 ///////////// NOT REWRITTEN YET 3/31/17 
-void SoftwareResetRKF(void) {
-    
-   // First just try turning the I2C interface Off and back On
-    I2C1CONbits.I2CEN = 0; // Disconnect I2C function from I2C pins (on pins 17 an 18)
-    configI2c(); // Configure 12C pins as 12C (on pins 17 and 18
-    
-    TMR1 = 0;  //use this to prevent a system hang
-    int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
-                       //quit trying if things hang.
-    
-    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
-    I2C1CONbits.SEN = 1; //Generate Start COndition
-    while ((TMR1<10)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
-    
-    // When the I2C link is idle, both SCL and SDA should be high
-    // When the start condition is over, both the SCL and SDA lines should be low
-    int pulsesCreated = 0;
-    pinDirectionIO(sclI2CPin, 1); // input
-    pinDirectionIO(sdaI2CPin, 1); // input
-    if ((digitalPinStatus(sclI2CPin) == 1) && (digitalPinStatus(sdaI2CPin) == 0))
-    {
-        pinDirectionIO(sdaI2CPin, 0); // make SDA an output
-        digitalPinSet(sdaI2CPin, 0);  // SDA = 0
-        while ((pulsesCreated < 9) && digitalPinStatus(sdaI2CPin) == 0)
-        { //PORTBbits.RB9 == 0){
-            delaySCL();
-            digitalPinSet(sclI2CPin, 1); //PORTBbits.RB9 = 1; // SCL
-            delaySCL();
-            digitalPinSet(sdaI2CPin, 0); //PORTBbits.RB9 = 0; // SCL
-            delaySCL();
-            pulsesCreated++;
-        }
-    }
-    // put pulse code here
-    RestartI2C(); // Initiate START condition
-    while (I2C1CONbits.RSEN); // Wait until START condition is complete
-    StopI2C(); // Initiate STOP condition
-    while (I2C1CONbits.PEN); // Wait until STOP condition is complete
-}
+//void SoftwareResetRKF(void) {
+//    
+//   // First just try turning the I2C interface Off and back On
+//    I2C1CONbits.I2CEN = 0; // Disconnect I2C function from I2C pins (on pins 17 an 18)
+//    configI2c(); // Configure 12C pins as 12C (on pins 17 and 18
+//    
+//    TMR1 = 0;  //use this to prevent a system hang
+//    int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
+//                       //quit trying if things hang.
+//    
+//    while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)){}//Wait for bus to be idle 
+//    I2C1CONbits.SEN = 1; //Generate Start COndition
+//    while ((TMR1<10)&&(I2C1CONbits.SEN)){ } //Wait for Start COndition
+//    
+//    // When the I2C link is idle, both SCL and SDA should be high
+//    // When the start condition is over, both the SCL and SDA lines should be low
+//    int pulsesCreated = 0;
+//    pinDirectionIO(sclI2CPin, 1); // input
+//    pinDirectionIO(sdaI2CPin, 1); // input
+//    if ((digitalPinStatus(sclI2CPin) == 1) && (digitalPinStatus(sdaI2CPin) == 0))
+//    {
+//        pinDirectionIO(sdaI2CPin, 0); // make SDA an output
+//        digitalPinSet(sdaI2CPin, 0);  // SDA = 0
+//        while ((pulsesCreated < 9) && digitalPinStatus(sdaI2CPin) == 0)
+//        { //PORTBbits.RB9 == 0){
+//            delaySCL();
+//            digitalPinSet(sclI2CPin, 1); //PORTBbits.RB9 = 1; // SCL
+//            delaySCL();
+//            digitalPinSet(sdaI2CPin, 0); //PORTBbits.RB9 = 0; // SCL
+//            delaySCL();
+//            pulsesCreated++;
+//        }
+//    }
+//    // put pulse code here
+//    RestartI2C(); // Initiate START condition
+//    while (I2C1CONbits.RSEN); // Wait until START condition is complete
+//    StopI2C(); // Initiate STOP condition
+//    while (I2C1CONbits.PEN); // Wait until STOP condition is complete
+//}
 
 /*********************************************************************
  * Function: IdleI2C()
@@ -115,21 +116,22 @@ void SoftwareResetRKF(void) {
  * Overview: Waits for bus to become Idle
  * Note: Contains a timeout loop that will disable then enable I2C
  ********************************************************************/
-unsigned int IdleI2C(void) {
-    int timeOut = 0;
-    while (I2C1STATbits.TRSTAT) //PIC is transmitting.  This is internal and should not hang
-    {//Wait for bus Idle
-        if (timeOut == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            return;
-        }
-
-        timeOut++;
-    }
-
-}
+// This calls SoftwareReet which in turn calls it ??? NOT Good
+//unsigned int IdleI2C(void) {
+//    int timeOut = 0;
+//    while (I2C1STATbits.TRSTAT) //PIC is transmitting.  This is internal and should not hang
+//    {//Wait for bus Idle
+//        if (timeOut == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            return;
+//        }
+//
+//        timeOut++;
+//    }
+//
+//}
 
 /*********************************************************************
  * Function: StartI2C()
@@ -138,23 +140,23 @@ unsigned int IdleI2C(void) {
  * Overview: Generates an I2C Start Condition
  * Note: Contains a timeout loop that will disable then enable I2C
  ********************************************************************/
-unsigned int StartI2C(void) {
-    //This function generates an I2C start condition and returns status
-    //of the Start.
-    int timeOut = 0;
-    I2C1CONbits.SEN = 1; //Generate Start COndition
-    while (I2C1CONbits.SEN) //Wait for Start COndition
-    {
-        if (timeOut == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            break;
-        }
-        timeOut++;
-    }
-    //return(I2C1STATbits.S); //Optionally return status
-}
+//unsigned int StartI2C(void) {
+//    //This function generates an I2C start condition and returns status
+//    //of the Start.
+//    int timeOut = 0;
+//    I2C1CONbits.SEN = 1; //Generate Start COndition
+//    while (I2C1CONbits.SEN) //Wait for Start COndition
+//    {
+//        if (timeOut == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            break;
+//        }
+//        timeOut++;
+//    }
+//    //return(I2C1STATbits.S); //Optionally return status
+//}
 
 /*********************************************************************
  * Function: StopI2C()
@@ -163,24 +165,24 @@ unsigned int StartI2C(void) {
  * Overview: Generates a bus stop condition
  * Note: None
  ********************************************************************/
-unsigned int StopI2C(void) {
-    //This function generates an I2C stop condition and returns status
-    //of the Stop.
-    int timeOut = 0;
-
-    I2C1CONbits.PEN = 1; //Generate Stop Condition
-    while (I2C1CONbits.PEN) //Wait for Stop
-    {
-        if (timeOut == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            break;
-        }
-        timeOut++;
-    }
-    //return(I2C1STATbits.P); //Optional - return status
-}
+//unsigned int StopI2C(void) {
+//    //This function generates an I2C stop condition and returns status
+//    //of the Stop.
+//    int timeOut = 0;
+//
+//    I2C1CONbits.PEN = 1; //Generate Stop Condition
+//    while (I2C1CONbits.PEN) //Wait for Stop
+//    {
+//        if (timeOut == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            break;
+//        }
+//        timeOut++;
+//    }
+//    //return(I2C1STATbits.P); //Optional - return status
+//}
 
 /*********************************************************************
  * Function: RestartI2C()
@@ -189,55 +191,55 @@ unsigned int StopI2C(void) {
  * Overview: Generates a restart condition and optionally returns status
  * Note: None
  ********************************************************************/
-void RestartI2C(void) {
-    //This function generates an I2C Restart condition and returns status
-    //of the Restart.
-    int timeOut = 0;
-    I2C1CONbits.RSEN = 1; //Generate Restart
-    while (I2C1CONbits.RSEN) //Wait for restart
-    {
-        if (timeOut == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            break;
-        }
-        timeOut++;
-    }
-    //return(I2C1STATbits.S); //Optional - return status
-}
+//void RestartI2C(void) {
+//    //This function generates an I2C Restart condition and returns status
+//    //of the Restart.
+//    int timeOut = 0;
+//    I2C1CONbits.RSEN = 1; //Generate Restart
+//    while (I2C1CONbits.RSEN) //Wait for restart
+//    {
+//        if (timeOut == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            break;
+//        }
+//        timeOut++;
+//    }
+//    //return(I2C1STATbits.S); //Optional - return status
+//}
 
-void NackI2C(void) {
-    int timeOut = 0;
-    I2C1CONbits.ACKDT = 1;
-    I2C1CONbits.ACKEN = 1;
-    while (I2C1CONbits.ACKEN)
-    {
-        if (timeOut == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            break;
-        }
-        timeOut++;
-    }
-}
-
-void AckI2C(void) {
-    int timeOut = 0;
-    I2C1CONbits.ACKDT = 0;
-    I2C1CONbits.ACKEN = 1;
-    while (I2C1CONbits.ACKEN)
-    {
-        if (timeOut == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            break;
-        }
-        timeOut++;
-    }
-}
+//void NackI2C(void) {
+//    int timeOut = 0;
+//    I2C1CONbits.ACKDT = 1;
+//    I2C1CONbits.ACKEN = 1;
+//    while (I2C1CONbits.ACKEN)
+//    {
+//        if (timeOut == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            break;
+//        }
+//        timeOut++;
+//    }
+//}
+//
+//void AckI2C(void) {
+//    int timeOut = 0;
+//    I2C1CONbits.ACKDT = 0;
+//    I2C1CONbits.ACKEN = 1;
+//    while (I2C1CONbits.ACKEN)
+//    {
+//        if (timeOut == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            break;
+//        }
+//        timeOut++;
+//    }
+//}
 /*********************************************************************
  * Function: configI2c()
  * Input: None
@@ -266,36 +268,36 @@ void configI2c(void) {
  * Overview: Writes a byte out to the bus
  * Note: None
  ********************************************************************/
-void WriteI2C(unsigned char byte) {
-    //This function transmits the byte passed to the function
-    int timeOut1 = 0;
-    while (I2C1STATbits.TRSTAT)//Wait for bus to be idle -RKF I don't think we should have to wait for this.  If the start condition is finished the line should be ready
-    {
-        if (timeOut1 == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            return;
-        }
-        timeOut1++;
-
-    }
-    I2C1TRN = byte; //Load byte to I2C1 Transmit buffer
-    int timeOut2 = 0;
-    while (I2C1STATbits.TBF) //wait for data transmission
-    {
-        if (timeOut2 == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            return;
-        }
-        timeOut2++;
-
-    }
-
-
-}
+//void WriteI2C(unsigned char byte) {
+//    //This function transmits the byte passed to the function
+//    int timeOut1 = 0;
+//    while (I2C1STATbits.TRSTAT)//Wait for bus to be idle -RKF I don't think we should have to wait for this.  If the start condition is finished the line should be ready
+//    {
+//        if (timeOut1 == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            return;
+//        }
+//        timeOut1++;
+//
+//    }
+//    I2C1TRN = byte; //Load byte to I2C1 Transmit buffer
+//    int timeOut2 = 0;
+//    while (I2C1STATbits.TBF) //wait for data transmission
+//    {
+//        if (timeOut2 == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            return;
+//        }
+//        timeOut2++;
+//
+//    }
+//
+//
+//}
 
 /*********************************************************************
  * Function: ReadI2C()
@@ -304,37 +306,37 @@ void WriteI2C(unsigned char byte) {
  * Overview: Receives Byte & Writes a Nack out to the bus
  * Note: None
  ********************************************************************/
-unsigned int ReadI2C(void) {
-    int timeOut1 = 0;
-    int timeOut2 = 0;
-    I2C1CONbits.ACKDT = 1; // Prepares to send NACK
-    I2C1CONbits.RCEN = 1; // Gives control of clock to Slave device
-    while (!I2C1STATbits.RBF) // Waits for register to fill up
-    {
-        if (timeOut1 == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            return 0xff; // invalid
-        }
-        timeOut1++;
-
-    }
-    I2C1CONbits.ACKEN = 1; // Sends NACK or ACK set above
-    while (I2C1CONbits.ACKEN) // Waits till ACK is sent (hardware reset)
-    {
-        if (timeOut2 == 1300)
-        { // time out loop incase I2C gets stuck
-            SoftwareReset();
-            invalid = 0xff;
-            return 0xff; //invalid
-
-        }
-        timeOut2++;
-
-    }
-    return I2C1RCV; // Returns data
-}
+//unsigned int ReadI2C(void) {
+//    int timeOut1 = 0;
+//    int timeOut2 = 0;
+//    I2C1CONbits.ACKDT = 1; // Prepares to send NACK
+//    I2C1CONbits.RCEN = 1; // Gives control of clock to Slave device
+//    while (!I2C1STATbits.RBF) // Waits for register to fill up
+//    {
+//        if (timeOut1 == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            return 0xff; // invalid
+//        }
+//        timeOut1++;
+//
+//    }
+//    I2C1CONbits.ACKEN = 1; // Sends NACK or ACK set above
+//    while (I2C1CONbits.ACKEN) // Waits till ACK is sent (hardware reset)
+//    {
+//        if (timeOut2 == 1300)
+//        { // time out loop incase I2C gets stuck
+//            SoftwareReset();
+//            invalid = 0xff;
+//            return 0xff; //invalid
+//
+//        }
+//        timeOut2++;
+//
+//    }
+//    return I2C1RCV; // Returns data
+//}
 
 /*********************************************************************
  * Function: delaySCL()
@@ -343,14 +345,14 @@ unsigned int ReadI2C(void) {
  * Overview: Pulse length for I2C pulse
  * Note: None
  ********************************************************************/
-void delaySCL(void) {
-    int timeKiller = 0; //don't delete
-    int myIndex = 0;
-    while (myIndex < 5)
-    {
-        myIndex++;
-    }
-}
+//void delaySCL(void) {
+//    int timeKiller = 0; //don't delete
+//    int myIndex = 0;
+//    while (myIndex < 5)
+//    {
+//        myIndex++;
+//    }
+//}
 
 
 /////////////////////////////////////////////////////////////////////
@@ -366,70 +368,70 @@ void delaySCL(void) {
  * Overview: reads from the register specified by the input
  * Note: None
  ********************************************************************/
-
-int readRTCC(enum RTCCregister RTCCregister) {
-    unsigned char address;
-    unsigned char mask;
-    int data;
-
-    switch (RTCCregister) {
-        case SEC_REGISTER:
-            address = 0x00;
-            mask = 0x7F;
-            break;
-
-        case MIN_REGISTER:
-            address = 0x01;
-            mask = 0x7F;
-            break;
-
-        case HOUR_REGISTER:
-            address = 0x02;
-            mask = 0x3F;
-            break;
-
-        case WKDAY_REGISTER:
-            address = 0x03;
-            mask = 0x07;
-            break;
-
-        case DATE_REGISTER:
-            address = 0x04;
-            mask = 0x3F;
-            break;
-
-        case MONTH_REGISTER:
-            address = 0x05;
-            mask = 0x1F;
-            break;
-
-        case YEAR_REGISTER:
-            address = 0x06;
-            mask = 0xFF;
-            break;
-    }
-
-    configI2c(); // sets up I2C
-    StartI2C();
-    WriteI2C(0xde); // MCP7490N device address + write command
-    IdleI2C();
-    WriteI2C(address); // device address for the given register on MCP7490N
-    IdleI2C();
-    RestartI2C();
-    IdleI2C();
-    WriteI2C(0xdf); // MCP7490N device address + read command
-    IdleI2C();
-    data = (int) ReadI2C();
-    StopI2C();
-    if (invalid == 0xFF)
-    {
-        invalid = 0;
-        data = readRTCC(address);
-    }
-    data = data & mask; // removes unnecessary bits (mostly control bits and other non-time data)
-    return data; // returns the time in address as a BCD number
-
-}
+// This calls itself recursively NOT GOOD
+//int readRTCC(enum RTCCregister RTCCregister) {
+//    unsigned char address;
+//    unsigned char mask;
+//    int data;
+//
+//    switch (RTCCregister) {
+//        case SEC_REGISTER:
+//            address = 0x00;
+//            mask = 0x7F;
+//            break;
+//
+//        case MIN_REGISTER:
+//            address = 0x01;
+//            mask = 0x7F;
+//            break;
+//
+//        case HOUR_REGISTER:
+//            address = 0x02;
+//            mask = 0x3F;
+//            break;
+//
+//        case WKDAY_REGISTER:
+//            address = 0x03;
+//            mask = 0x07;
+//            break;
+//
+//        case DATE_REGISTER:
+//            address = 0x04;
+//            mask = 0x3F;
+//            break;
+//
+//        case MONTH_REGISTER:
+//            address = 0x05;
+//            mask = 0x1F;
+//            break;
+//
+//        case YEAR_REGISTER:
+//            address = 0x06;
+//            mask = 0xFF;
+//            break;
+//    }
+//
+//    configI2c(); // sets up I2C
+//    StartI2C();
+//    WriteI2C(0xde); // MCP7490N device address + write command
+//    IdleI2C();
+//    WriteI2C(address); // device address for the given register on MCP7490N
+//    IdleI2C();
+//    RestartI2C();
+//    IdleI2C();
+//    WriteI2C(0xdf); // MCP7490N device address + read command
+//    IdleI2C();
+//    data = (int) ReadI2C();
+//    StopI2C();
+//    if (invalid == 0xFF)
+//    {
+//        invalid = 0;
+//        data = readRTCC(address);
+//    }
+//    data = data & mask; // removes unnecessary bits (mostly control bits and other non-time data)
+//    return data; // returns the time in address as a BCD number
+//
+//}
 
 /*********************************************************************
  * Function: turnOffClockOscilator()
@@ -439,22 +441,22 @@ int readRTCC(enum RTCCregister RTCCregister) {
  * set
  * Note: None
  ********************************************************************/
-void turnOffClockOscilator_old(void) {
-    // turns off oscilator to prepare to set time
-    StartI2C();
-    WriteI2C(0xde); //Device Address (RTCC) + Write Command
-    IdleI2C();
-    WriteI2C(0x00); //address reg. for sec
-    IdleI2C();
-    WriteI2C(0x00); //Turn off oscillator and sets seconds to 0
-    IdleI2C();
-    if (invalid == 0xFF)
-    {
-        invalid = 0;
-        turnOffClockOscilator();
-    }
-    StopI2C();
-}
+//void turnOffClockOscilator_old(void) {
+//    // turns off oscilator to prepare to set time
+//    StartI2C();
+//    WriteI2C(0xde); //Device Address (RTCC) + Write Command
+//    IdleI2C();
+//    WriteI2C(0x00); //address reg. for sec
+//    IdleI2C();
+//    WriteI2C(0x00); //Turn off oscillator and sets seconds to 0
+//    IdleI2C();
+//    if (invalid == 0xFF)
+//    {
+//        invalid = 0;
+//        turnOffClockOscilator();
+//    }
+//    StopI2C();
+//}
 
 /*********************************************************************
  * Function: turnOffClockOscilator()
@@ -467,7 +469,7 @@ void turnOffClockOscilator_old(void) {
 int turnOffClockOscilator(void) {
     TMR1 = 0;  //use this to prevent a system hang
     int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
-                     //quit trying if things hang.
+//                     //quit trying if things hang.
     int success = 0;  // assume we had a problem
       
     I2C1CONbits.SEN = 1; //Generate Start COndition
@@ -493,39 +495,116 @@ int turnOffClockOscilator(void) {
     return success;
 }
 
-int getSecondI2C(void) //may want to pass char address to it in the future
-{
-    int sec; // temp var to hold seconds information
-
-    configI2c(); // sets up I2C
-    StartI2C();
-    WriteI2C(0xde); // MCP7490N device address + write command
-    IdleI2C();
-    WriteI2C(0x00); // device address for the Seconds register on MCP7490N
-    IdleI2C();
-    RestartI2C();
-    IdleI2C();
-    WriteI2C(0xdf); // MCP7490N device address + read command
-    IdleI2C();
-    sec = (int) ReadI2C();
-    StopI2C();
-    if (invalid == 0xFF)
-    {
-        invalid = 0;
-        sec = getSecondI2C();
-    }
-    sec = sec & 0x7f; // removes Oscillator bit
-    //sec = BcdToDec(sec); // converts sec to a decimal number
-    return sec; // returns the time in sec as a demimal number
-}
-
+// Recursively calls itself NOT GOOD
+//int getSecondI2C(void) //may want to pass char address to it in the future
+//{
+//    int sec; // temp var to hold seconds information
+//
+//    configI2c(); // sets up I2C
+//    StartI2C();
+//    WriteI2C(0xde); // MCP7490N device address + write command
+//    IdleI2C();
+//    WriteI2C(0x00); // device address for the Seconds register on MCP7490N
+//    IdleI2C();
+//    RestartI2C();
+//    IdleI2C();
+//    WriteI2C(0xdf); // MCP7490N device address + read command
+//    IdleI2C();
+//    sec = (int) ReadI2C();
+//    StopI2C();
+//    if (invalid == 0xFF)
+//    {
+//        invalid = 0;
+//        sec = getSecondI2C();
+//    }
+//    sec = sec & 0x7f; // removes Oscillator bit
+//    //sec = BcdToDec(sec); // converts sec to a decimal number
+//    return sec; // returns the time in sec as a demimal number
+//}
 /*********************************************************************
- * Function: getTimeI2C()
+ * Function: getYearI2C()
  * Input: None
  * Output: None 02
- * Overview: Reads the current hour from the external RTCC.  If an invalid read
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     date = 0x06
+ * bitRanges:
+ *     date = 0xff
+ * goodRanges:
+ *     date = 99
+ ********************************************************************/
+int getYearI2C(){
+   return getI2Cdata(0x06,0xff,99);
+}
+/*********************************************************************
+ * Function: getDateI2C()
+ * Input: None
+ * Output: None 02
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     date = 0x04
+ * bitRanges:
+ *     date = 0x3f
+ * goodRanges:
+ *     date = 31
+ ********************************************************************/
+int getDateI2C(){
+   return getI2Cdata(0x04,0x3f,31);
+}
+/*********************************************************************
+ * Function: getMonthI2C()
+ * Input: None
+ * Output: None 02
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     month = 0x05
+ * bitRanges:
+ *     month = 0x1f
+ * goodRanges:
+ *     month = 12
+ ********************************************************************/
+int getMonthI2C(){
+   return getI2Cdata(0x05,0x1f,12);
+}
+/*********************************************************************
+ * Function: getMinuteI2C()
+ * Input: None
+ * Output: None 02
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     hour = 0x01
+ * bitRanges:
+ *     hour = 0x7f
+ * goodRanges:
+ *     date = 59
+ ********************************************************************/
+int getMinuteI2C(){
+   return getI2Cdata(0x01,0x7f,59);
+}
+/*********************************************************************
+ * Function: getHourI2C()
+ * Input: None
+ * Output: None 02
+ * Overview: Calls the getTimeI2C() routine with the proper address, bitRange and goodRange
+ * Addresses:
+ *     hour = 0x02
+ * bitRanges:
+ *     hour = 0x3f
+ * goodRanges:
+ *     date = 23
+ ********************************************************************/
+int getHourI2C(){
+   return getI2Cdata(0x02,0x3f,23);
+}
+/*********************************************************************
+ * Function: getI2Cdata()
+ * Input: address of desired information
+ *        the range of bits expected
+ *        the maximum valid number
+ * Output: a value in BCD
+ * Overview: Reads the requested value from the external RTCC.  If an invalid read
  *           occurs due to things taking too long or the returned value is not in 
- *          the range from 0-23, the value of hour when this was called is returned 
+ *          the range specified range, the maximum valid value is returned 
  * Addresses:
  *     minute = 0x01
  *     hour = 0x02
@@ -545,12 +624,13 @@ int getSecondI2C(void) //may want to pass char address to it in the future
  *     month = 12
  *     year = 99
  ********************************************************************/
-int getTimeI2C(int address, int bitRange, int goodRange) {
-    int time = 0;
-    
-    
+int getI2Cdata(int address, int bitRange, int goodRange) {
+    int I2Cdata = 0;
+    goodRange = (goodRange/10*16)+(goodRange % 10); // needs to be BCD
+         
     int MaxTime = 10;  //number of Timer1 cycles expected for this whole function.  This is used to
-                     //quit trying if things hang. (usually takes about 410us)
+                     //quit trying if things hang. (usually takes about 410us to get the hour)
+                       // Time allowed is MaxTime * 64usec
     
     configI2c(); // sets up I2C
     TMR1 = 0;  
@@ -564,7 +644,7 @@ int getTimeI2C(int address, int bitRange, int goodRange) {
   // should check for an ACK'
     
      
-    //Write I2C - specify the hour register on MCP7490N
+    //Write I2C - specify the register on MCP7490N for the desired information
     I2C1TRN = address; //address reg. for type of time (ie. hour, second, etc.)
     while((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT));  //PIC is transmitting. 
      // should check for an ACK'
@@ -578,61 +658,58 @@ int getTimeI2C(int address, int bitRange, int goodRange) {
      while ((TMR1<MaxTime)&&(I2C1STATbits.TRSTAT)); //Wait for bus to be idle 
   // should check for an ACK'
      
-    //Now read the value for the current hour
+    //Now read the value for the current hour, min, sec etc
     I2C1CONbits.ACKDT = 1; // Prepares to send NACK (we only want 1 byte from RTCC)
     I2C1CONbits.RCEN = 1; // Enable receive mode
     while ((TMR1<MaxTime)&&(!I2C1STATbits.RBF));  // Waits for register to fill up
 
     I2C1CONbits.ACKEN = 1; // Send the NACK set above.  This absence of a ACK' tells slave we don't want any more data
     while ((TMR1<MaxTime) && (I2C1CONbits.ACKEN));  // Waits till ACK is sent (hardware reset)
-    time = I2C1RCV & bitRange; //removes unused bits, expected BCD range
+    I2Cdata = I2C1RCV & bitRange; //removes unused bits, expected BCD range
   
     // Generate a STOP 
     I2C1CONbits.PEN = 1; //Generate Stop Condition
     while ((TMR1<MaxTime)&&(I2C1CONbits.PEN)); //Wait for Stop
-    // How do we know that the value we just got makes sense?
     
+    // At this point we have the response in the variable I2Cdata.  We need
+    // to see if we actually got something; in other words, the various WHILE loops
+    // did not time out, and that it could be a valid response    
     
-    if((TMR1 > MaxTime)||(time > goodRange)){  //something went wrong (BCD 24)
-        time = (hour/10 *16)+(hour % 10); // If the read was unsuccessful, return the last known hour
-                                        // Remember the returned value is supposed to be in BCD
-        if (address == 2) {
-            extRtccTalked = 0;             // Cleared because RTCC hour didn't update
-            sendDebugMessage("The time update failed", 0);
+    if((TMR1 > MaxTime)||(I2Cdata > goodRange)){  //something went wrong 
+        I2Cdata = goodRange; //return the maximum value
+        if (address == 2) { // were we looking for the hour?
+            extRtccTalked = 0;             // Cleared because RTCC hour didn't respond, we only care about hour errors
         }
     }
     else if (address == 2){ // if the max time didn't elapsed, the RTCC talked so set the bit
-        sendDebugMessage("The time update succeeded", 0);
-        if (extRtccTalked != 1) {
-            extRtccTalked = 1;
-        }
+        extRtccTalked = 1;
     }
     
-    return time;             
+    return I2Cdata;             
 }
-
-int getWkdayI2C(void) {
-    unsigned char wkday; // temp var to hold seconds information
-    configI2c(); // sets up I2C
-    StartI2C();
-    WriteI2C(0xde); // MCP7490N device address + write command
-    IdleI2C();
-    WriteI2C(0x03); // device address for the years register on MCP7490N
-    IdleI2C();
-    RestartI2C();
-    IdleI2C();
-    WriteI2C(0xdf); // MCP7490N device address + read command
-    IdleI2C();
-    wkday = (int) ReadI2C();
-    StopI2C();
-    if (invalid == 0xFF)
-    {
-        invalid = 0;
-        wkday = getWkdayI2C();
-    }
-    wkday = wkday & 0x07; // converts yr to a decimal number
-    return wkday; // returns the time in hr as a demimal number
-}
+// This recursively calls itself.  We need to fix that or get rid of it.
+//int getWkdayI2C(void) {
+//    unsigned char wkday; // temp var to hold seconds information
+//    configI2c(); // sets up I2C
+//    StartI2C();
+//    WriteI2C(0xde); // MCP7490N device address + write command
+//    IdleI2C();
+//    WriteI2C(0x03); // device address for the years register on MCP7490N
+//    IdleI2C();
+//    RestartI2C();
+//    IdleI2C();
+//    WriteI2C(0xdf); // MCP7490N device address + read command
+//    IdleI2C();
+//    wkday = (int) ReadI2C();
+//    StopI2C();
+//    if (invalid == 0xFF)
+//    {
+//        invalid = 0;
+//        wkday = getWkdayI2C();
+//    }
+//    wkday = wkday & 0x07; // converts yr to a decimal number
+//    return wkday; // returns the time in hr as a demimal number
+//}
 
 /*********************************************************************
  * Function: setTime()
@@ -746,65 +823,65 @@ int setTime(char sec, char min, char hr, char wkday, char dte, char mnth, char y
  * Overview: Sets time for MCP7940N
  * Note: uses DecToBcd and I2C functions
  ********************************************************************/
-void setTime_old(char sec, char min, char hr, char wkday, char dte, char mnth, char yr) {
-    int leapYear;
-    if (yr % 4 == 0)
-    {
-        leapYear = 1; //Is a leap Year
-    } else
-    {
-        leapYear = 0; //Is not a leap Year
-    }
-    char BCDsec = DecToBcd(sec); // To BCD
-    char BCDmin = DecToBcd(min); // To BCD
-    char BCDhr = DecToBcd(hr);
-    char BCDwkday = DecToBcd(wkday); // To BCD
-    char BCDdate = DecToBcd(dte);
-    char BCDmonth = DecToBcd(mnth); // To BCD
-    char BCDyear = DecToBcd(yr);
-    BCDsec = BCDsec | 0x80; // add turn on oscilator bit
-    BCDhr = BCDhr & 0b10111111; // makes 24 hr time
-    BCDwkday = BCDwkday | 0b00001000; // the 1 in this bit says the external battery backup supply is enabled.
-    // To enable: Flip bits and OR it to turn on (NOT CURRENTLY ENABLED).
-    if (leapYear == 0)
-    {
-        BCDmonth = BCDmonth & 0b11011111; //Not a leap year
-    } else
-    {
-        BCDmonth = BCDmonth | 0b00100000; //Is a leap year
-    }
-    configI2c();
-    turnOffClockOscilator();
-    //------------------------------------------------------------------------------
-    // sets clock
-    //------------------------------------------------------------------------------
-    StartI2C();
-    WriteI2C(0xDE); //Device Address (RTCC) + Write Command
-    IdleI2C();
-    WriteI2C(0x01); //Adress for minutes
-    IdleI2C();
-    WriteI2C(BCDmin); //Load min
-    IdleI2C();
-    WriteI2C(BCDhr); //Load hour
-    IdleI2C();
-    WriteI2C(BCDwkday); //Load day of week
-    IdleI2C();
-    WriteI2C(BCDdate); //Load Date
-    IdleI2C();
-    WriteI2C(BCDmonth); //Load Month
-    IdleI2C();
-    WriteI2C(BCDyear); // Load Year
-    IdleI2C();
-    StopI2C();
-    //------------------------------------------------------------------------------
-    // Sets seconds and turns on oscilator
-    //------------------------------------------------------------------------------
-    StartI2C();
-    WriteI2C(0xDE); //Device Address (RTCC) + Write Command
-    IdleI2C();
-    WriteI2C(0x00); //address reg. for sec
-    IdleI2C();
-    WriteI2C(BCDsec); //Turn on oscillator and sets seconds
-    IdleI2C();
-    StopI2C();
-}
+//void setTime_old(char sec, char min, char hr, char wkday, char dte, char mnth, char yr) {
+//    int leapYear;
+//    if (yr % 4 == 0)
+//    {
+//        leapYear = 1; //Is a leap Year
+//    } else
+//    {
+//        leapYear = 0; //Is not a leap Year
+//    }
+//    char BCDsec = DecToBcd(sec); // To BCD
+//    char BCDmin = DecToBcd(min); // To BCD
+//    char BCDhr = DecToBcd(hr);
+//    char BCDwkday = DecToBcd(wkday); // To BCD
+//    char BCDdate = DecToBcd(dte);
+//    char BCDmonth = DecToBcd(mnth); // To BCD
+//    char BCDyear = DecToBcd(yr);
+//    BCDsec = BCDsec | 0x80; // add turn on oscilator bit
+//    BCDhr = BCDhr & 0b10111111; // makes 24 hr time
+//    BCDwkday = BCDwkday | 0b00001000; // the 1 in this bit says the external battery backup supply is enabled.
+//    // To enable: Flip bits and OR it to turn on (NOT CURRENTLY ENABLED).
+//    if (leapYear == 0)
+//    {
+//        BCDmonth = BCDmonth & 0b11011111; //Not a leap year
+//    } else
+//    {
+//        BCDmonth = BCDmonth | 0b00100000; //Is a leap year
+//    }
+//    configI2c();
+//    turnOffClockOscilator();
+//    //------------------------------------------------------------------------------
+//    // sets clock
+//    //------------------------------------------------------------------------------
+//    StartI2C();
+//    WriteI2C(0xDE); //Device Address (RTCC) + Write Command
+//    IdleI2C();
+//    WriteI2C(0x01); //Adress for minutes
+//    IdleI2C();
+//    WriteI2C(BCDmin); //Load min
+//    IdleI2C();
+//    WriteI2C(BCDhr); //Load hour
+//    IdleI2C();
+//    WriteI2C(BCDwkday); //Load day of week
+//    IdleI2C();
+//    WriteI2C(BCDdate); //Load Date
+//    IdleI2C();
+//    WriteI2C(BCDmonth); //Load Month
+//    IdleI2C();
+//    WriteI2C(BCDyear); // Load Year
+//    IdleI2C();
+//    StopI2C();
+//    //------------------------------------------------------------------------------
+//    // Sets seconds and turns on oscilator
+//    //------------------------------------------------------------------------------
+//    StartI2C();
+//    WriteI2C(0xDE); //Device Address (RTCC) + Write Command
+//    IdleI2C();
+//    WriteI2C(0x00); //address reg. for sec
+//    IdleI2C();
+//    WriteI2C(BCDsec); //Turn on oscillator and sets seconds
+//    IdleI2C();
+//    StopI2C();
+//}

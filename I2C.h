@@ -57,23 +57,33 @@
 /*
  Public Functions
  */
-void SoftwareResetRKF(void);
-unsigned int IdleI2C(void);
-unsigned int StartI2C(void);
-unsigned int StopI2C(void);
-void RestartI2C(void);
-void NackI2C(void);
-void AckI2C(void);
+/////////////////////////////////////////////////////
+//  TO SAVE ROOM, MANY OF THESE UNUSED FUNCTION ARE
+//  COMMENTED OUT.  DON'T DELETE THEM SINCE WE MIGHT
+//  WANT THEM FOR LIBRARY PURPOSES
+/////////////////////////////////////////////////////
+//void SoftwareResetRKF(void); //Not used
+//unsigned int IdleI2C(void);
+//unsigned int StartI2C(void); //Not used
+//unsigned int StopI2C(void); //Not used
+//void RestartI2C(void); //Not used
+//void NackI2C(void); //Not used
+//void AckI2C(void); //Not used
 void configI2c(void);
-void WriteI2C(unsigned char byte);
-unsigned int ReadI2C(void);
-void turnOffClockOscilator_old(void);
-int turnOffClockOscilator(void);
-int getSecondI2C(void);
-int getTimeI2C(int address, int bitRange, int goodRange);
-int getWkdayI2C(void);
-void setTime_old(char sec, char min, char hr, char wkday,
-        char date, char month, char year);
+//void WriteI2C(unsigned char byte); //Not used
+//unsigned int ReadI2C(void); //Not used
+//void turnOffClockOscilator_old(void);//Not used
+int turnOffClockOscilator(void); 
+//int getSecondI2C(void);
+int getI2Cdata(int address, int bitRange, int goodRange);
+int getYearI2C(void);
+int getDateI2C(void);
+int getMonthI2C(void);
+int getHourI2C(void);
+int getMinuteI2C(void);
+//int getWkdayI2C(void); //Just calls itself
+//void setTime_old(char sec, char min, char hr, char wkday,
+//        char date, char month, char year); //Not used
 int setTime(char sec, char min, char hr, char wkday, char date, char month, char year);
 
 /*

@@ -85,6 +85,7 @@ void main(void)
     
 	float angleCurrent = 0; // Stores the current angle of the pump handle
 	float anglePrevious = 0; // Stores the last recorded angle of the pump handle
+    float angleAtRest = 0; // Used to store the handle angle when it is not moving
 	float angleDelta = 0; // Stores the difference between the current and previous angles
 	float upStrokePrime = 0; // Stores the sum of the upstrokes for calculating the prime
 	float upStrokeExtract = 0; // Stores the sum of the upstrokes for calculating volume
@@ -92,15 +93,15 @@ void main(void)
 	float leakRatePrevious = 0; // Stores the previous Leak Rate incase if someone stats to pump before leakage can be measured
 	float upStrokePrimeMeters = 0; // Stores the upstroke in meters
 	float leakRate = 0; // Rate at which water is leaking from the rising main
-	/////int prevDay = getDateI2C();
-    noon_msg_sent = 0; // Start with the assumption that the noon message has not been sent
-    debugCounter = 0;  //DEBUG variable to track how many times it takes to send the message
+    
+    
+	
     
     //                    DEBUG
     // print_debug_messages controls the debug reporting
     //   0 = send message only at noon to upside Wireless
-    //   1 = print debug messages to Tx but send only noon message to Upside
-    //   2 = print debug messages, send hour message after power up and every hour
+    //   1 = print debug messages to Tx but send only noon message to Upside (MainphoneNumber[])
+    //  ? do we do this one still ? 2 = print debug messages, send hour message after power up and every hour
     //       to debug phone number.  Still sends noon message to Upside
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
@@ -110,62 +111,18 @@ void main(void)
     
 
     
-    print_debug_messages = 2;                                        //// We always want to print this out
-    sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ", 0);  //Debug
-    sendDebugMessage("The hour is = ", BcdToDec(getTimeI2C(0x02, 0x3f, 23)));  //Debug
+    print_debug_messages = 1;                                        //// We always want to print this out
+    sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ",-0.1);  //Debug
+    sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
+    sendDebugMessage("The hourly diagnostic reports are at ",diagnostic); //Debug
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     
-   // THIS STUFF IS JUST FOR TESTING 
-    //Read received messages and act on them
- //   int msgNum = 1;
- //   turnOnSIM();
- //   delayMs(2000);
- //               for(msgNum = 1;msgNum<31;msgNum++){
- //                   readSMSMessage(msgNum);
- //                   interpretSMSmessage();
- //                   ClearReceiveTextMessages(msgNum, 2); // Clear the message just read from the message storage area                    
- //               }
- //   turnOffSIM();
-  //  turnOnSIM();
-  //  readSMSMessage(4); //still not used 
- //   readSMSMessage(5); //still not used 
- //   readSMSMessage(6); //still not used 
-
-    //interpretSMSmessage(); //still not used
-    /*turnOnSIM();
-    readSMSMessage(1);
-    interpretSMSmessage();
-    turnOffSIM();*/
-    //ClearReceiveTextMessages(1,0); 
-//    readSMSMessage(1); //still not used 
-//    turnOffSIM();
-    // THIS STUFF IS JUST FOR TESTING
-    
-    
-          
-    while (1)
+     while (1)
 	{
-        
-        /*int localcounter = 0;
-        sendDebugMessage("Starting timer", 1);
-        TMR2 = 0;
-        //IEC0bits.T2IE = 1;
-        IFS0bits.T2IF = 0;
-        PR2 = 0xFFFF;
-        while(localcounter < 5){ //10 seconds
-            ClearWatchDogTimer();
-            if (IFS0bits.T2IF == 1){
-                localcounter++;
-                IFS0bits.T2IF = 0;
-            }
-            sendDebugMessage("TMR2 = ", TMR2);
-            sendDebugMessage("Counter = ", localcounter);
-        }
-        sendDebugMessage("Timer end", 1);*/
-        
-       batteryFloat = batteryLevel();
+         
+       //batteryFloat = batteryLevel();
        
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
@@ -174,140 +131,85 @@ void main(void)
 		// motion in the upward direction by comparing angles
 		////////////////////////////////////////////////////////////
 
-		anglePrevious = getHandleAngle();                            // Get the angle of the pump handle to measure against.  
+		angleAtRest = getHandleAngle();                            // Get the angle of the pump handle to measure against.  
                                                                      // This is our reference when looking for sufficient movement to say the handle is actually moving.  
                                                                      // the "moving" threshold is defined by handleMovementThreshold in IWPUtilities
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		while (handleMovement == 0)
 		{ 
-            //Just for testing
-            
-            
-            //Just for testing
-            /*while(1) {
-                turnOnSIM();
-                while(CheckNetworkConnection() != 1) {
-                    ClearWatchDogTimer();
-                }
-                readFonaSignalStrength();
-                turnOffSIM();
-                sendDebugMessage(SignalStrength, 3);
-                //sendDebugMessage(" ", resetCause);
-                ClearWatchDogTimer();
-            }*/
-            
-            ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT  
-            if(TimeSinceLastHourCheck == 1){ // Check every minute
-                hour = BcdToDec(getTimeI2C(0x02, 0x3f, 23));
-                minute = BcdToDec(getTimeI2C(0x01, 0x7f, 59));
-                //minute = BcdToDec(getMinuteI2C());
-                //internalHour = BcdToDec(getTimeHour());
-                //internalMinute = BcdToDec(getTimeMinute());
-                //sendDebugMessage("The hour is ", hour);
-                sendDebugMessage("The VTCC minute is ", minuteVTCC);
-                sendDebugMessage("The VTCC hour is ", hourVTCC);
-                sendDebugMessage("The RTCC hour is ", BcdToDec(getTimeI2C(0x02, 0x3f, 23)));
-                
-                // if the VTCC reaches two minutes past the next hour, and the ext RTCC hasn't updated, use the VTCC time to update the RTCC
-                if ((hourVTCC != hour) && (minuteVTCC >= 2) && (hour == prevHour)){
-                    setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
-                    hour = hourVTCC;
-                    extRTCCset = 1;
-                }    
-                TimeSinceLastHourCheck = 0;
-            }
+           ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT 
+           
+           // See if the diagnostic PCB is plugged in
+           if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in (pin #5)
+                 CheckIncommingTextMessages(); //See if there are any text messages
+                                         // the SIM is powered ON at this point
+           }
+           else{if(FONAisON){turnOffSIM();}}
+           // See if the external RTCC is keeping track of time or if we need to rely on 
+           // our less accurate internal timer VTCC
+            if(TimeSinceLastHourCheck == 1){ // Check every minute, updated in VTCC interrupt routine
+                VerifyProperTimeSource();
+                TimeSinceLastHourCheck = 0; //this gets updated in VTCC interrupt routine
+            }  
             // Do hourly tasks
-            if(hour != prevHour){
-                day = BcdToDec(getTimeI2C(0x04, 0x3f, 31));
-                if (extRTCCset == 0) {
-                    initializeVTCC(0, BcdToDec(getTimeI2C(0x01, 0x7f, 59)), BcdToDec(getTimeI2C(0x02, 0x3f, 23)), BcdToDec(getTimeI2C(0x04, 0x3f, 31)), BcdToDec(getTimeI2C(0x05, 0x1f, 12)));
-                }
-                
-                // Is it time to record volume from previous time bin to EEProm?
+           if(hour != prevHour){
                 if(hour/2 != active_volume_bin){
                     SaveVolumeToEEProm();
-                    sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);  //Debug
+                    sendDebugMessage("Saving volume to last active bin ", active_volume_bin - 1);
                 }
-                // If it is noon, save a daily report
-                if(hour == 12){
+                //Update the Battery level Array used in sleep decision
+                BatteryLevelArray[0]=BatteryLevelArray[1];
+                BatteryLevelArray[1]=BatteryLevelArray[2];
+                BatteryLevelArray[2]=batteryLevel();
+                //sendDebugMessage("The send debug message status is ", diagnostic);
+                // Read messages sent to the system
+                CheckIncommingTextMessages();  // Reads and responds to any messages sent to the system
+                // The SIM is ON at this point              
+                if(hour == 12){  // If it is noon, save a daily report
                     CreateAndSaveDailyReport();
                 }
-                // Attempt to Send daily report
-                //if(num_unsent_daily_reports > 0){ // commented out in order to send diagnostic messages
-                    if(batteryFloat > 3.3){
-                        SendSavedDailyReports();                    
-                    }            
-                // Read messages sent to the system
-                  // need to put the code for that here
-                int msgNum = 0;
-                turnOnSIM();
-                delayMs(2000);
-                for(msgNum = 1;msgNum<31;msgNum++){
-                    readSMSMessage(msgNum);
-                    interpretSMSmessage();
-                    ClearReceiveTextMessages(msgNum, 2); // Clear the message just read from the message storage area                    
-                }
+                // Attempt to Send daily report and if enabled, diagnostic reports
+                SendSavedDailyReports();   
+                SendHourlyDiagnosticReport();
                 turnOffSIM();
                 prevHour = hour; // update so we know this is not the start of a new hour
-            }
-            
-            
-            // should we be asleep to save power?   
-            // while((batteryFloat < 3.0)&&((hour < 5)||(hour > 19))){
-            while((batteryFloat < 3.3)&& (hour != 12)){
-                // Only work under 3.3V if it is noon and we want to send a message
-                // 
-            // If the battery level is too low to work without the sun, go to sleep
-            // shut down at an ODD time so that the volume pumped from 4-6PM will be saved to EEProm
-            // try to wake up at 5AM just because there is a lot of activity at this time 
-            // The WDT settings will put the PIC to sleep for about 131 seconds.  
-                if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
-                    turnOffSIM();             
+            }       
+            // should we be asleep to save power?
+           if(((BatteryLevelArray[0]-BatteryLevelArray[2])>BatteryDyingThreshold)||(BatteryLevelArray[2]<=3.2)){
+               while(BatteryLevelArray[2]<BatteryLevelArray[0]){
+            //while(batteryFloat < 3.3){
+                // The WDT settings will let the PIC sleep for about 131 seconds.  
+                    if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
+                        turnOffSIM();             
+                    }
+                    if (sleepHrStatus != 1){ // Record the fact that we went to sleep for diagnostic reporting purposes
+                        sleepHrStatus = 1;
+                        EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus); 
+                    }                
+                    Sleep(); 
+                    // OK, we just woke up  
+                    secondVTCC = secondVTCC + 131;
+                    updateVTCC(); //Try to keep VTCC as accurate as possible
+                    TimeSinceLastBatteryCheck++; // only check the battery every 11th time you wake up (approx 24min)
+                    // check the battery every 24 min
+                    if(TimeSinceLastBatteryCheck >= 11){
+                        BatteryLevelArray[2]=batteryLevel();
+                        TimeSinceLastBatteryCheck = 0;
+                    }
                 }
-                if (sleepHrStatus != 1){
-                    sleepHrStatus = 1;
-                    EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus);                      // Save to EEProm
-                }
-                
-                /*hour = hourVTCC;
-                //minute = BcdToDec(getMinuteI2C());
-                //internalHour = BcdToDec(getTimeHour());
-                //internalMinute = BcdToDec(getTimeMinute());
-                sendDebugMessage("The hour is ", hour);
-                sendDebugMessage("The VTCC minute is ", minuteVTCC);
-                sendDebugMessage("The VTCC hour is ", hourVTCC);
-                sendDebugMessage("The RTCC hour is ", BcdToDec(getHourI2C()));
-                if(hour != prevHour){
-                    setTime(0,minuteVTCC,hourVTCC,1,dateVTCC,monthVTCC,18);
-                    rtccUpdateTime = hourVTCC;
-                    EEProm_Write_Float(DiagnosticEEPromStart+1,&rtccUpdateTime);
-                    prevHour = hour;
-                }*/
-                
-                sendDebugMessage("Going to sleep ", hour);  //Debug
-                PORTBbits.RB0 = 0; // DEBUG make test pin low when we are sleeping
-                Sleep(); 
-                               
-                hour = BcdToDec(getTimeI2C(0x02, 0x3f, 23)); //still time to sleep? Don't check battery, you are here because it was low
-                TimeSinceLastBatteryCheck++; // only check the battery every 10th time you wake up (approx 20min)
-                // check the battery every 20 min
-                if(TimeSinceLastBatteryCheck > 10){
-                    batteryFloat = batteryLevel();
-                    TimeSinceLastBatteryCheck = 0;
-                    
-                }
-            }
-            PORTBbits.RB0 = 1; //DEBUG make test pin high when not sleeping
+           }
+
             // OK, go ahead and look for handle movement again
-			delayMs(upstrokeInterval);                            // Delay for a short time
-			float newAngle = getHandleAngle();
-			float deltaAngle = newAngle - anglePrevious;
-			if(deltaAngle < 0) {
-				deltaAngle *= -1;
-			}
-            if(deltaAngle > handleMovementThreshold){            // The total movement of the handle from rest has been exceeded
-				handleMovement = 1;
-			}
+           handleMovement = HasTheHandleMoved(angleAtRest);
+           delayMs(upstrokeInterval);                            // Delay for a short time
+//			float newAngle = getHandleAngle();
+//			float deltaAngle = newAngle - angleAtRest;
+//			if(deltaAngle < 0) {
+//				deltaAngle *= -1;
+//			}
+//            if(deltaAngle > handleMovementThreshold){            // The total movement of the handle from rest has been exceeded
+//				handleMovement = 1;
+//			}
 		}
 
 		/////////////////////////////////////////////////////////
@@ -316,10 +218,11 @@ void main(void)
 		// upper water sensor is checked to determine if the
 		// pump has been primed
 		/////////////////////////////////////////////////////////
-        sendDebugMessage("\n\n We are in the Priming Loop ", 0);  //Debug
-        int i = 0; 
+        sendDebugMessage("\n\n We are in the Priming Loop ", -0.1);  //Debug
+        int stopped_pumping_index = 0; 
 		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
 		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
+        angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
      
@@ -331,27 +234,27 @@ void main(void)
 			anglePrevious = angleCurrent;                         //Prepares anglePrevious for the next loop
 			if(angleDelta > 0){                                   //Determines direction of handle movement
 				upStrokePrime += angleDelta;                  //If the valve is moving upward, the movement is added to an
-                                                             //accumlation var (even if it was smaller than angleThresholdSmall)
+                                                             //accumulation var (even if it was smaller than angleThresholdSmall)
 			}
             // If they have stopped, pumping we should give up too
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-                i++; // we want to stop if the user stops pumping              
+                stopped_pumping_index++; // we want to stop if the user stops pumping              
 			}
 			else{
-                i=0;   // they are still trying
+                stopped_pumping_index=0;   // they are still trying
 			} 
-            if(i == 100){  // They quit trying for at least 1 second
+            if((stopped_pumping_index * upstrokeInterval) > max_pause_while_pumping){  // They quit trying for at least 1 second (SHOULD THIS BE LONGER??)
                 never_primed = 1;
                 sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
                 break;
             }
-            timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping
+            timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping (WHY TIME OUT? IF THEY KEEP PUMPING WITHOUT WATER WHY NOT RECORD IT)
 			delayMs(upstrokeInterval); 
         }
         if(timeOutStatus >= waterPrimeTimeOut){
             never_primed = 1;          
         }
-        sendDebugMessage("The time spent trying to prime = ",timeOutStatus*10);
+        sendDebugMessage("The time (ms) spent trying to prime = ",timeOutStatus*upstrokeInterval);
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
         sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
         sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug
@@ -366,12 +269,12 @@ void main(void)
 		// Tracks the upStroke for the water being extracted
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
-        sendDebugMessage("\n We are in the Volume Loop ", 0);  //Debug
+        sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
         upStrokeExtract = 0;                                                 // gets variable ready for new volume event
-        sendDebugMessage("starting extract handle degrees ", upStrokeExtract);  //Debug
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
-		i = 0;                                                      //Index to keep track of no movement cycles
+		int i = 0;                                                      //Index to keep track of no movement cycles
+        anglePrevious = getHandleAngle();
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 							                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
@@ -380,7 +283,7 @@ void main(void)
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
 			if(angleDelta > 0){                                     //Determines direction of handle movement
 				upStrokeExtract += angleDelta;                  //If the valve is moving upward, the movement is added to an
-										//accumlation var
+										                        //accumlation var
 			}
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				i++;
@@ -394,43 +297,45 @@ void main(void)
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////
-        sendDebugMessage("\n We are in the Leak Rate Loop ", 0);  //Debug
+        sendDebugMessage("\n We are in the Leak Rate Loop ", -0.1);  //Debug
 		// Get the angle of the pump handle to measure against
 		int leakCondition = 3;  // Assume that we are going to be able to calculate a valid leak rate
+        
       
         if(!readWaterSensor()){  // If there is already no water when we get here, something strange is happening, don't calculate leak
             leakCondition = 4;
-             sendDebugMessage("There is no water as soon as we get here ", 0);  //Debug
+             sendDebugMessage("There is no water as soon as we get here ", -0.1);  //Debug
         }
         if(never_primed == 1){
             leakCondition = 4;   // there was never any water
-            sendDebugMessage("There never was any water ", 0);  //Debug
+            sendDebugMessage("There never was any water ", -0.1);  //Debug
         }
         i = 0;  
         anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
 		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 150 milliseconds of delay 
-                                                                                // if no water or no handle movement before entry.
-        while (readWaterSensor()){
-			angleCurrent = getHandleAngle();                                //Get the current angle of the pump handle
-			angleDelta = angleCurrent - anglePrevious;                      //Calculate the change in angle of the pump handle
-            anglePrevious = angleCurrent;                                   // Update the previous angle for the next calculation
-											                                                               // intentional pump and break out of the loop (2 is in radians)
-			// If the handle starts moving we will abandon calculating a new leak rate
-            //  Moving is the same criterion as stopping in volume calculation loop
-            if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-				i=0;
+        angleAtRest = getHandleAngle();                                                                        // if no water or no handle movement before entry.
+        while ((readWaterSensor())&&(leakCondition == 3)){
+            if(HasTheHandleMoved(angleAtRest)){ // if they start pumping, stop calculating leak
+                leakCondition = 1;
             }
-			else{
-				i++;
- 			}             
-            if (i >= volumeLoopCounter){
-				leakCondition = 1;
-				break;
-			}
-			if (leakDurationCounter >= leakRateTimeOut){                              // (was 100 - 10/8/2015 KK)
-				leakCondition = 2; //Jump to condition for no leak if while is broken out of on condition of
-                                    //exceeding the leakRateTimeOut wait.
-				break;
+//			angleCurrent = getHandleAngle();                                //Get the current angle of the pump handle
+//			angleDelta = angleCurrent - anglePrevious;                      //Calculate the change in angle of the pump handle
+//            anglePrevious = angleCurrent;                                   // Update the previous angle for the next calculation
+//											                                                               // intentional pump and break out of the loop (2 is in radians)
+//			// If the handle starts moving we will abandon calculating a new leak rate
+//            //  Moving is the same criterion as stopping in volume calculation loop
+//            if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
+//				i=0;
+//            }
+//			else{
+//				i++;
+// 			}             
+//            if (i >= volumeLoopCounter){
+//				leakCondition = 1;
+//				break;
+//			}
+			if ((leakDurationCounter * upstrokeInterval) >= leakRateTimeOut){  
+				leakCondition = 2;  // The leak is slow enough to call it zero 
 			}
 			delayMs(upstrokeInterval);
 			leakDurationCounter++;
@@ -453,7 +358,7 @@ void main(void)
 			leakRate = 0;
 			leakRatePrevious = leakRate;  
 			break;
-		case 3:                         // The pump did prime but water leaked out in less than our max time to wait.  So calculate a new value
+		case 3:                         // The pump did prime and water leaked out in less than our max time to wait.  So calculate a new value
 			leakRate = leakSensorVolume / ((leakDurationCounter * upstrokeInterval) / 1000.0); // liters/sec
 			leakRatePrevious = leakRate;    
             break;           
@@ -464,7 +369,7 @@ void main(void)
             break;
         
         case 5:
-			leakRate = leakRatePrevious; // They started pumping again so can't calculate a new leak rate, use the last one when calculating volume pumped
+			leakRate = leakRatePrevious; // Not sure that the rising main was full at the end of pumping so don't calculate a new leak rate
 			break;
         }
         sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug
