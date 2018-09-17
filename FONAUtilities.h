@@ -24,8 +24,12 @@
 // *** Global Variables *******************************************************
 // ****************************************************************************
 extern char MainphoneNumber[]; // Upside Wireless
-extern char DebugphoneNumber[]; // Number for the Black Phone
-extern char SendingPhoneNumber[]; //Number for the phone that sent the system a message
+extern char origMainphoneNumber[15]; //set when originally programming the system
+extern char DebugphoneNumber[];
+extern char origDebugphoneNumber[15]; // Number for the Black Phone
+extern char CountryCode[]; // The country code for the country where the pump is installed
+extern char origCountryCode[6]; // The country code for the country where the pump is installed
+extern char SendingPhoneNumber[15]; //Number for the phone that sent the system a message
 //extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
 extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
 extern int LeaveOnSIM;  // this is set to 1 when an external message says to not shut off the SIM
@@ -38,6 +42,10 @@ extern char ReceiveTextMsgFlag; // Set to 1 when a complete text message has bee
 extern int noon_msg_sent;  //set to 1 when noon message has been sent
 extern int hour_msg_sent;  //set to 1 when hourly message has been sent
 extern int num_unsent_daily_reports; //this is the number of saved daily reports that have not been sent
+extern int longest_wait; // the maximum ticks of TMR1 that we wait for a text message
+extern int diagPCBpluggedIn; // Used to keep track of whether diagnostic PCB is plugged in or not
+extern int MaxSMSmsgSize;  // number of slots available on SIM to store text messages
+extern int FONAisON; //Keeps track of whether the FONA has been turned on
 
 // ****************************************************************************
 // *** Function Prototypes ****************************************************
@@ -49,20 +57,28 @@ int CheckNetworkConnection(void); //checks to see if the network has been acquir
 int ReadSIMresponse(char expected_reply[10]); //called after an AT command is sent to the FONA, looks for a defined response
 int sendMessage (char message[160]); //uses UART to send the string in message[]
 int sendTextMessage(char message[160]); //transmits UART characters necessary to send an SMS message using AT protocol
-void sendDebugMessage(char message[50], float value);
-int wasMessageSent(int msgNum); //this is being written and may not be needed
+void sendDebugMessage(char message[50], float value); //sends message meant to be read by diagnostic equipment not to be sent by FONA
 void readSMSMessage(int msgNum); //Called as a part of the hourly tasks.  Reads msgNum msg and puts it in ReceiveTextMsg
-void interpretSMSmessage(void); //Right now only understands the AW_C command to change the clock/calendar 
+int SetFONAtoTextMode(void); // Used before other AT commands to put FONA in TEXT mode
+void interpretSMSmessage(void); //Decide which AW command was received 
 void updateClockCalendar(void); //take action when an AW command calls for a change to the clock calendar
 void enableDiagnosticTextMessages(void); //Enables (1) or disable (0) hourly diagnostic messages
-void sendDebugTextMessage(char message[160]); //I don't think this is ever used
-void ClearReceiveTextMessages(int MsgNum, int ClrMode); 
+int ClearReceiveTextMessages(int MsgNum, int ClrMode); 
 void CreateNoonMessage(int);
 void CreateAndSaveDailyReport(void);
 int SendSavedDailyReports(void);
+void SendHourlyDiagnosticReport(void);
 void createDiagnosticMessage(void);
-void checkDiagnosticStatus(void);
+//void checkDiagnosticStatus(void); //NOT CURRENTLY USED
 void readFonaSignalStrength(void); // Asks the FONA for the strength of the network signal
+void OneTimeStatusReport(void); // reports various system status information one time to requesting phone number
+int AreThereTextMessagesToRead(void); //Checks # of waiting messages in FONA and total number of message slots for this SIM card
+void CheckIncommingTextMessages(void); // This routine is called to read and process text messages which have been received
+void ChangeCountryCode(void); // Changes the saved variable Country Code
+void UpdateSendingPhoneNumber(void); //If the sending number is local, remove country code
+void ChangeDailyReportPhoneNumber(void); //Changes the number used for daily reports MainphoneNumber[]
+void PhonenumberToEEPROM(int,char*); // Saves a phone number string to two EEPROM locations
+void EEPROMtoPhonenumber(int EEoffset, char *DynamicPhoneNumber);
 
 
 
