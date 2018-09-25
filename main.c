@@ -270,6 +270,8 @@ void main(void)
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
         sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
+        int secondVolume = secondVTCC;
+        char minuteVolume = minuteVTCC;
         upStrokeExtract = 0;                                                 // gets variable ready for new volume event
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
@@ -294,6 +296,20 @@ void main(void)
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
 			delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
+        
+        // Keep track of the time pumping (up to 4sec of accuracy))
+        secondVolume = secondVTCC - secondVolume;
+        minuteVolume = minuteVTCC - minuteVolume;
+        
+        if (secondVolume < 0) {
+            secondVolume = 60 + secondVolume;
+            minuteVolume--;
+        }
+        if (minuteVolume < 0) {
+            minuteVolume = 60 + minuteVolume;
+        }
+        secondVolume = secondVolume + (minuteVolume * 60); // convert to seconds
+        
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////
@@ -385,6 +401,7 @@ void main(void)
         sendDebugMessage("handle movement in radians ", upStrokeExtract);  //Debug       
 		volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
         sendDebugMessage("Liters Pumped ", volumeEvent);  //Debug
+        sendDebugMessage("Time Pumping ", secondVolume);  //Debug
         
 		volumeEvent -= (leakRate * ((extractionDurationCounter * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
         if(volumeEvent < 0)
