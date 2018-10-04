@@ -131,6 +131,7 @@ extern float volume1618;
 extern float volume1820;
 extern float volume2022;
 extern float volume2224;
+extern int secondVolume;
 extern float EEFloatData;
 //Pin assignments
 extern int mclrPin;
@@ -234,6 +235,7 @@ void EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
 void SaveVolumeToEEProm(void);
 void DebugReadEEProm(void);
 void ClearEEProm(void);
+void initializeVolumeTimer(void);
 void initializeVTCC(char sec, char min, char hr, char date, char month);
 void updateVTCC(void);
 #endif	/* IWPUTILITIES_H */

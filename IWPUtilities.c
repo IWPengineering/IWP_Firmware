@@ -166,10 +166,10 @@ float resetCause = 0; //0 if no reset occurred, else the RCON register bit numbe
 //*****************VTCC Variables*******************************************
 char monthArray[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 int secondVTCC = 0;
-char minuteVTCC = 0;
-char hourVTCC = 0;
-char dateVTCC = 0;
-char monthVTCC = 0;
+char minuteVTCC = 38;
+char hourVTCC = 11;
+char dateVTCC = 2;
+char monthVTCC = 10;
 
 float longestPrime = 0; // total upstroke fo the longest priming event of the day
 float leakRateLong = 0; // largest leak rate recorded for the day
@@ -178,7 +178,7 @@ float BatteryLevelArray[3];
 char active_volume_bin = 0; //keeps track of which of the 12 volume time slots is being updated
 char never_primed = 0; //set to 1 if the priming loop is exited without detecting water
 char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
-char diagnostic = 1; //set to 1 when we want the text messages to be sent hourly
+char diagnostic = 0; //set to 1 when we want the text messages to be sent hourly
 float debugCounter = 0; // DEBUG used as a variable for various things while debugging 
 float volume02 = 0; // Total Volume extracted from 0:00-2:00
 float volume24 = 0;
@@ -192,6 +192,7 @@ float volume1618 = 0;
 float volume1820 = 0;
 float volume2022 = 0;
 float volume2224 = 0;
+int secondVolume = 0;
 float EEFloatData = 0; // to be used when trying to write a float to EEProm EEFloatData = 123.456 then pass as &EEFloatData
 int hour = 0; // Hour of day according to chosen time source; external RTCC or internal VTCC
 int min = 0; // Minute of day according to chosen time source; external RTCC or internal VTCC
@@ -280,7 +281,13 @@ void initialization(void) {
     // if FNOSC = FRC, Timer Clock = 15.625khz
     T2CONbits.TON = 1; // Starts 16-bit Timer2
 
-
+    // Timer control (for volume calculations)
+    T3CONbits.TCS = 0; //Source is Internal Clock Fosc/2  if #pragma config FNOSC = FRC, Fosc/2 = 4Mhz
+    T3CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this) 
+    // if FNOSC = FRC, Timer Clock = 15.625khz
+    T3CONbits.TON = 1; // Starts 16-bit Timer3
+    
+    
     // UART config
     //    U1MODE = 0x8000;  
     U1MODEbits.BRGH = 0; // Use the standard BRG speed
@@ -1647,6 +1654,35 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART 
 }
 
 /*********************************************************************
+ * Function: void initializeVolumeTimer()
+ * Input: none
+ * Output: none
+ * Overview:  Starts the Volume timer
+ * TestDate: 
+ ********************************************************************/
+
+void initializeVolumeTimer() {
+    TMR3 = 0;
+    PR3 = 62500; //set cycle time to 4sec
+    IFS0bits.T3IF = 0; //clears flag
+    IEC0bits.T3IE = 1; //turns on interrupt
+}
+
+/*********************************************************************
+ * Function: void _T3Interrupt(void)
+ * Input: none
+ * Output: none
+ * Overview:  An interrupt that advances the volume timer and counts cumulative time
+ * TestDate: 
+ ********************************************************************/
+
+void __attribute__((interrupt, auto_psv)) _T3Interrupt(void) {
+    // assuming we are entering this when the over flow occurs
+    IFS0bits.T3IF = 0; //clear the flag
+    secondVolume = secondVolume + 4;
+}
+
+/*********************************************************************
  * Function: void initializeVTCC(char sec, char min, char hr, char date, char month)
  * Input: char sec, char min, char hr, char date, char month
  * Output: none
@@ -1662,8 +1698,8 @@ void initializeVTCC(char sec, char min, char hr, char dte, char mnth) {
     monthVTCC = mnth;
     TMR2 = 0;
     PR2 = 62500; //set cycle time to 4sec
-    IFS0bits.T2IF = 0;
-    IEC0bits.T2IE = 1;
+    IFS0bits.T2IF = 0; //clears flag
+    IEC0bits.T2IE = 1; //turns on interrupt
 }
 
 /*********************************************************************

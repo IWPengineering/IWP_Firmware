@@ -270,8 +270,9 @@ void main(void)
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
         sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
-        int secondVolume = secondVTCC;
+        initializeVolumeTimer();
         char minuteVolume = minuteVTCC;
+        int upStrokeExtractPrevious = 45;
         upStrokeExtract = 0;                                                 // gets variable ready for new volume event
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
@@ -294,11 +295,29 @@ void main(void)
 				i = 0;
 			}                                                             //Reset i if handle is moving
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
+            if (upStrokeExtract > upStrokeExtractPrevious) {
+                //the stuff
+                float time = TMR3/15625; //The timer is running at 15,625Hz. converting to seconds
+                time += secondVolume;
+                float volumeResults = (MKII * upStrokeExtract);
+                float degreesPerSecond = (upStrokeExtract - upStrokeExtractPrevious) / time;
+                
+                if (degreesPerSecond < 20) {
+                    volumeResults = ((degreesPerSecond * 1.0311) - 32.258) + volumeResults + 5;
+                }else if (degreesPerSecond >= 35){
+                    volumeResults = ((degreesPerSecond * 0.0055) - 6.573) + volumeResults + 5;
+                }else {
+                    volumeResults = ((degreesPerSecond * 0.3238) - 17.105) + volumeResults + 5;
+                }
+                volumeEvent += volumeResults;
+                
+                upStrokeExtractPrevious = upStrokeExtractPrevious + 45;
+            }
 			delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
-        
+        IEC0bits.T3IE = 0; // disables timer 3 interrupts
         // Keep track of the time pumping (up to 4sec of accuracy))
-        secondVolume = secondVTCC - secondVolume;
+        secondVolume = secondVolume ;
         minuteVolume = minuteVTCC - minuteVolume;
         
         if (secondVolume < 0) {
@@ -399,7 +418,7 @@ void main(void)
         sendDebugMessage("handle movement in degrees ", upStrokeExtract);  //Debug
 		upStrokeExtract = degToRad(upStrokeExtract);
         sendDebugMessage("handle movement in radians ", upStrokeExtract);  //Debug       
-		volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
+		//volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
         sendDebugMessage("Liters Pumped ", volumeEvent);  //Debug
         sendDebugMessage("Time Pumping ", secondVolume);  //Debug
         
