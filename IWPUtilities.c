@@ -178,7 +178,7 @@ float BatteryLevelArray[3];
 char active_volume_bin = 0; //keeps track of which of the 12 volume time slots is being updated
 char never_primed = 0; //set to 1 if the priming loop is exited without detecting water
 char print_debug_messages = 0; //set to 1 when we want the debug messages to be sent to the Tx pin.
-char diagnostic = 1; //set to 1 when we want the text messages to be sent hourly
+float diagnostic = 0; //set to 1 when we want the text messages to be sent hourly
 float debugCounter = 0; // DEBUG used as a variable for various things while debugging 
 float volume02 = 0; // Total Volume extracted from 0:00-2:00
 float volume24 = 0;
@@ -249,11 +249,11 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 14;
-    char localHr = 16;
-    char localWkday = 3;
-    char localDate = 5;
-    char localMonth = 9;
+    char localMin = 30;
+    char localHr = 11;
+    char localWkday = 2;
+    char localDate = 8;
+    char localMonth = 10;
     char localYear = 18;
     ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
@@ -322,8 +322,7 @@ void initialization(void) {
     initAdc();
 
     //batteryFloat = batteryLevel();
-    BatteryLevelArray[0] = batteryLevel();
-    ; //Used to track change in battery voltage
+    BatteryLevelArray[0] = batteryLevel(); //Used to track change in battery voltage
     BatteryLevelArray[1] = BatteryLevelArray[0]; //Used to track change in battery voltage
     BatteryLevelArray[2] = BatteryLevelArray[0]; //Used to track change in battery voltage
 
