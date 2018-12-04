@@ -131,7 +131,7 @@ extern float volume1618;
 extern float volume1820;
 extern float volume2022;
 extern float volume2224;
-extern int secondVolume;
+extern int msecondVolume;
 extern float EEFloatData;
 //Pin assignments
 extern int mclrPin;

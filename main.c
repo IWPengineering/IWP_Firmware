@@ -271,7 +271,7 @@ void main(void)
 		///////////////////////////////////////////////////////
         sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
         initializeVolumeTimer();
-        char minuteVolume = minuteVTCC;
+        //char minuteVolume = minuteVTCC; // get the current minute
         int upStrokeExtractPrevious = 45;
         upStrokeExtract = 0;                                                 // gets variable ready for new volume event
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
@@ -295,10 +295,10 @@ void main(void)
 				i = 0;
 			}                                                             //Reset i if handle is moving
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
-            if (upStrokeExtract > upStrokeExtractPrevious) {
+            /*if (upStrokeExtract > upStrokeExtractPrevious) {
                 //the stuff
-                float time = TMR3/15625; //The timer is running at 15,625Hz. converting to seconds
-                time += secondVolume;
+                float time = TMR3/15.625; //The timer is running at 15,625Hz. converting to seconds
+                time += msecondVolume;
                 float volumeResults = (MKII * upStrokeExtract);
                 float degreesPerSecond = (upStrokeExtract - upStrokeExtractPrevious) / time;
                 
@@ -312,11 +312,12 @@ void main(void)
                 volumeEvent += volumeResults;
                 
                 upStrokeExtractPrevious = upStrokeExtractPrevious + 45;
-            }
+            }*/
 			delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
         IEC0bits.T3IE = 0; // disables timer 3 interrupts
-        // Keep track of the time pumping (up to 4sec of accuracy))
+        msecondVolume += TMR3/15.625; //The timer is running at 15,625Hz. converting to seconds
+        /*// Keep track of the time pumping (up to 4sec of accuracy))
         secondVolume = secondVolume ;
         minuteVolume = minuteVTCC - minuteVolume;
         
@@ -327,7 +328,7 @@ void main(void)
         if (minuteVolume < 0) {
             minuteVolume = 60 + minuteVolume;
         }
-        secondVolume = secondVolume + (minuteVolume * 60); // convert to seconds
+        secondVolume = secondVolume + (minuteVolume * 60); // convert to seconds*/
         
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
@@ -420,7 +421,7 @@ void main(void)
         sendDebugMessage("handle movement in radians ", upStrokeExtract);  //Debug       
 		//volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
         sendDebugMessage("Liters Pumped ", volumeEvent);  //Debug
-        sendDebugMessage("Time Pumping ", secondVolume);  //Debug
+        sendDebugMessage("Time Pumping ", msecondVolume/1000);  //Debug
         
 		volumeEvent -= (leakRate * ((extractionDurationCounter * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
         if(volumeEvent < 0)

@@ -192,7 +192,7 @@ float volume1618 = 0;
 float volume1820 = 0;
 float volume2022 = 0;
 float volume2224 = 0;
-int secondVolume = 0;
+int msecondVolume = 0;
 float EEFloatData = 0; // to be used when trying to write a float to EEProm EEFloatData = 123.456 then pass as &EEFloatData
 int hour = 0; // Hour of day according to chosen time source; external RTCC or internal VTCC
 int min = 0; // Minute of day according to chosen time source; external RTCC or internal VTCC
@@ -1662,8 +1662,9 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void) { //Receive UART 
  ********************************************************************/
 
 void initializeVolumeTimer() {
+    msecondVolume = 0;
     TMR3 = 0;
-    PR3 = 62500; //set cycle time to 4sec
+    PR3 = 1000; //set cycle time to 4sec 64microsec/cycle; 1.6ms/25cycles; 64msec/1000cycles
     IFS0bits.T3IF = 0; //clears flag
     IEC0bits.T3IE = 1; //turns on interrupt
 }
@@ -1679,7 +1680,7 @@ void initializeVolumeTimer() {
 void __attribute__((interrupt, auto_psv)) _T3Interrupt(void) {
     // assuming we are entering this when the over flow occurs
     IFS0bits.T3IF = 0; //clear the flag
-    secondVolume = secondVolume + 4;
+    msecondVolume = msecondVolume + 64;
 }
 
 /*********************************************************************
