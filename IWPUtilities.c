@@ -153,6 +153,11 @@ int success = 0;
 // *** Global Variables *******************************************************
 // ****************************************************************************
 
+//****************Temporary Diagnostic Variables
+int aveArray [600];
+int angleArray[10];
+int aveArrayIndex = 0;
+
 //****************Hourly Diagnostic Message Variables************************
 float sleepHrStatus = 0; // 1 if we slept during the current hour, else 0
 float timeSinceLastRestart = 0; // Total time in hours since last restart 
@@ -326,7 +331,7 @@ void initialization(void) {
     BatteryLevelArray[1] = BatteryLevelArray[0]; //Used to track change in battery voltage
     BatteryLevelArray[2] = BatteryLevelArray[0]; //Used to track change in battery voltage
 
-
+/*
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
     angle4 = getHandleAngle();
@@ -336,7 +341,7 @@ void initialization(void) {
     angle8 = getHandleAngle();
     angle9 = getHandleAngle();
     angle10 = getHandleAngle();
-
+*/
     // We may be waking up because the battery was dead or the WatchDog expired.  
     // If that is the case, Restart Status, EEProm#20, will be zero and we want 
     // to continue using the leakRateLong and longestPrime from EEProm. Otherwise, 
@@ -617,7 +622,7 @@ int readWaterSensor(void) // RB5 is one water sensor
     if ((TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) {
         WaterPresent = 1;
     }
-    return WaterPresent;
+    return 1;//WaterPresent;
 }
 
 /*********************************************************************
@@ -736,29 +741,48 @@ the angle is negative.Gets a snapshot of the current sensor values.
  * TestDate: TBD
  ********************************************************************/
 float getHandleAngle() {
-
+    int i;
+    float angleSum = 0;
+    
+    
     signed int xValue = readAdc(xAxis) - signedNumAdjustADC;
     signed int yValue = readAdc(yAxis) - signedNumAdjustADC;
+
+    //sendDebugMessage("\n This is loop number ", i); 
+    //sendDebugMessage("\n Raw x value ", xValue); 
+    //sendDebugMessage("\n Raw y value ", yValue); 
+
     float angle = atan2(yValue, xValue) * (180 / PI); //returns angle in degrees 06-20-2014
     // Calculate and return the angle of the pump handle
-    if (angle > 20) {
+
+    
+    for (i = 9; i > 0; i--) {
+        angleArray[i] = angleArray[i-1];
+        angleSum += angleArray[i];
+    }
+    angleArray[0] = angle;
+    
+    /*if (angle > 20) {
         angle = 20.0;
     } else if (angle < -30) {
         angle = -30.0;
+    }*/
+    angleSum += angle;
+    
+    float averageAngle = angleSum / 10.0;
+    if (year == 1111) {
+        //sendDebugMessage("\n Final angle: ", averageAngle); 
+        aveArray[aveArrayIndex] = averageAngle;
+        aveArrayIndex++;
+        if (aveArrayIndex >= 600) {
+            aveArrayIndex = 0;
+            for (i = 0; i < 600; i++) {
+                sendDebugMessage("\n Final angle: ", aveArray[i]);
+                aveArray[i] = 0;
+            }
+        }
     }
-    angle10 = angle9;
-    angle9 = angle8;
-    angle8 = angle7;
-    angle7 = angle6;
-    angle6 = angle5;
-    angle5 = angle4;
-    angle4 = angle3;
-    angle3 = angle2;
-    angle2 = angle1;
-    angle1 = angle;
-
-    float averageAngle = (angle1 + angle2 + angle3 + angle4 + angle5 + angle6 + angle7 + angle8 + angle9 + angle10) / 10.0;
-
+    
     return averageAngle;
     //return angle;
 }

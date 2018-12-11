@@ -26,13 +26,13 @@
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
-char origDebugphoneNumber[] = "+17176837803"; // Number for Fish cell phone 
+char origDebugphoneNumber[] = "+18458007595"; // Number for Fish cell phone 
 char DebugphoneNumber[15]; //Defined during initialization 
 //char DebugphoneNumber[] = "+17177784498"; // Upside 
 //char origDebugphoneNumber[]="+17176837704"; //Number for Sue Fish Cell
 //char DebugphoneNumber[]="+254787620369"; //Number for Paul Zwart cell phone; this number is changed and default is the mainphonenumber
 //char MainphoneNumber[]="+17177784498"; // Upside Wireless
-char origMainphoneNumber[]="+17176837803"; // Randy
+char origMainphoneNumber[]="+18458007595"; // Randy
 char MainphoneNumber[15]; //Defined during initialization
 //char origMainphoneNumber[]="+17176837704"; //Sue
 char origCountryCode[] = "+254"; // This is Kenya 

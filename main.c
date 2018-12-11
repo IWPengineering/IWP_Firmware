@@ -221,7 +221,8 @@ void main(void)
         sendDebugMessage("\n\n We are in the Priming Loop ", -0.1);  //Debug
         int stopped_pumping_index = 0; 
 		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
-		anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
+		year = 1111;
+        anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
         angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
@@ -254,29 +255,29 @@ void main(void)
         if(timeOutStatus >= waterPrimeTimeOut){
             never_primed = 1;          
         }
-        sendDebugMessage("The time (ms) spent trying to prime = ",timeOutStatus*upstrokeInterval);
+        //sendDebugMessage("The time (ms) spent trying to prime = ",timeOutStatus*upstrokeInterval);
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
-        sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
-        sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug
-        sendDebugMessage(" never primed status = ", never_primed);  //Debug
+        //sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
+        //sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug
+        //sendDebugMessage(" never primed status = ", never_primed);  //Debug
 		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
 			longestPrime = upStrokePrimeMeters;
             EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
-            sendDebugMessage("We saved new Up Stroke Prime to EEProm ", 1);  //Debug
+            //sendDebugMessage("We saved new Up Stroke Prime to EEProm ", 1);  //Debug
 		}
 		///////////////////////////////////////////////////////
 		// Volume Calculation loop
 		// Tracks the upStroke for the water being extracted
 		//(in next loop -->) as well as the time in milliseconds taken for water to leak
 		///////////////////////////////////////////////////////
-        sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
+        //sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
         upStrokeExtract = 0;                                                 // gets variable ready for new volume event
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
         anglePrevious = getHandleAngle();
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
-							                                            //still for "volumeLoopCounter loops
+					sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
             angleCurrent = getHandleAngle();                        //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;              //determines the amount of handle movement from last reading
@@ -294,6 +295,11 @@ void main(void)
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
 			delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
+        year = 2018;
+        for (i = 0; i < 600; i++) {
+                sendDebugMessage("\n Final angle: ", aveArray[i]);
+                aveArray[i] = 0;
+        }
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////

@@ -82,6 +82,9 @@ extern int EEpromDebugphoneNumber;
 // *** Global Variables *******************************************************
 // ****************************************************************************
 
+extern int aveArray[];
+extern int angleArray[];
+
 extern char active_volume_bin;
 
 extern float longestPrime; // total upstroke for the longest priming event of the day
