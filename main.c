@@ -288,6 +288,7 @@ void main(void)
 			}
 			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				i++;
+                i++;
 			}
 			else{
 				i = 0;

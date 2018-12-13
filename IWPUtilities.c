@@ -154,7 +154,7 @@ int success = 0;
 // ****************************************************************************
 
 //****************Temporary Diagnostic Variables
-int aveArray [600];
+int aveArray [200];
 int angleArray[10];
 int aveArrayIndex = 0;
 
@@ -330,8 +330,10 @@ void initialization(void) {
     BatteryLevelArray[0] = batteryLevel(); //Used to track change in battery voltage
     BatteryLevelArray[1] = BatteryLevelArray[0]; //Used to track change in battery voltage
     BatteryLevelArray[2] = BatteryLevelArray[0]; //Used to track change in battery voltage
-
-/*
+    int i;
+    for (i = 0; i < 200; i++) {
+        aveArray[i] = 0;
+    }
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
     angle4 = getHandleAngle();
@@ -341,7 +343,7 @@ void initialization(void) {
     angle8 = getHandleAngle();
     angle9 = getHandleAngle();
     angle10 = getHandleAngle();
-*/
+
     // We may be waking up because the battery was dead or the WatchDog expired.  
     // If that is the case, Restart Status, EEProm#20, will be zero and we want 
     // to continue using the leakRateLong and longestPrime from EEProm. Otherwise, 
@@ -774,9 +776,9 @@ float getHandleAngle() {
         //sendDebugMessage("\n Final angle: ", averageAngle); 
         aveArray[aveArrayIndex] = averageAngle;
         aveArrayIndex++;
-        if (aveArrayIndex >= 600) {
+        if (aveArrayIndex >= 200) {
             aveArrayIndex = 0;
-            for (i = 0; i < 600; i++) {
+            for (i = 0; i < 200; i++) {
                 sendDebugMessage("\n Final angle: ", aveArray[i]);
                 aveArray[i] = 0;
             }
