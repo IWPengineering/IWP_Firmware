@@ -281,6 +281,7 @@ void main(void)
 		int i = 0;                                                      //Index to keep track of no movement cycles
         const float angleThresholdSmallNegative = angleThresholdSmall * -1;
         anglePrevious = getHandleAngle();
+        anglePreviousRecord = anglePrevious;
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 			//sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
@@ -289,10 +290,11 @@ void main(void)
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
 			if((angleDelta - angleDeltaPrevious) > -2.5 && (angleDelta - angleDeltaPrevious) < 2.5) {  //Determines direction of handle movement
                 sendDebugMessage("\nF", angleCurrent);
-                if (angleDelta > 0){  // determine if unwanted noise
-                    upStrokeExtract += angleDelta;                  //If the valve is moving upward, the movement is added to an
+                if ((angleCurrent - anglePreviousRecord) > 0){  // determine if unwanted noise
+                    upStrokeExtract += angleCurrent - anglePreviousRecord;                  //If the valve is moving upward, the movement is added to an
 										                        //accumlation var
-                }  
+                }
+                anglePreviousRecord = angleCurrent;
 			}
              
 			if((angleDelta > angleThresholdSmallNegative) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
