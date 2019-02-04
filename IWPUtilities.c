@@ -71,6 +71,7 @@ void noonMessage(void);
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
+const float radToDegConst = 57.29579143313326; // (180/PI)
 const int xAxis = 11; // analog pin connected to x axis of accelerometer
 const int yAxis = 12; // analog pin connected to y axis of accelerometer
 const int batteryVoltage = 15; // analog channel connected to the battery
@@ -330,10 +331,14 @@ void initialization(void) {
     BatteryLevelArray[0] = batteryLevel(); //Used to track change in battery voltage
     BatteryLevelArray[1] = BatteryLevelArray[0]; //Used to track change in battery voltage
     BatteryLevelArray[2] = BatteryLevelArray[0]; //Used to track change in battery voltage
+    
+    // for testing purposes
     int i;
     for (i = 0; i < 200; i++) {
         aveArray[i] = 0;
     }
+    //
+    
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
     angle4 = getHandleAngle();
@@ -602,7 +607,7 @@ int readWaterSensor(void) // RB5 is one water sensor
     int WaterPresent = 0; //assume there is no water
     int QuitLooking = 0; // set to 1 if we know there is no water
     // turn WPS on and off in the Main loop 
-    delayMs(5); //make sure the 555 has had time to turn on 
+    //delayMs(5); //make sure the 555 has had time to turn on 
 
 
     //make sure you start at the beginning of the positive pulse
@@ -754,10 +759,9 @@ float getHandleAngle() {
     //sendDebugMessage("\n Raw x value ", xValue); 
     //sendDebugMessage("\n Raw y value ", yValue); 
 
-    float angle = atan2(yValue, xValue) * (180 / PI); //returns angle in degrees 06-20-2014
+    float angle = atan2(yValue, xValue) * radToDegConst; //returns angle in degrees 06-20-2014
     // Calculate and return the angle of the pump handle
 
-    
     for (i = 9; i > 0; i--) {
         angleArray[i] = angleArray[i-1];
         angleSum += angleArray[i];
@@ -772,7 +776,9 @@ float getHandleAngle() {
     angleSum += angle;
     
     float averageAngle = angleSum / 10.0;
-    if (year == 1111) {
+    
+    // testing stuff
+    /*if (year == 1111) {
         //sendDebugMessage("\n Final angle: ", averageAngle); 
         aveArray[aveArrayIndex] = averageAngle;
         aveArrayIndex++;
@@ -783,7 +789,7 @@ float getHandleAngle() {
                 aveArray[i] = 0;
             }
         }
-    }
+    }*/
     
     return averageAngle;
     //return angle;

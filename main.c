@@ -84,9 +84,11 @@ void main(void)
 	int timeOutStatus = 0; // Used to keep track of the water prime timeout
     
 	float angleCurrent = 0; // Stores the current angle of the pump handle
-	float anglePrevious = 0; // Stores the last recorded angle of the pump handle
+	float anglePrevious = 0; // Stores the last read angle of the pump handle
+    float anglePreviousRecord = 0; // Stores the last recorded angle of the pump handle
     float angleAtRest = 0; // Used to store the handle angle when it is not moving
 	float angleDelta = 0; // Stores the difference between the current and previous angles
+    float angleDeltaPrevious = 0; // Stores the last recorded angle delta
 	float upStrokePrime = 0; // Stores the sum of the upstrokes for calculating the prime
 	float upStrokeExtract = 0; // Stores the sum of the upstrokes for calculating volume
 	float volumeEvent = 0; // Stores the volume extracted
@@ -219,16 +221,18 @@ void main(void)
 		// pump has been primed
 		/////////////////////////////////////////////////////////
         sendDebugMessage("\n\n We are in the Priming Loop ", -0.1);  //Debug
+        //AD1CON1bits.ADON = 1; // Turn on ADC
         int stopped_pumping_index = 0; 
 		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
-		year = 1111;
+		//year = 1111;
         anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
         angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
      
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
-		while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
+		delayMs(5); //make sure the 555 has had time to turn on
+        while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
 		{
             angleCurrent = getHandleAngle();                      //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;            //determines the amount of handle movement from last reading
@@ -275,32 +279,46 @@ void main(void)
 		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
+        const float angleThresholdSmallNegative = angleThresholdSmall * -1;
         anglePrevious = getHandleAngle();
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
-					sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
+			//sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
             angleCurrent = getHandleAngle();                        //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;              //determines the amount of handle movement from last reading
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
-			if(angleDelta > 0){                                     //Determines direction of handle movement
-				upStrokeExtract += angleDelta;                  //If the valve is moving upward, the movement is added to an
+			if((angleDelta - angleDeltaPrevious) > -2.5 && (angleDelta - angleDeltaPrevious) < 2.5) {  //Determines direction of handle movement
+                sendDebugMessage("\nF", angleCurrent);
+                if (angleDelta > 0){  // determine if unwanted noise
+                    upStrokeExtract += angleDelta;                  //If the valve is moving upward, the movement is added to an
 										                        //accumlation var
+                }  
 			}
-			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
+             
+			if((angleDelta > angleThresholdSmallNegative) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				i++;
-                i++;
+                
+                // For testing purposes
+                //i++;
 			}
 			else{
 				i = 0;
 			}                                                             //Reset i if handle is moving
+            
+            angleDeltaPrevious = angleDelta;
+            
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
-			delayMs(upstrokeInterval);                                         // Delay for a short time
+			
+            
+            
+            //delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
+        /*
         year = 2018;
         for (i = 0; i < 600; i++) {
                 sendDebugMessage("\n Final angle: ", aveArray[i]);
                 aveArray[i] = 0;
-        }
+        }*/
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////
@@ -321,6 +339,7 @@ void main(void)
         anglePrevious = getHandleAngle();                                       // Keep track of how many milliseconds have passed
 		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 150 milliseconds of delay 
         angleAtRest = getHandleAngle();                                                                        // if no water or no handle movement before entry.
+        //AD1CON1bits.ADON = 0; // Turn off ADC
         while ((readWaterSensor())&&(leakCondition == 3)){
             if(HasTheHandleMoved(angleAtRest)){ // if they start pumping, stop calculating leak
                 leakCondition = 1;
