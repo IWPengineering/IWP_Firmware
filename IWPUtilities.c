@@ -148,16 +148,18 @@ float angle8 = 0;
 float angle9 = 0;
 float angle10 = 0;
 
+const float filter[21] = {0.0307, 0.0347, 0.0397, 0.0443, 0.0486, 0.0523, 
+    0.0555, 0.0581, 0.0599, 0.0611, 0.0615, 0.0611, 0.0599, 0.0581, 0.0555, 
+    0.0523, 0.0486, 0.0443, 0.0397, 0.0347, 0.0307};
+
 int success = 0;
 
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
 
-//****************Temporary Diagnostic Variables
-int aveArray [200];
-int angleArray[10];
-int aveArrayIndex = 0;
+
+int angleArray[21];
 
 //****************Hourly Diagnostic Message Variables************************
 float sleepHrStatus = 0; // 1 if we slept during the current hour, else 0
@@ -334,11 +336,13 @@ void initialization(void) {
     
     // for testing purposes
     int i;
-    for (i = 0; i < 200; i++) {
-        aveArray[i] = 0;
+    for (i = 0; i < 21; i++) {
+        angleArray[i] = atan2(readAdc(yAxis) - signedNumAdjustADC, 
+                readAdc(xAxis) - signedNumAdjustADC) * radToDegConst;
     }
     //
-    
+
+    /*
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
     angle4 = getHandleAngle();
@@ -348,7 +352,7 @@ void initialization(void) {
     angle8 = getHandleAngle();
     angle9 = getHandleAngle();
     angle10 = getHandleAngle();
-
+*/
     // We may be waking up because the battery was dead or the WatchDog expired.  
     // If that is the case, Restart Status, EEProm#20, will be zero and we want 
     // to continue using the leakRateLong and longestPrime from EEProm. Otherwise, 
@@ -762,9 +766,10 @@ float getHandleAngle() {
     float angle = atan2(yValue, xValue) * radToDegConst; //returns angle in degrees 06-20-2014
     // Calculate and return the angle of the pump handle
 
-    for (i = 9; i > 0; i--) {
+    
+    for (i = 20; i > 0; i--) {
         angleArray[i] = angleArray[i-1];
-        angleSum += angleArray[i];
+        angleSum += angleArray[i] * filter[i];
     }
     angleArray[0] = angle;
     
@@ -773,9 +778,11 @@ float getHandleAngle() {
     } else if (angle < -30) {
         angle = -30.0;
     }*/
-    angleSum += angle;
+    angleSum += angle * filter[0];
     
-    float averageAngle = angleSum / 10.0;
+    //float averageAngle = angleSum / 10.0;
+    
+    
     
     // testing stuff
     /*if (year == 1111) {
@@ -791,8 +798,8 @@ float getHandleAngle() {
         }
     }*/
     
-    return averageAngle;
-    //return angle;
+    //return averageAngle;
+    return angleSum;
 }
 
 /*********************************************************************

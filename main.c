@@ -85,10 +85,8 @@ void main(void)
     
 	float angleCurrent = 0; // Stores the current angle of the pump handle
 	float anglePrevious = 0; // Stores the last read angle of the pump handle
-    float anglePreviousRecord = 0; // Stores the last recorded angle of the pump handle
     float angleAtRest = 0; // Used to store the handle angle when it is not moving
 	float angleDelta = 0; // Stores the difference between the current and previous angles
-    float angleDeltaPrevious = 0; // Stores the last recorded angle delta
 	float upStrokePrime = 0; // Stores the sum of the upstrokes for calculating the prime
 	float upStrokeExtract = 0; // Stores the sum of the upstrokes for calculating volume
 	float volumeEvent = 0; // Stores the volume extracted
@@ -281,20 +279,21 @@ void main(void)
 		int i = 0;                                                      //Index to keep track of no movement cycles
         const float angleThresholdSmallNegative = angleThresholdSmall * -1;
         anglePrevious = getHandleAngle();
-        anglePreviousRecord = anglePrevious;
+        
+        //for testing
+        int loopcounter = 0;
+        int minloop = minuteVTCC;
+        int secloop = secondVTCC;
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 			//sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
+            loopcounter++;
             angleCurrent = getHandleAngle();                        //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;              //determines the amount of handle movement from last reading
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
-			if((angleDelta - angleDeltaPrevious) > -2.5 && (angleDelta - angleDeltaPrevious) < 2.5) {  //Determines direction of handle movement
-                sendDebugMessage("\nF", angleCurrent);
-                if ((angleCurrent - anglePreviousRecord) > 0){  // determine if unwanted noise
-                    upStrokeExtract += angleCurrent - anglePreviousRecord;                  //If the valve is moving upward, the movement is added to an
+			if(angleDelta > 0) {  //Determines direction of handle movement
+                upStrokeExtract += angleDelta;                  //If the valve is moving upward, the movement is added to an
 										                        //accumlation var
-                }
-                anglePreviousRecord = angleCurrent;
 			}
              
 			if((angleDelta > angleThresholdSmallNegative) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
@@ -306,15 +305,16 @@ void main(void)
 			else{
 				i = 0;
 			}                                                             //Reset i if handle is moving
-            
-            angleDeltaPrevious = angleDelta;
-            
+
+            //sendDebugMessage("\nF", angleCurrent);
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
 			
             
             
             //delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
+        secloop = secondVTCC - secloop;
+        minloop = minuteVTCC - minloop;
         /*
         year = 2018;
         for (i = 0; i < 600; i++) {
@@ -424,6 +424,10 @@ void main(void)
         sendDebugMessage("Volume Event = ", volumeEvent);  //Debug
         sendDebugMessage("  for time slot ", hour);  //Debug
 
+        sendDebugMessage("Minutes pumping: ", minloop);  //Testing
+        sendDebugMessage("Seconds pumping: ", secloop);  //Testing
+        sendDebugMessage("Number of readings taken: ", loopcounter);  //Testing
+        sendDebugMessage("Seconds per reading: ", (float) ((minloop * 60) + secloop) / (float) loopcounter);  //Testing
        
 		switch (hour / 2)
 		{
