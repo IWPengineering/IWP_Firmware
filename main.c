@@ -93,7 +93,7 @@ void main(void)
 	float leakRatePrevious = 0; // Stores the previous Leak Rate incase if someone stats to pump before leakage can be measured
 	float upStrokePrimeMeters = 0; // Stores the upstroke in meters
 	float leakRate = 0; // Rate at which water is leaking from the rising main
-    
+    int time = 0;
     
 	
     
@@ -148,7 +148,7 @@ void main(void)
            // See if the external RTCC is keeping track of time or if we need to rely on 
            // our less accurate internal timer VTCC
             if(TimeSinceLastHourCheck == 1){ // Check every minute, updated in VTCC interrupt routine
-                VerifyProperTimeSource();
+                VerifyProperTimeSource                                                                 ();
                 TimeSinceLastHourCheck = 0; //this gets updated in VTCC interrupt routine
             }  
             // Do hourly tasks
@@ -227,7 +227,10 @@ void main(void)
         angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
-     
+        
+        TMR4 = 0;
+        T4CONbits.TON = 1; // Starts 16-bit Timer3
+        
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
 		delayMs(5); //make sure the 555 has had time to turn on
         while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
@@ -274,7 +277,7 @@ void main(void)
 		///////////////////////////////////////////////////////
         //sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
         upStrokeExtract = 0;                                                 // gets variable ready for new volume event
-		int volumeLoopCounter = 15; // 150 ms                           //number of zero movement cycles before loop ends
+		int volumeLoopCounter = 60; // 294 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
         const float angleThresholdSmallNegative = angleThresholdSmall * -1;
@@ -283,7 +286,9 @@ void main(void)
         //for testing
         int loopcounter = 0;
         int minloop = minuteVTCC;
-        int secloop = secondVTCC;
+        float secloop = secondVTCC;
+        float startTimer = TMR2;
+        TMR4 = 0;
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 			//sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
@@ -291,8 +296,8 @@ void main(void)
             angleCurrent = getHandleAngle();                        //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;              //determines the amount of handle movement from last reading
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
-			if(angleDelta > 0) {  //Determines direction of handle movement
-                upStrokeExtract += angleDelta;                  //If the valve is moving upward, the movement is added to an
+			if(angleDelta < 0) {  //Determines direction of handle movement
+                upStrokeExtract += (-1) * angleDelta;                  //If the valve is moving downward, the movement is added to an
 										                        //accumlation var
 			}
              
@@ -309,11 +314,12 @@ void main(void)
             //sendDebugMessage("\nF", angleCurrent);
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
 			
-            
-            
+            while (TMR4 < 153); //fixes the sampling rate at about 102Hz
+            TMR4 = 0; //reset the timer before reading WPS
             //delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
         secloop = secondVTCC - secloop;
+        secloop += (TMR2 - startTimer) / 15625.0;
         minloop = minuteVTCC - minloop;
         /*
         year = 2018;
