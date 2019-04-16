@@ -222,7 +222,6 @@ void main(void)
         //AD1CON1bits.ADON = 1; // Turn on ADC
         int stopped_pumping_index = 0; 
 		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
-		//year = 1111;
         anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
         angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
@@ -283,16 +282,18 @@ void main(void)
         const float angleThresholdSmallNegative = angleThresholdSmall * -1;
         anglePrevious = getHandleAngle();
         
-        //for testing
-        int loopcounter = 0;
-        int minloop = minuteVTCC;
-        float secloop = secondVTCC;
+        // needed to time the loop for measuring volume
+        int loopMinutes = minuteVTCC; // keeps track of loop minutes
+        float loopSeconds = secondVTCC; // keeps track of loop seconds
         float startTimer = TMR2;
-        TMR4 = 0;
+        
+        // needed to ensure consistent sampling frequency of 102Hz
+        TMR4 = 0; // clear timer
+        
 		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 			//sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
-            loopcounter++;
+
             angleCurrent = getHandleAngle();                        //gets the latest 10-average angle
 			angleDelta = angleCurrent - anglePrevious;              //determines the amount of handle movement from last reading
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
@@ -318,15 +319,16 @@ void main(void)
             TMR4 = 0; //reset the timer before reading WPS
             //delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
-        secloop = secondVTCC - secloop;
-        secloop += (TMR2 - startTimer) / 15625.0;
-        minloop = minuteVTCC - minloop;
-        /*
-        year = 2018;
-        for (i = 0; i < 600; i++) {
-                sendDebugMessage("\n Final angle: ", aveArray[i]);
-                aveArray[i] = 0;
-        }*/
+        loopSeconds = secondVTCC - loopSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
+        loopSeconds += (TMR2 - startTimer) / 15625.0; // get the remainder of seconds (less than the 4 second increment)
+        loopMinutes = minuteVTCC - loopMinutes; // get the number of minutes pumping from VTCC
+
+        if (loopMinutes < 0) {
+            loopMinutes += 60; // in case the hour incremented and you get negative minutes, make them positive
+        }
+        
+        loopSeconds += loopMinutes * 60; // add minutes to the seconds
+
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
 		///////////////////////////////////////////////////////
@@ -417,7 +419,18 @@ void main(void)
         sendDebugMessage("handle movement in degrees ", upStrokeExtract);  //Debug
 		upStrokeExtract = degToRad(upStrokeExtract);
         sendDebugMessage("handle movement in radians ", upStrokeExtract);  //Debug       
-		volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
+		//volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
+        
+        float timePerRad = loopSeconds / upStrokeExtract;
+        
+        if (timePerRad < quadVertex) { // if the time per radian is below this value, the result will be undefined
+            timePerRad = quadVertex;    // if above case, set the time per radian to the minimum defined value
+            sendDebugMessage("Minimum Value ", 0);  //Testing
+        }
+        
+        volumeEvent = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * upStrokeExtract; // calculate volume based on quadratic trend line
+        
+        
         sendDebugMessage("Liters Pumped ", volumeEvent);  //Debug
         
 		volumeEvent -= (leakRate * ((extractionDurationCounter * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
@@ -430,10 +443,8 @@ void main(void)
         sendDebugMessage("Volume Event = ", volumeEvent);  //Debug
         sendDebugMessage("  for time slot ", hour);  //Debug
 
-        sendDebugMessage("Minutes pumping: ", minloop);  //Testing
-        sendDebugMessage("Seconds pumping: ", secloop);  //Testing
-        sendDebugMessage("Number of readings taken: ", loopcounter);  //Testing
-        sendDebugMessage("Seconds per reading: ", (float) ((minloop * 60) + secloop) / (float) loopcounter);  //Testing
+        sendDebugMessage("Minutes pumping: ", loopMinutes);  //Testing
+        sendDebugMessage("Seconds pumping: ", loopSeconds);  //Testing
        
 		switch (hour / 2)
 		{

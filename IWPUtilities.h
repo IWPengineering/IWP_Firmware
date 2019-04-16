@@ -32,6 +32,12 @@ extern const int xAxis; // analog pin connected to x axis of accelerometer
 extern const int yAxis; // analog pin connected to y axis of accelerometer
 extern const int batteryVoltage;                  // analog pin connected to the battery
 extern const float MKII; // 0.4074 L/Radian; transfer variable for mkII delta handle angle to outflow
+
+extern const float a; // a in quadratic equation to solve for volume
+extern const float b; // b in quadratic equation to solve for volume
+extern const float c; // c in quadratic equation to solve for volume
+extern const float quadVertex; // the y value of the vertex of the parabola used to calculate volume; = (-(b^2)/(4*a))+c
+
 extern const float leakSensorVolume; // This is in Liters; pipe dia. = 33mm; rod diam 12 mm; gage length 24mm
 extern const int alarmHour; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 extern const int alarmStartingMinute; // The minimum minute that the alarm will go off

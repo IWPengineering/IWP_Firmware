@@ -76,6 +76,12 @@ const int xAxis = 11; // analog pin connected to x axis of accelerometer
 const int yAxis = 12; // analog pin connected to y axis of accelerometer
 const int batteryVoltage = 15; // analog channel connected to the battery
 const float MKII = .624; //0.4074 L/Radian; transfer variable for mkII delta handle angle to outflow
+
+const float a = 27.336; // a in quadratic equation to solve for volume
+const float b = -35.169; // b in quadratic equation to solve for volume
+const float c = 12.476; // c in quadratic equation to solve for volume
+const float quadVertex = 1.1644; // the y value of the vertex of the parabola used to calculate volume; = (-(b^2)/(4*a))+c
+
 const float leakSensorVolume = 0.01781283; // This is in Liters; pipe dia. = 33mm; rod diam 12 mm; gage length 24mm
 // THE FASTEST WE COULD POSSIBLE BE IF IT DOES PRIME IS 42ms FOR THE AVERAGE PERSON but we'll do half that incase you're pumping hard to get it to prime
 const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
@@ -296,8 +302,8 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 30;
-    char localHr = 9;
+    char localMin = 3;
+    char localHr = 8;
     char localWkday = 2;
     char localDate = 8;
     char localMonth = 10;
