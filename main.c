@@ -94,7 +94,6 @@ void main(void)
 	float upStrokePrimeMeters = 0; // Stores the upstroke in meters
 	float leakRate = 0; // Rate at which water is leaking from the rising main
     
-    
 	
     
     //                    DEBUG
@@ -109,11 +108,10 @@ void main(void)
     print_debug_messages = 1;
     int temp_debug_flag = print_debug_messages;
     
-
-    
     print_debug_messages = 1;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ",-0.1);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
+    sendDebugMessage("The minute is = ", BcdToDec(getMinuteI2C()));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     sendDebugMessage("The hourly diagnostic reports are at ",diagnostic); //Debug
     TimeSinceLastHourCheck = 0;
@@ -121,9 +119,7 @@ void main(void)
     
      while (1)
 	{
-         
        //batteryFloat = batteryLevel();
-       
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
 		// Idle Handle Monitor Loop
@@ -137,10 +133,17 @@ void main(void)
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		while (handleMovement == 0)
 		{ 
+           digitalPinSet(waterPresenceSensorOnOffPin, 1); 
+           if(readWaterSensor()) {
+            LATBbits.LATB1 = 1;
+        } else {
+            LATBbits.LATB1 = 0;
+        }
            ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT 
-           
+           PORTBbits.RB0 = 0;
            // See if the diagnostic PCB is plugged in
-           if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in (pin #5)
+//           if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in (pin #5)
+           if(0) {
                  CheckIncommingTextMessages(); //See if there are any text messages
                                          // the SIM is powered ON at this point
            }
@@ -210,6 +213,7 @@ void main(void)
 //            if(deltaAngle > handleMovementThreshold){            // The total movement of the handle from rest has been exceeded
 //				handleMovement = 1;
 //			}
+          
 		}
 
 		/////////////////////////////////////////////////////////
@@ -227,7 +231,7 @@ void main(void)
         angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
-     
+        PORTBbits.RB0 = 1;   //Turn on pumping led - red
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
 		delayMs(5); //make sure the 555 has had time to turn on
         while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
@@ -254,6 +258,7 @@ void main(void)
             timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping (WHY TIME OUT? IF THEY KEEP PUMPING WITHOUT WATER WHY NOT RECORD IT)
 			delayMs(upstrokeInterval); 
         }
+        
         if(timeOutStatus >= waterPrimeTimeOut){
             never_primed = 1;          
         }
@@ -267,6 +272,11 @@ void main(void)
             EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
             //sendDebugMessage("We saved new Up Stroke Prime to EEProm ", 1);  //Debug
 		}
+        if(readWaterSensor()) {
+            LATBbits.LATB1 = 1;
+        } else {
+            LATBbits.LATB1 = 0;
+        }
 		///////////////////////////////////////////////////////
 		// Volume Calculation loop
 		// Tracks the upStroke for the water being extracted
@@ -315,6 +325,8 @@ void main(void)
 		}
         secloop = secondVTCC - secloop;
         minloop = minuteVTCC - minloop;
+        
+        
         /*
         year = 2018;
         for (i = 0; i < 600; i++) {
@@ -328,7 +340,6 @@ void main(void)
 		// Get the angle of the pump handle to measure against
 		int leakCondition = 3;  // Assume that we are going to be able to calculate a valid leak rate
         
-      
         if(!readWaterSensor()){  // If there is already no water when we get here, something strange is happening, don't calculate leak
             leakCondition = 4;
              sendDebugMessage("There is no water as soon as we get here ", -0.1);  //Debug
@@ -468,6 +479,8 @@ void main(void)
 			volume2224 = volume2224 + volumeEvent;
 			break;
 		}
+        
+        
 	} // End of main loop
 } // End of main program
 

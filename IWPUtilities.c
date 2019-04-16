@@ -256,8 +256,8 @@ int vcc2Pin = 28;
  * TestDate: 06-03-14
  ********************************************************************/
 void initialization(void) {
-    char localSec = 0;
-    char localMin = 30;
+    char localSec = 30;
+    char localMin = 59;
     char localHr = 11;
     char localWkday = 2;
     char localDate = 8;
@@ -270,9 +270,11 @@ void initialization(void) {
     ANSB = 0; // All port B pins are digital. Individual ADC are set in the readADC function
     TRISB = 0xFFFF; // Sets all of port B to input
     TRISBbits.TRISB0 = 0; //DEBUG Make spare test pin#4 on Pic an output
+    TRISAbits.TRISA4 = 0; //Green LED output
+    TRISBbits.TRISB1 = 0;
     CNPU1bits.CN5PUE = 1; //put a weak pull up resistor on RB1 which is pin 5.
     // use this pin to detect when the Diagnostic board is plugged in.
-    PORTBbits.RB0 = 1; //DEBUG Set this high,  When we go to sleep we will make it low
+    //PORTBbits.RB0 = 1; //DEBUG Set this high,  When we go to sleep we will make it low
 
 
     // Timer control (for WPS and FONA interactions)
@@ -633,7 +635,7 @@ int readWaterSensor(void) // RB5 is one water sensor
     if ((TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) {
         WaterPresent = 1;
     }
-    return 1;//WaterPresent;
+    return WaterPresent;//WaterPresent;
 }
 
 /*********************************************************************
