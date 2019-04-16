@@ -94,7 +94,7 @@ extern char DebugphoneNumber[]; // Number for the Black Phone
 extern float sleepHrStatus; // 1 if we slept during the current hour, else 0
 extern float timeSinceLastRestart; // Total time in hours since last restart
 extern int diagnostic_msg_sent; // set to 1 when the hourly diagnostic message is sent 
-extern char diagnostic; //set to 1 when we want the diagnostic text messages to be sent hourly
+extern float diagnostic; //set to 1 when we want the diagnostic text messages to be sent hourly
 extern int internalHour; // Hour of the day according to internal RTCC
 extern int internalMinute; // Minute of the hour according to the internal RTCC
 extern float debugDiagnosticCounter;  // DEBUG used as a variable for various things while debugging diagnostic message
@@ -175,7 +175,6 @@ extern int day;
 extern char active_volume_bin;
 extern char never_primed;  //set to 1 if we exit the priming loop because of timeout
 extern char print_debug_messages; //set to 1 when we want the debug messages to be sent to the Tx pin.
-extern char diagnostic; //set to 1 when we want the diagnostic text messages to be sent hourly
 extern float date;
 
 // ****************************************************************************
