@@ -76,20 +76,25 @@ const int xAxis = 11; // analog pin connected to x axis of accelerometer
 const int yAxis = 12; // analog pin connected to y axis of accelerometer
 const int batteryVoltage = 15; // analog channel connected to the battery
 const float MKII = .624; //0.4074 L/Radian; transfer variable for mkII delta handle angle to outflow
+
+const float a = 27.336; // a in quadratic equation to solve for volume
+const float b = -35.169; // b in quadratic equation to solve for volume
+const float c = 12.476; // c in quadratic equation to solve for volume
+const float quadVertex = 1.1644; // the y value of the vertex of the parabola used to calculate volume; = (-(b^2)/(4*a))+c
+
 const float leakSensorVolume = 0.01781283; // This is in Liters; pipe dia. = 33mm; rod diam 12 mm; gage length 24mm
 // THE FASTEST WE COULD POSSIBLE BE IF IT DOES PRIME IS 42ms FOR THE AVERAGE PERSON but we'll do half that incase you're pumping hard to get it to prime
 const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
-const int signedNumAdjustADC = 511; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
-const int pulseWidthThreshold = 78; // The value to check the pulse width against (2048). Changed from 20 to 78. 
+const int signedNumAdjustADC = 512; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
+const int pulseWidthThreshold = 78; // The value to check the pulse width against (2048). Changed from 20 to 78
 const int pulseWidthThreshold2 = 19;
+
 ///const int pulseWidthThreshold = 130; // This is just for Zantele we see about 160hz, not when water is there.  Not sure what we would see with no water
 
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
-const int max_pause_while_pumping = 1000; //The maximum time (in ms) that the pump handle is not moving before we say that the person stopped trying
-int waterPrimeTimeOut = 7000; // This * upstrokeInterval is the maximum amount of time we will wait for the pump to prime.
-                              // with current setting, this is 70 seconds 
+const int max_pause_while_pumping = 1020; //The maximum time (in loops, each loop delaying 9.8ms) that the pump handle is not moving before we say that the person stopped trying
 long leakRateTimeOut = 3000; // Maximum number of milliseconds to wait for water to drain when calculating leak rate 
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
@@ -149,10 +154,49 @@ float angle8 = 0;
 float angle9 = 0;
 float angle10 = 0;
 
+/*
+// 21
 const float filter[21] = {0.0307, 0.0347, 0.0397, 0.0443, 0.0486, 0.0523, 
     0.0555, 0.0581, 0.0599, 0.0611, 0.0615, 0.0611, 0.0599, 0.0581, 0.0555, 
     0.0523, 0.0486, 0.0443, 0.0397, 0.0347, 0.0307};
+*/
+/*
+// 41
+const float filter[41] = {0.0005, 0.0026, 0.0054, 0.0085, 0.0117, 0.0150, 0.0184, 0.0218, 0.0252, 0.0286,
+    0.0318, 0.0349, 0.0378, 0.0405, 0.0429, 0.0450, 0.0467, 0.0481, 0.0491, 0.0497,
+    0.0500, 0.0497, 0.0491, 0.0481, 0.0467, 0.0450, 0.0429, 0.0405, 0.0378, 0.0349,
+    0.0318, 0.0286, 0.0252, 0.0218, 0.0184, 0.0150, 0.0117, 0.0085, 0.0054, 0.0026,
+    0.0005};
+*/
+/*
+// 53 @ 106 Hz fs
+const float filter[53] = {0.0010, 0.0022, 0.0039, 0.0056, 0.0074, 0.0092, 0.0111, 0.0130, 0.0150, 0.0169, 
+    0.0188, 0.0208, 0.0226, 0.0245, 0.0262, 0.0279, 0.0295, 0.0310, 0.0323, 0.0335,
+    0.0346, 0.0355, 0.0363, 0.0369, 0.0374, 0.0376, 0.0377, 0.0376, 0.0374, 0.0369, 
+    0.0363, 0.0355, 0.0346, 0.0335, 0.0323, 0.0310, 0.0295, 0.0279, 0.0262, 0.0245, 
+    0.0226, 0.0208, 0.0188, 0.0169, 0.0150, 0.0130, 0.0111, 0.0092, 0.0074, 0.0056, 
+    0.0039, 0.0022, 0.0010};
+*/
+    
+// 51 @ 102 Hz fs
+const float filter[51] = {0.0011, 0.0024, 0.0042, 0.0060, 0.0080, 0.0100, 0.0120, 0.0141, 0.0162, 0.0183,
+    0.0204, 0.0225, 0.0245, 0.0264, 0.0283, 0.0300, 0.0316, 0.0332, 0.0345, 0.0357,
+    0.0368, 0.0376, 0.0383, 0.0388, 0.0391, 0.0392, 0.0391, 0.0388, 0.0383, 0.0376,
+    0.0368, 0.0357, 0.0345, 0.0332, 0.0316, 0.0300, 0.0283, 0.0264, 0.0245, 0.0225,
+    0.0204, 0.0183, 0.0162, 0.0141, 0.0120, 0.0100, 0.0080, 0.0060, 0.0042, 0.0024,
+    0.0011};
 
+
+/*
+// 61 @ 120 Hz fs
+const float filter[61] = {0.0002, 0.0011, 0.0024, 0.0036, 0.0050, 0.0064, 0.0078, 0.0093, 0.0108, 0.0123,
+    0.0138, 0.0153, 0.0168, 0.0183, 0.0198, 0.0212, 0.0226, 0.0239, 0.0252, 0.0264, 
+    0.0276, 0.0286, 0.0296, 0.0304, 0.0312, 0.0318, 0.0324, 0.0328, 0.0331, 0.0333,
+    0.0333, 0.0333, 0.0331, 0.0328, 0.0324, 0.0318, 0.0312, 0.0304, 0.0296, 0.0286,
+    0.0276, 0.0264, 0.0252, 0.0239, 0.0226, 0.0212, 0.0198, 0.0183, 0.0168, 0.0153,
+    0.0138, 0.0123, 0.0108, 0.0093, 0.0078, 0.0064, 0.0050, 0.0036, 0.0024, 0.0011,
+    0.0002};
+*/
 int success = 0;
 
 // ****************************************************************************
@@ -160,7 +204,7 @@ int success = 0;
 // ****************************************************************************
 
 
-int angleArray[21];
+int angleArray[51];
 
 //****************Hourly Diagnostic Message Variables************************
 float sleepHrStatus = 0; // 1 if we slept during the current hour, else 0
@@ -258,8 +302,8 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {
     char localSec = 0;
-    char localMin = 50;
-    char localHr = 11;
+    char localMin = 3;
+    char localHr = 8;
     char localWkday = 2;
     char localDate = 8;
     char localMonth = 10;
@@ -290,6 +334,12 @@ void initialization(void) {
     // if FNOSC = FRC, Timer Clock = 15.625khz
     T2CONbits.TON = 1; // Starts 16-bit Timer2
 
+    // Timer control (for regulating accelerometer sampling rate)
+    T4CONbits.TCS = 0; //Source is Internal Clock Fosc/2  if #pragma config FNOSC = FRC, Fosc/2 = 4Mhz
+    T4CONbits.T32 = 0; // Using 16-bit timer2
+    T4CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this) 
+    // if FNOSC = FRC, Timer Clock = 15.625khz
+    
 
     // UART config
     //    U1MODE = 0x8000;  
@@ -338,7 +388,7 @@ void initialization(void) {
     
     // for testing purposes
     int i;
-    for (i = 0; i < 21; i++) {
+    for (i = 0; i < 51; i++) {
         angleArray[i] = atan2(readAdc(yAxis) - signedNumAdjustADC, 
                 readAdc(xAxis) - signedNumAdjustADC) * radToDegConst;
     }
@@ -645,7 +695,7 @@ int readWaterSensor(void) // RB5 is one water sensor
     } else if ((TMR1 > pulseWidthThreshold) && (!QuitLooking)){  
         WaterPresent = 2; //broken
     }
-
+  
     return WaterPresent;
 }
 
@@ -780,7 +830,8 @@ float getHandleAngle() {
     // Calculate and return the angle of the pump handle
 
     
-    for (i = 20; i > 0; i--) {
+
+    for (i = 50; i > 0; i--) {
         angleArray[i] = angleArray[i-1];
         angleSum += angleArray[i] * filter[i];
     }
