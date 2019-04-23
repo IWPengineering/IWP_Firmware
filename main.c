@@ -78,10 +78,8 @@
 void main(void)
 {
 	initialization();
-	waterPrimeTimeOut /= upstrokeInterval;
     leakRateTimeOut /= upstrokeInterval;
 	int handleMovement = 0; // Either 1 or no 0 if the handle moving upward
-	int timeOutStatus = 0; // Used to keep track of the water prime timeout
     
 	float angleCurrent = 0; // Stores the current angle of the pump handle
 	float anglePrevious = 0; // Stores the last read angle of the pump handle
@@ -93,7 +91,6 @@ void main(void)
 	float leakRatePrevious = 0; // Stores the previous Leak Rate incase if someone stats to pump before leakage can be measured
 	float upStrokePrimeMeters = 0; // Stores the upstroke in meters
 	float leakRate = 0; // Rate at which water is leaking from the rising main
-    int time = 0;
     
 	
     
@@ -221,7 +218,7 @@ void main(void)
         sendDebugMessage("\n\n We are in the Priming Loop ", -0.1);  //Debug
         //AD1CON1bits.ADON = 1; // Turn on ADC
         int stopped_pumping_index = 0; 
-		timeOutStatus = 0;                                            // prepares timeoutstatus for new event
+        const float angleThresholdSmallNegative = angleThresholdSmall * -1;
         anglePrevious = getHandleAngle();                             // Get the angle of the pump handle to measure against
         angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
@@ -232,34 +229,38 @@ void main(void)
         
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
 		delayMs(5); //make sure the 555 has had time to turn on
-        while ((timeOutStatus < waterPrimeTimeOut) && !readWaterSensor())
+        
+        // needed to ensure consistent sampling frequency of 102Hz
+        TMR4 = 0; // clear timer
+        
+        while (!readWaterSensor())
 		{
-            angleCurrent = getHandleAngle();                      //gets the latest 10-average angle
-			angleDelta = angleCurrent - anglePrevious;            //determines the amount of handle movement from last reading
-			anglePrevious = angleCurrent;                         //Prepares anglePrevious for the next loop
-			if(angleDelta > 0){                                   //Determines direction of handle movement
-				upStrokePrime += angleDelta;                  //If the valve is moving upward, the movement is added to an
-                                                             //accumulation var (even if it was smaller than angleThresholdSmall)
+            ClearWatchDogTimer();     // Is unlikely that we will be priming for 130sec without a stop, but we might
+            angleCurrent = getHandleAngle();                        //gets the filtered current angle
+			angleDelta = angleCurrent - anglePrevious;              //determines the amount of handle movement from last reading
+			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
+			if(angleDelta < 0) {  //Determines direction of handle movement
+                upStrokePrime += (-1) * angleDelta;                  //If the valve is moving downward, the movement is added to an
+										                        //accumlation var
 			}
+            
             // If they have stopped, pumping we should give up too
-			if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
+			if((angleDelta > angleThresholdSmallNegative) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
                 stopped_pumping_index++; // we want to stop if the user stops pumping              
-			}
-			else{
+			} else{
                 stopped_pumping_index=0;   // they are still trying
-			} 
-            if((stopped_pumping_index * upstrokeInterval) > max_pause_while_pumping){  // They quit trying for at least 1 second (SHOULD THIS BE LONGER??)
+			}
+            
+            if((stopped_pumping_index) > max_pause_while_pumping){  // They quit trying for at least 10 seconds
                 never_primed = 1;
                 sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
                 break;
             }
-            timeOutStatus++; // we will wait for up to waterPrimeTimeOut of pumping (WHY TIME OUT? IF THEY KEEP PUMPING WITHOUT WATER WHY NOT RECORD IT)
-			delayMs(upstrokeInterval); 
+            
+			while (TMR4 < 153); //fixes the sampling rate at about 102Hz
+            TMR4 = 0; //reset the timer before reading WPS
         }
-        if(timeOutStatus >= waterPrimeTimeOut){
-            never_primed = 1;          
-        }
-        //sendDebugMessage("The time (ms) spent trying to prime = ",timeOutStatus*upstrokeInterval);
+        
 		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
         //sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
         //sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug
@@ -276,10 +277,9 @@ void main(void)
 		///////////////////////////////////////////////////////
         //sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
         upStrokeExtract = 0;                                                 // gets variable ready for new volume event
-		int volumeLoopCounter = 60; // 294 ms                           //number of zero movement cycles before loop ends
+		int volumeLoopCounter = 60; // 588 ms                           //number of zero movement cycles before loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
-        const float angleThresholdSmallNegative = angleThresholdSmall * -1;
         anglePrevious = getHandleAngle();
         
         // needed to time the loop for measuring volume
@@ -294,7 +294,7 @@ void main(void)
 			//sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
 
-            angleCurrent = getHandleAngle();                        //gets the latest 10-average angle
+            angleCurrent = getHandleAngle();                        //gets the filtered latest angle
 			angleDelta = angleCurrent - anglePrevious;              //determines the amount of handle movement from last reading
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
 			if(angleDelta < 0) {  //Determines direction of handle movement
@@ -304,9 +304,6 @@ void main(void)
              
 			if((angleDelta > angleThresholdSmallNegative) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
 				i++;
-                
-                // For testing purposes
-                //i++;
 			}
 			else{
 				i = 0;
@@ -317,7 +314,6 @@ void main(void)
 			
             while (TMR4 < 153); //fixes the sampling rate at about 102Hz
             TMR4 = 0; //reset the timer before reading WPS
-            //delayMs(upstrokeInterval);                                         // Delay for a short time
 		}
         loopSeconds = secondVTCC - loopSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
         loopSeconds += (TMR2 - startTimer) / 15625.0; // get the remainder of seconds (less than the 4 second increment)
@@ -432,6 +428,7 @@ void main(void)
         
         
         sendDebugMessage("Liters Pumped ", volumeEvent);  //Debug
+        sendDebugMessage("Prime Distance ", upStrokePrimeMeters);  //Debug
         
 		volumeEvent -= (leakRate * ((extractionDurationCounter * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
         if(volumeEvent < 0)

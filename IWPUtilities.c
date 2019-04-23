@@ -92,9 +92,7 @@ const int pulseWidthThreshold = 20; // The value to check the pulse width agains
 ///const int pulseWidthThreshold = 130; // This is just for Zantele we see about 160hz, not when water is there.  Not sure what we would see with no water
 
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
-const int max_pause_while_pumping = 1000; //The maximum time (in ms) that the pump handle is not moving before we say that the person stopped trying
-int waterPrimeTimeOut = 7000; // This * upstrokeInterval is the maximum amount of time we will wait for the pump to prime.
-                              // with current setting, this is 70 seconds 
+const int max_pause_while_pumping = 1020; //The maximum time (in loops, each loop delaying 9.8ms) that the pump handle is not moving before we say that the person stopped trying
 long leakRateTimeOut = 3000; // Maximum number of milliseconds to wait for water to drain when calculating leak rate 
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
@@ -684,7 +682,7 @@ int readWaterSensor(void) // RB5 is one water sensor
     if ((TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) {
         WaterPresent = 1;
     }
-    return 1;//WaterPresent;
+    return WaterPresent;
 }
 
 /*********************************************************************
