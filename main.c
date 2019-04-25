@@ -258,7 +258,15 @@ void main(void)
             // If they have stopped, pumping we should give up too
 			if((angleDelta > angleThresholdSmallNegative) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
                 PORTBbits.RB0 = 0;
-                stopped_pumping_index++; // we want to stop if the user stops pumping              
+                stopped_pumping_index++; // we want to stop if the user stops pumping  
+                if(readWaterSensor() == 1) {
+                    PORTBbits.RB1 = 1;
+                } else if(readWaterSensor() == 0){
+                    PORTBbits.RB1 = 0;
+                } else {
+                    PORTBbits.RB1 ^= 1;
+                    delayMs(50);
+                }
 			} else{
                 stopped_pumping_index=0;   // they are still trying
                 PORTBbits.RB0 = 1;
