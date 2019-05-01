@@ -106,13 +106,14 @@ void main(void)
     print_debug_messages = 1;
     int temp_debug_flag = print_debug_messages;
     
-
+    EEProm_Read_Float(EEpromCodeRevisionNumber,&codeRevisionNumber); //Get the current Diagnostic Status from EEPROM
     
     print_debug_messages = 1;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ",-0.1);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     sendDebugMessage("The hourly diagnostic reports are at ",diagnostic); //Debug
+    sendDebugMessage("The revision number of this code is ",codeRevisionNumber); //Debug
     TimeSinceLastHourCheck = 0;
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     
@@ -199,14 +200,6 @@ void main(void)
             // OK, go ahead and look for handle movement again
            handleMovement = HasTheHandleMoved(angleAtRest);
            delayMs(upstrokeInterval);                            // Delay for a short time
-//			float newAngle = getHandleAngle();
-//			float deltaAngle = newAngle - angleAtRest;
-//			if(deltaAngle < 0) {
-//				deltaAngle *= -1;
-//			}
-//            if(deltaAngle > handleMovementThreshold){            // The total movement of the handle from rest has been exceeded
-//				handleMovement = 1;
-//			}
 		}
 
 		/////////////////////////////////////////////////////////
@@ -223,12 +216,17 @@ void main(void)
         angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
-        
+               
         TMR4 = 0;
         T4CONbits.TON = 1; // Starts 16-bit Timer3
         
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
 		delayMs(5); //make sure the 555 has had time to turn on
+        
+        // needed to time the loop for measuring volume of priming
+        int loopMinutes = minuteVTCC; // keeps track of loop minutes
+        float primeLoopSeconds = secondVTCC - 10; // keeps track of loop seconds, minus 10 to account for end waiting time
+        float startTimer = TMR2;
         
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
@@ -261,15 +259,17 @@ void main(void)
             TMR4 = 0; //reset the timer before reading WPS
         }
         
-		upStrokePrimeMeters = upStrokePrime * upstrokeToMeters;	      // Convert to meters
-        //sendDebugMessage("Up Stroke Prime = ", upStrokePrimeMeters);  //Debug
-        //sendDebugMessage(" - Longest Prime = ", longestPrime);  //Debug
-        //sendDebugMessage(" never primed status = ", never_primed);  //Debug
-		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
-			longestPrime = upStrokePrimeMeters;
-            EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
-            //sendDebugMessage("We saved new Up Stroke Prime to EEProm ", 1);  //Debug
-		}
+        primeLoopSeconds = secondVTCC - primeLoopSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
+        primeLoopSeconds += (TMR2 - startTimer) / 15625.0; // get the remainder of seconds (less than the 4 second increment)
+        loopMinutes = minuteVTCC - loopMinutes; // get the number of minutes pumping from VTCC
+
+        if (loopMinutes < 0) {
+            loopMinutes += 60; // in case the hour incremented and you get negative minutes, make them positive
+        }
+        
+        primeLoopSeconds += loopMinutes * 60; // add minutes to the seconds
+        
+	
 		///////////////////////////////////////////////////////
 		// Volume Calculation loop
 		// Tracks the upStroke for the water being extracted
@@ -283,9 +283,9 @@ void main(void)
         anglePrevious = getHandleAngle();
         
         // needed to time the loop for measuring volume
-        int loopMinutes = minuteVTCC; // keeps track of loop minutes
-        float loopSeconds = secondVTCC; // keeps track of loop seconds
-        float startTimer = TMR2;
+        loopMinutes = minuteVTCC; // keeps track of loop minutes
+        float volumeLoopSeconds = secondVTCC; // keeps track of loop seconds
+        startTimer = TMR2;
         
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
@@ -315,15 +315,15 @@ void main(void)
             while (TMR4 < 153); //fixes the sampling rate at about 102Hz
             TMR4 = 0; //reset the timer before reading WPS
 		}
-        loopSeconds = secondVTCC - loopSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
-        loopSeconds += (TMR2 - startTimer) / 15625.0; // get the remainder of seconds (less than the 4 second increment)
+        volumeLoopSeconds = secondVTCC - volumeLoopSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
+        volumeLoopSeconds += (TMR2 - startTimer) / 15625.0; // get the remainder of seconds (less than the 4 second increment)
         loopMinutes = minuteVTCC - loopMinutes; // get the number of minutes pumping from VTCC
 
         if (loopMinutes < 0) {
             loopMinutes += 60; // in case the hour incremented and you get negative minutes, make them positive
         }
         
-        loopSeconds += loopMinutes * 60; // add minutes to the seconds
+        volumeLoopSeconds += loopMinutes * 60; // add minutes to the seconds
 
 		///////////////////////////////////////////////////////
 		// Leakage Rate loop
@@ -350,22 +350,6 @@ void main(void)
             if(HasTheHandleMoved(angleAtRest)){ // if they start pumping, stop calculating leak
                 leakCondition = 1;
             }
-//			angleCurrent = getHandleAngle();                                //Get the current angle of the pump handle
-//			angleDelta = angleCurrent - anglePrevious;                      //Calculate the change in angle of the pump handle
-//            anglePrevious = angleCurrent;                                   // Update the previous angle for the next calculation
-//											                                                               // intentional pump and break out of the loop (2 is in radians)
-//			// If the handle starts moving we will abandon calculating a new leak rate
-//            //  Moving is the same criterion as stopping in volume calculation loop
-//            if((angleDelta > (-1 * angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-//				i=0;
-//            }
-//			else{
-//				i++;
-// 			}             
-//            if (i >= volumeLoopCounter){
-//				leakCondition = 1;
-//				break;
-//			}
 			if ((leakDurationCounter * upstrokeInterval) >= leakRateTimeOut){  
 				leakCondition = 2;  // The leak is slow enough to call it zero 
 			}
@@ -404,6 +388,11 @@ void main(void)
 			leakRate = leakRatePrevious; // Not sure that the rising main was full at the end of pumping so don't calculate a new leak rate
 			break;
         }
+        
+        ///////////////////////////////////////////////////
+        /// Save leak rate and report in debug messages ///
+        ///////////////////////////////////////////////////
+        
         sendDebugMessage("Leak Rate = ", leakRate * 3600);  //Debug
         sendDebugMessage("  - leak Rate Long = ", leakRateLong);  //Debug
 		if ((leakRate * 3600) > leakRateLong)
@@ -412,25 +401,52 @@ void main(void)
             EEProm_Write_Float(0,&leakRateLong);                                        // Save to EEProm
             sendDebugMessage("Saved new longest leak rate to EEProm ", leakRateLong);  //Debug
 		}
-        sendDebugMessage("handle movement in degrees ", upStrokeExtract);  //Debug
-		upStrokeExtract = degToRad(upStrokeExtract);
-        sendDebugMessage("handle movement in radians ", upStrokeExtract);  //Debug       
-		//volumeEvent = (MKII * upStrokeExtract);     //[L/rad][rad]=[L] 
         
-        float timePerRad = loopSeconds / upStrokeExtract;
+        ///////////////////////////////////////////////////////////
+        /// Save prime distance and report in debug messages    ///
+        ///////////////////////////////////////////////////////////
         
-        if (timePerRad < quadVertex) { // if the time per radian is below this value, the result will be undefined
-            timePerRad = quadVertex;    // if above case, set the time per radian to the minimum defined value
-            sendDebugMessage("Minimum Value ", 0);  //Testing
+        if (upStrokePrime == 0) {
+            upStrokePrimeMeters = 0; // to avoid divide by zero
+        } else {
+            upStrokePrime = degToRad(upStrokePrime);    // convert to radians
+
+            float timePerRad = primeLoopSeconds / upStrokePrime;
+
+            if (timePerRad < quadVertex) { // if the time per radian is below this value, the result will be undefined
+                timePerRad = quadVertex;    // if above case, set the time per radian to the minimum defined value
+            }
+
+            upStrokePrimeMeters = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * upStrokePrime; // calculate volume based on quadratic trend line
+            upStrokePrimeMeters = (upStrokePrimeMeters / 1000) / 0.000899; // convert to meters based on volume of rising main
         }
-        
-        volumeEvent = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * upStrokeExtract; // calculate volume based on quadratic trend line
-        
-        
-        sendDebugMessage("Liters Pumped ", volumeEvent);  //Debug
+
+		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
+			longestPrime = upStrokePrimeMeters;
+            EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
+		}
         sendDebugMessage("Prime Distance ", upStrokePrimeMeters);  //Debug
         
-		volumeEvent -= (leakRate * ((extractionDurationCounter * upstrokeInterval) / 1000.0)); //[L/s][s]=[L]
+        ///////////////////////////////////////////////////
+        /// Save volume and report in debug messages    ///
+        ///////////////////////////////////////////////////
+        sendDebugMessage("handle movement in degrees ", upStrokeExtract);  //Debug
+		upStrokeExtract = degToRad(upStrokeExtract);
+        sendDebugMessage("handle movement in radians ", upStrokeExtract);  //Debug 
+        
+        if (upStrokeExtract == 0) {
+            volumeEvent = 0;    // to avoid divide by zero
+        } else {
+            float timePerRad = volumeLoopSeconds / upStrokeExtract;
+
+            if (timePerRad < quadVertex) { // if the time per radian is below this value, the result will be undefined
+                timePerRad = quadVertex;    // if above case, set the time per radian to the minimum defined value
+            }
+
+            volumeEvent = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * upStrokeExtract; // calculate volume based on quadratic trend line
+        }
+        
+		volumeEvent -= leakRate * volumeLoopSeconds; //[L/s][s]=[L]
         if(volumeEvent < 0)
         {
             volumeEvent = 0; // we can't pump negative volume
@@ -440,8 +456,7 @@ void main(void)
         sendDebugMessage("Volume Event = ", volumeEvent);  //Debug
         sendDebugMessage("  for time slot ", hour);  //Debug
 
-        sendDebugMessage("Minutes pumping: ", loopMinutes);  //Testing
-        sendDebugMessage("Seconds pumping: ", loopSeconds);  //Testing
+        sendDebugMessage("Seconds pumping: ", volumeLoopSeconds);  //Testing
        
 		switch (hour / 2)
 		{

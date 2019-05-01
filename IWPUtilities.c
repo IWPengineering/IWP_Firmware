@@ -69,6 +69,8 @@ EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
 void noonMessage(void);
  **********************************/
 
+float codeRevisionNumber = 5.0;
+
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
 const float radToDegConst = 57.29579143313326; // (180/PI)
@@ -130,6 +132,7 @@ int EEpromDiagStatus = 104; // 1 means report hourly to diagnostic phone number,
 int EEpromCountryCode = 105;
 int EEpromMainphoneNumber = 106;
 int EEpromDebugphoneNumber = 108;
+int EEpromCodeRevisionNumber = 110;
 int depthSensorInUse;
 
 
@@ -298,7 +301,7 @@ int vcc2Pin = 28;
  * Note: Pic Dependent
  * TestDate: 06-03-14
  ********************************************************************/
-void initialization(void) {
+void initialization(void) {    
     char localSec = 0;
     char localMin = 3;
     char localHr = 8;
@@ -435,6 +438,7 @@ void initialization(void) {
         strncpy(CountryCode,origCountryCode,stringLength(origCountryCode));
         PhonenumberToEEPROM(EEpromCountryCode,CountryCode);
         EEProm_Write_Float(EEpromDiagStatus,&diagnostic); //Save the current Diagnostic Status to EEPROM
+        EEProm_Write_Float(EEpromCodeRevisionNumber,&codeRevisionNumber); //Write the code revision number to eeprom
     }
      // check and update the reset cause
     resetCause = checkResetStatus();

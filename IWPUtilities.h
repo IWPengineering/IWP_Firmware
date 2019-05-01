@@ -81,11 +81,13 @@ extern int EEpromDiagStatus; // 1 means report hourly to diagnostic phone number
 extern int EEpromCountryCode;
 extern int EEpromMainphoneNumber;
 extern int EEpromDebugphoneNumber;
+extern int EEpromCodeRevisionNumber;
 
 
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
+extern float codeRevisionNumber;
 
 extern int aveArray[];
 extern int angleArray[];
