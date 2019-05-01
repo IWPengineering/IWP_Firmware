@@ -111,6 +111,7 @@ void main(void)
     print_debug_messages = 1;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ",-0.1);  //Debug
     sendDebugMessage("The hour is = ", BcdToDec(getHourI2C()));  //Debug
+    sendDebugMessage("The minute is = ", BcdToDec(getMinuteI2C()));  //Debug
     sendDebugMessage("The battery is at ",batteryLevel()); //Debug
     sendDebugMessage("The hourly diagnostic reports are at ",diagnostic); //Debug
     sendDebugMessage("The revision number of this code is ",codeRevisionNumber); //Debug
@@ -119,26 +120,35 @@ void main(void)
     
      while (1)
 	{
-         
        //batteryFloat = batteryLevel();
-       
         //MAIN LOOP; repeats indefinitely
 		////////////////////////////////////////////////////////////
 		// Idle Handle Monitor Loop
 		// 2 axis of the accelerometer are constantly polled for
 		// motion in the upward direction by comparing angles
 		////////////////////////////////////////////////////////////
-
+        PORTBbits.RB0 = 0;
 		angleAtRest = getHandleAngle();                            // Get the angle of the pump handle to measure against.  
                                                                      // This is our reference when looking for sufficient movement to say the handle is actually moving.  
                                                                      // the "moving" threshold is defined by handleMovementThreshold in IWPUtilities
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		while (handleMovement == 0)
 		{ 
+           digitalPinSet(waterPresenceSensorOnOffPin, 1); 
+           if(readWaterSensor() == 1) {
+               PORTBbits.RB1 = 1;
+            } else if(readWaterSensor() == 0){
+               PORTBbits.RB1 = 0;
+            } else {
+               PORTBbits.RB1 ^= 1;
+               delayMs(50);
+            }
+           
            ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT 
            
            // See if the diagnostic PCB is plugged in
-           if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in (pin #5)
+//           if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in (pin #5)
+           if(0) {
                  CheckIncommingTextMessages(); //See if there are any text messages
                                          // the SIM is powered ON at this point
            }
@@ -216,11 +226,12 @@ void main(void)
         angleAtRest = getHandleAngle();                             // Get the angle of the pump handle to measure against
 		upStrokePrime = 0;
         never_primed = 0;
-               
+
         TMR4 = 0;
         T4CONbits.TON = 1; // Starts 16-bit Timer3
         
         digitalPinSet(waterPresenceSensorOnOffPin, 1); //turns on the water presence sensor.
+       PORTBbits.RB0 = 1;   //Turn on pumping led - red
 		delayMs(5); //make sure the 555 has had time to turn on
         
         // needed to time the loop for measuring volume of priming
@@ -231,7 +242,7 @@ void main(void)
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
         
-        while (!readWaterSensor())
+        while (readWaterSensor() != 1)
 		{
             ClearWatchDogTimer();     // Is unlikely that we will be priming for 130sec without a stop, but we might
             angleCurrent = getHandleAngle();                        //gets the filtered current angle
@@ -250,13 +261,16 @@ void main(void)
 			}
             
             if((stopped_pumping_index) > max_pause_while_pumping){  // They quit trying for at least 10 seconds
+
                 never_primed = 1;
                 sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
                 break;
             }
+
             
 			while (TMR4 < 153); //fixes the sampling rate at about 102Hz
             TMR4 = 0; //reset the timer before reading WPS
+
         }
         
         primeLoopSeconds = secondVTCC - primeLoopSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
@@ -270,6 +284,15 @@ void main(void)
         primeLoopSeconds += loopMinutes * 60; // add minutes to the seconds
         
 	
+        if(readWaterSensor() == 1) {
+            PORTBbits.RB1 = 1;
+        } else if(readWaterSensor() == 0){
+            PORTBbits.RB1 = 0;
+        } else if(readWaterSensor() == 2) {
+            PORTBbits.RB1 ^= 1;
+            delayMs(50);
+        }
+
 		///////////////////////////////////////////////////////
 		// Volume Calculation loop
 		// Tracks the upStroke for the water being extracted
@@ -281,7 +304,7 @@ void main(void)
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
         anglePrevious = getHandleAngle();
-        
+
         // needed to time the loop for measuring volume
         loopMinutes = minuteVTCC; // keeps track of loop minutes
         float volumeLoopSeconds = secondVTCC; // keeps track of loop seconds
@@ -290,7 +313,8 @@ void main(void)
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
         
-		while(readWaterSensor() && (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
+		while((readWaterSensor() == 1)&& (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
+
 			//sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
 
@@ -332,8 +356,7 @@ void main(void)
 		// Get the angle of the pump handle to measure against
 		int leakCondition = 3;  // Assume that we are going to be able to calculate a valid leak rate
         
-      
-        if(!readWaterSensor()){  // If there is already no water when we get here, something strange is happening, don't calculate leak
+        if(!(readWaterSensor() == 1)){  // If there is already no water when we get here, something strange is happening, don't calculate leak
             leakCondition = 4;
              sendDebugMessage("There is no water as soon as we get here ", -0.1);  //Debug
         }
@@ -346,7 +369,7 @@ void main(void)
 		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 150 milliseconds of delay 
         angleAtRest = getHandleAngle();                                                                        // if no water or no handle movement before entry.
         //AD1CON1bits.ADON = 0; // Turn off ADC
-        while ((readWaterSensor())&&(leakCondition == 3)){
+        while ((readWaterSensor() == 1)&&(leakCondition == 3)){
             if(HasTheHandleMoved(angleAtRest)){ // if they start pumping, stop calculating leak
                 leakCondition = 1;
             }
@@ -497,6 +520,8 @@ void main(void)
 			volume2224 = volume2224 + volumeEvent;
 			break;
 		}
+        
+        
 	} // End of main loop
 } // End of main program
 

@@ -399,16 +399,3 @@ int digitalPinStatus(int pin)
 	// Pin 27 - Always VSS for PIC24FV32KA302 - Do nothing
 	// Pin 28 - Always VDD for PIC24FV32KA302 - Do nothing
 }
-
-
-//DEBUG DEBUG DEBUG DEBUG
-void debugHighLow(int pin){
-    specifyAnalogPin(pin, 0); // makes digital
-    pinDirectionIO(pin, 0); // makes output
-    if(digitalPinStatus(pin) == 0) {
-        digitalPinSet(pin, 1); // makes high
-    }
-    else{
-        digitalPinSet(pin, 0); //makes low
-    }
-}

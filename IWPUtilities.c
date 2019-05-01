@@ -90,7 +90,9 @@ const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) 
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
 const int signedNumAdjustADC = 512; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
-const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
+const int pulseWidthThreshold = 78; // The value to check the pulse width against (2048). Changed from 20 to 78
+const int pulseWidthThreshold2 = 19;
+
 ///const int pulseWidthThreshold = 130; // This is just for Zantele we see about 160hz, not when water is there.  Not sure what we would see with no water
 
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
@@ -316,9 +318,10 @@ void initialization(void) {
     ANSB = 0; // All port B pins are digital. Individual ADC are set in the readADC function
     TRISB = 0xFFFF; // Sets all of port B to input
     TRISBbits.TRISB0 = 0; //DEBUG Make spare test pin#4 on Pic an output
+    TRISBbits.TRISB1 = 0;
     CNPU1bits.CN5PUE = 1; //put a weak pull up resistor on RB1 which is pin 5.
     // use this pin to detect when the Diagnostic board is plugged in.
-    PORTBbits.RB0 = 1; //DEBUG Set this high,  When we go to sleep we will make it low
+    //PORTBbits.RB0 = 1; //DEBUG Set this high,  When we go to sleep we will make it low
 
 
     // Timer control (for WPS and FONA interactions)
@@ -673,19 +676,30 @@ int readWaterSensor(void) // RB5 is one water sensor
         while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)) { //quit if the line is high for too long
         };
     }
-    if(TMR1 > pulseWidthThreshold){QuitLooking = 1;}
+    if(TMR1 >= pulseWidthThreshold){
+        QuitLooking = 1; 
+        WaterPresent = 2;
+    }
     //wait for rising edge
     TMR1 = 0;
     while ((digitalPinStatus(waterPresenceSensorPin) == 0)&&(TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) { //quit if the line is low for too long
     };
-    if(TMR1 > pulseWidthThreshold){QuitLooking = 1;}
+    if(TMR1 >= pulseWidthThreshold){
+        QuitLooking = 1; 
+        WaterPresent = 2;
+    }
     //Now measure the high part of the signal
     TMR1 = 0;
     while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) { //quit if the line is high for too long
     };
-    if ((TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) {
-        WaterPresent = 1;
+    if ((TMR1 <= pulseWidthThreshold2)&&(!QuitLooking)) {
+        WaterPresent = 1;  //water
+    } else if ((TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) {
+        WaterPresent = 0; //There is no water
+    } else if ((TMR1 > pulseWidthThreshold) && (!QuitLooking)){  
+        WaterPresent = 2; //broken
     }
+  
     return WaterPresent;
 }
 
