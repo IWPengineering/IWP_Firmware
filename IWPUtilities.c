@@ -158,21 +158,7 @@ float angle9 = 0;
 float angle10 = 0;
 
 /*
-// 21
-const float filter[21] = {0.0307, 0.0347, 0.0397, 0.0443, 0.0486, 0.0523, 
-    0.0555, 0.0581, 0.0599, 0.0611, 0.0615, 0.0611, 0.0599, 0.0581, 0.0555, 
-    0.0523, 0.0486, 0.0443, 0.0397, 0.0347, 0.0307};
-*/
-/*
-// 41
-const float filter[41] = {0.0005, 0.0026, 0.0054, 0.0085, 0.0117, 0.0150, 0.0184, 0.0218, 0.0252, 0.0286,
-    0.0318, 0.0349, 0.0378, 0.0405, 0.0429, 0.0450, 0.0467, 0.0481, 0.0491, 0.0497,
-    0.0500, 0.0497, 0.0491, 0.0481, 0.0467, 0.0450, 0.0429, 0.0405, 0.0378, 0.0349,
-    0.0318, 0.0286, 0.0252, 0.0218, 0.0184, 0.0150, 0.0117, 0.0085, 0.0054, 0.0026,
-    0.0005};
-*/
-/*
-// 53 @ 106 Hz fs
+// 53 tap filter @ 106 Hz fs
 const float filter[53] = {0.0010, 0.0022, 0.0039, 0.0056, 0.0074, 0.0092, 0.0111, 0.0130, 0.0150, 0.0169, 
     0.0188, 0.0208, 0.0226, 0.0245, 0.0262, 0.0279, 0.0295, 0.0310, 0.0323, 0.0335,
     0.0346, 0.0355, 0.0363, 0.0369, 0.0374, 0.0376, 0.0377, 0.0376, 0.0374, 0.0369, 
@@ -191,7 +177,7 @@ const float filter[51] = {0.0011, 0.0024, 0.0042, 0.0060, 0.0080, 0.0100, 0.0120
 
 
 /*
-// 61 @ 120 Hz fs
+// 61 tap filter @ 120 Hz fs
 const float filter[61] = {0.0002, 0.0011, 0.0024, 0.0036, 0.0050, 0.0064, 0.0078, 0.0093, 0.0108, 0.0123,
     0.0138, 0.0153, 0.0168, 0.0183, 0.0198, 0.0212, 0.0226, 0.0239, 0.0252, 0.0264, 
     0.0276, 0.0286, 0.0296, 0.0304, 0.0312, 0.0318, 0.0324, 0.0328, 0.0331, 0.0333,
@@ -389,25 +375,12 @@ void initialization(void) {
     BatteryLevelArray[1] = BatteryLevelArray[0]; //Used to track change in battery voltage
     BatteryLevelArray[2] = BatteryLevelArray[0]; //Used to track change in battery voltage
     
-    // for testing purposes
     int i;
     for (i = 0; i < 51; i++) {
         angleArray[i] = atan2(readAdc(yAxis) - signedNumAdjustADC, 
                 readAdc(xAxis) - signedNumAdjustADC) * radToDegConst;
     }
-    //
 
-    /*
-    angle2 = getHandleAngle();
-    angle3 = getHandleAngle();
-    angle4 = getHandleAngle();
-    angle5 = getHandleAngle();
-    angle6 = getHandleAngle();
-    angle7 = getHandleAngle();
-    angle8 = getHandleAngle();
-    angle9 = getHandleAngle();
-    angle10 = getHandleAngle();
-*/
     // We may be waking up because the battery was dead or the WatchDog expired.  
     // If that is the case, Restart Status, EEProm#20, will be zero and we want 
     // to continue using the leakRateLong and longestPrime from EEProm. Otherwise, 
@@ -822,18 +795,10 @@ float getHandleAngle() {
     int i;
     float angleSum = 0;
     
-    
     signed int xValue = readAdc(xAxis) - signedNumAdjustADC;
-    signed int yValue = readAdc(yAxis) - signedNumAdjustADC;
-
-    //sendDebugMessage("\n This is loop number ", i); 
-    //sendDebugMessage("\n Raw x value ", xValue); 
-    //sendDebugMessage("\n Raw y value ", yValue); 
+    signed int yValue = readAdc(yAxis) - signedNumAdjustADC;        
 
     float angle = atan2(yValue, xValue) * radToDegConst; //returns angle in degrees 06-20-2014
-    // Calculate and return the angle of the pump handle
-
-    
 
     for (i = 50; i > 0; i--) {
         angleArray[i] = angleArray[i-1];
@@ -841,32 +806,8 @@ float getHandleAngle() {
     }
     angleArray[0] = angle;
     
-    /*if (angle > 20) {
-        angle = 20.0;
-    } else if (angle < -30) {
-        angle = -30.0;
-    }*/
     angleSum += angle * filter[0];
-    
-    //float averageAngle = angleSum / 10.0;
-    
-    
-    
-    // testing stuff
-    /*if (year == 1111) {
-        //sendDebugMessage("\n Final angle: ", averageAngle); 
-        aveArray[aveArrayIndex] = averageAngle;
-        aveArrayIndex++;
-        if (aveArrayIndex >= 200) {
-            aveArrayIndex = 0;
-            for (i = 0; i < 200; i++) {
-                sendDebugMessage("\n Final angle: ", aveArray[i]);
-                aveArray[i] = 0;
-            }
-        }
-    }*/
-    
-    //return averageAngle;
+
     return angleSum;
 }
 

@@ -315,7 +315,6 @@ void main(void)
         
 		while((readWaterSensor() == 1)&& (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 
-			//sendDebugMessage("\n We are in the Volume Loop ", i);		                                            //still for "volumeLoopCounter loops
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
 
             angleCurrent = getHandleAngle();                        //gets the filtered latest angle
@@ -333,7 +332,6 @@ void main(void)
 				i = 0;
 			}                                                             //Reset i if handle is moving
 
-            //sendDebugMessage("\nF", angleCurrent);
 			extractionDurationCounter++;                                         // Keep track of elapsed time for leakage calc
 			
             while (TMR4 < 153); //fixes the sampling rate at about 102Hz
