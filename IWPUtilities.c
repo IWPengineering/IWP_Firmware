@@ -69,25 +69,34 @@ EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
 void noonMessage(void);
  **********************************/
 
+float codeRevisionNumber = 5.0;
+
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
+const float radToDegConst = 57.29579143313326; // (180/PI)
 const int xAxis = 11; // analog pin connected to x axis of accelerometer
 const int yAxis = 12; // analog pin connected to y axis of accelerometer
 const int batteryVoltage = 15; // analog channel connected to the battery
 const float MKII = .624; //0.4074 L/Radian; transfer variable for mkII delta handle angle to outflow
+
+const float a = 27.336; // a in quadratic equation to solve for volume
+const float b = -35.169; // b in quadratic equation to solve for volume
+const float c = 12.476; // c in quadratic equation to solve for volume
+const float quadVertex = 1.1644; // the y value of the vertex of the parabola used to calculate volume; = (-(b^2)/(4*a))+c
+
 const float leakSensorVolume = 0.01781283; // This is in Liters; pipe dia. = 33mm; rod diam 12 mm; gage length 24mm
 // THE FASTEST WE COULD POSSIBLE BE IF IT DOES PRIME IS 42ms FOR THE AVERAGE PERSON but we'll do half that incase you're pumping hard to get it to prime
 const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
-const int signedNumAdjustADC = 511; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
-const int pulseWidthThreshold = 20; // The value to check the pulse width against (2048)
+const int signedNumAdjustADC = 512; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
+const int pulseWidthThreshold = 78; // The value to check the pulse width against (2048). Changed from 20 to 78
+const int pulseWidthThreshold2 = 19;
+
 ///const int pulseWidthThreshold = 130; // This is just for Zantele we see about 160hz, not when water is there.  Not sure what we would see with no water
 
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
-const int max_pause_while_pumping = 1000; //The maximum time (in ms) that the pump handle is not moving before we say that the person stopped trying
-int waterPrimeTimeOut = 7000; // This * upstrokeInterval is the maximum amount of time we will wait for the pump to prime.
-                              // with current setting, this is 70 seconds 
+const int max_pause_while_pumping = 1020; //The maximum time (in loops, each loop delaying 9.8ms) that the pump handle is not moving before we say that the person stopped trying
 long leakRateTimeOut = 3000; // Maximum number of milliseconds to wait for water to drain when calculating leak rate 
 //long timeBetweenUpstrokes = 18000; // 18000 seconds (based on upstrokeInterval)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
@@ -125,6 +134,7 @@ int EEpromDiagStatus = 104; // 1 means report hourly to diagnostic phone number,
 int EEpromCountryCode = 105;
 int EEpromMainphoneNumber = 106;
 int EEpromDebugphoneNumber = 108;
+int EEpromCodeRevisionNumber = 110;
 int depthSensorInUse;
 
 
@@ -147,11 +157,57 @@ float angle8 = 0;
 float angle9 = 0;
 float angle10 = 0;
 
+/*
+// 21
+const float filter[21] = {0.0307, 0.0347, 0.0397, 0.0443, 0.0486, 0.0523, 
+    0.0555, 0.0581, 0.0599, 0.0611, 0.0615, 0.0611, 0.0599, 0.0581, 0.0555, 
+    0.0523, 0.0486, 0.0443, 0.0397, 0.0347, 0.0307};
+*/
+/*
+// 41
+const float filter[41] = {0.0005, 0.0026, 0.0054, 0.0085, 0.0117, 0.0150, 0.0184, 0.0218, 0.0252, 0.0286,
+    0.0318, 0.0349, 0.0378, 0.0405, 0.0429, 0.0450, 0.0467, 0.0481, 0.0491, 0.0497,
+    0.0500, 0.0497, 0.0491, 0.0481, 0.0467, 0.0450, 0.0429, 0.0405, 0.0378, 0.0349,
+    0.0318, 0.0286, 0.0252, 0.0218, 0.0184, 0.0150, 0.0117, 0.0085, 0.0054, 0.0026,
+    0.0005};
+*/
+/*
+// 53 @ 106 Hz fs
+const float filter[53] = {0.0010, 0.0022, 0.0039, 0.0056, 0.0074, 0.0092, 0.0111, 0.0130, 0.0150, 0.0169, 
+    0.0188, 0.0208, 0.0226, 0.0245, 0.0262, 0.0279, 0.0295, 0.0310, 0.0323, 0.0335,
+    0.0346, 0.0355, 0.0363, 0.0369, 0.0374, 0.0376, 0.0377, 0.0376, 0.0374, 0.0369, 
+    0.0363, 0.0355, 0.0346, 0.0335, 0.0323, 0.0310, 0.0295, 0.0279, 0.0262, 0.0245, 
+    0.0226, 0.0208, 0.0188, 0.0169, 0.0150, 0.0130, 0.0111, 0.0092, 0.0074, 0.0056, 
+    0.0039, 0.0022, 0.0010};
+*/
+    
+// 51 @ 102 Hz fs
+const float filter[51] = {0.0011, 0.0024, 0.0042, 0.0060, 0.0080, 0.0100, 0.0120, 0.0141, 0.0162, 0.0183,
+    0.0204, 0.0225, 0.0245, 0.0264, 0.0283, 0.0300, 0.0316, 0.0332, 0.0345, 0.0357,
+    0.0368, 0.0376, 0.0383, 0.0388, 0.0391, 0.0392, 0.0391, 0.0388, 0.0383, 0.0376,
+    0.0368, 0.0357, 0.0345, 0.0332, 0.0316, 0.0300, 0.0283, 0.0264, 0.0245, 0.0225,
+    0.0204, 0.0183, 0.0162, 0.0141, 0.0120, 0.0100, 0.0080, 0.0060, 0.0042, 0.0024,
+    0.0011};
+
+
+/*
+// 61 @ 120 Hz fs
+const float filter[61] = {0.0002, 0.0011, 0.0024, 0.0036, 0.0050, 0.0064, 0.0078, 0.0093, 0.0108, 0.0123,
+    0.0138, 0.0153, 0.0168, 0.0183, 0.0198, 0.0212, 0.0226, 0.0239, 0.0252, 0.0264, 
+    0.0276, 0.0286, 0.0296, 0.0304, 0.0312, 0.0318, 0.0324, 0.0328, 0.0331, 0.0333,
+    0.0333, 0.0333, 0.0331, 0.0328, 0.0324, 0.0318, 0.0312, 0.0304, 0.0296, 0.0286,
+    0.0276, 0.0264, 0.0252, 0.0239, 0.0226, 0.0212, 0.0198, 0.0183, 0.0168, 0.0153,
+    0.0138, 0.0123, 0.0108, 0.0093, 0.0078, 0.0064, 0.0050, 0.0036, 0.0024, 0.0011,
+    0.0002};
+*/
 int success = 0;
 
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
+
+
+int angleArray[51];
 
 //****************Hourly Diagnostic Message Variables************************
 float sleepHrStatus = 0; // 1 if we slept during the current hour, else 0
@@ -247,10 +303,10 @@ int vcc2Pin = 28;
  * Note: Pic Dependent
  * TestDate: 06-03-14
  ********************************************************************/
-void initialization(void) {
+void initialization(void) {    
     char localSec = 0;
-    char localMin = 30;
-    char localHr = 11;
+    char localMin = 3;
+    char localHr = 8;
     char localWkday = 2;
     char localDate = 8;
     char localMonth = 10;
@@ -262,9 +318,10 @@ void initialization(void) {
     ANSB = 0; // All port B pins are digital. Individual ADC are set in the readADC function
     TRISB = 0xFFFF; // Sets all of port B to input
     TRISBbits.TRISB0 = 0; //DEBUG Make spare test pin#4 on Pic an output
+    TRISBbits.TRISB1 = 0;
     CNPU1bits.CN5PUE = 1; //put a weak pull up resistor on RB1 which is pin 5.
     // use this pin to detect when the Diagnostic board is plugged in.
-    PORTBbits.RB0 = 1; //DEBUG Set this high,  When we go to sleep we will make it low
+    //PORTBbits.RB0 = 1; //DEBUG Set this high,  When we go to sleep we will make it low
 
 
     // Timer control (for WPS and FONA interactions)
@@ -280,6 +337,12 @@ void initialization(void) {
     // if FNOSC = FRC, Timer Clock = 15.625khz
     T2CONbits.TON = 1; // Starts 16-bit Timer2
 
+    // Timer control (for regulating accelerometer sampling rate)
+    T4CONbits.TCS = 0; //Source is Internal Clock Fosc/2  if #pragma config FNOSC = FRC, Fosc/2 = 4Mhz
+    T4CONbits.T32 = 0; // Using 16-bit timer2
+    T4CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this) 
+    // if FNOSC = FRC, Timer Clock = 15.625khz
+    
 
     // UART config
     //    U1MODE = 0x8000;  
@@ -325,8 +388,16 @@ void initialization(void) {
     BatteryLevelArray[0] = batteryLevel(); //Used to track change in battery voltage
     BatteryLevelArray[1] = BatteryLevelArray[0]; //Used to track change in battery voltage
     BatteryLevelArray[2] = BatteryLevelArray[0]; //Used to track change in battery voltage
+    
+    // for testing purposes
+    int i;
+    for (i = 0; i < 51; i++) {
+        angleArray[i] = atan2(readAdc(yAxis) - signedNumAdjustADC, 
+                readAdc(xAxis) - signedNumAdjustADC) * radToDegConst;
+    }
+    //
 
-
+    /*
     angle2 = getHandleAngle();
     angle3 = getHandleAngle();
     angle4 = getHandleAngle();
@@ -336,7 +407,7 @@ void initialization(void) {
     angle8 = getHandleAngle();
     angle9 = getHandleAngle();
     angle10 = getHandleAngle();
-
+*/
     // We may be waking up because the battery was dead or the WatchDog expired.  
     // If that is the case, Restart Status, EEProm#20, will be zero and we want 
     // to continue using the leakRateLong and longestPrime from EEProm. Otherwise, 
@@ -370,6 +441,7 @@ void initialization(void) {
         strncpy(CountryCode,origCountryCode,stringLength(origCountryCode));
         PhonenumberToEEPROM(EEpromCountryCode,CountryCode);
         EEProm_Write_Float(EEpromDiagStatus,&diagnostic); //Save the current Diagnostic Status to EEPROM
+        EEProm_Write_Float(EEpromCodeRevisionNumber,&codeRevisionNumber); //Write the code revision number to eeprom
     }
      // check and update the reset cause
     resetCause = checkResetStatus();
@@ -595,7 +667,7 @@ int readWaterSensor(void) // RB5 is one water sensor
     int WaterPresent = 0; //assume there is no water
     int QuitLooking = 0; // set to 1 if we know there is no water
     // turn WPS on and off in the Main loop 
-    delayMs(5); //make sure the 555 has had time to turn on 
+    //delayMs(5); //make sure the 555 has had time to turn on 
 
 
     //make sure you start at the beginning of the positive pulse
@@ -604,19 +676,30 @@ int readWaterSensor(void) // RB5 is one water sensor
         while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)) { //quit if the line is high for too long
         };
     }
-    if(TMR1 > pulseWidthThreshold){QuitLooking = 1;}
+    if(TMR1 >= pulseWidthThreshold){
+        QuitLooking = 1; 
+        WaterPresent = 2;
+    }
     //wait for rising edge
     TMR1 = 0;
     while ((digitalPinStatus(waterPresenceSensorPin) == 0)&&(TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) { //quit if the line is low for too long
     };
-    if(TMR1 > pulseWidthThreshold){QuitLooking = 1;}
+    if(TMR1 >= pulseWidthThreshold){
+        QuitLooking = 1; 
+        WaterPresent = 2;
+    }
     //Now measure the high part of the signal
     TMR1 = 0;
     while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) { //quit if the line is high for too long
     };
-    if ((TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) {
-        WaterPresent = 1;
+    if ((TMR1 <= pulseWidthThreshold2)&&(!QuitLooking)) {
+        WaterPresent = 1;  //water
+    } else if ((TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) {
+        WaterPresent = 0; //There is no water
+    } else if ((TMR1 > pulseWidthThreshold) && (!QuitLooking)){  
+        WaterPresent = 2; //broken
     }
+  
     return WaterPresent;
 }
 
@@ -736,31 +819,55 @@ the angle is negative.Gets a snapshot of the current sensor values.
  * TestDate: TBD
  ********************************************************************/
 float getHandleAngle() {
-
+    int i;
+    float angleSum = 0;
+    
+    
     signed int xValue = readAdc(xAxis) - signedNumAdjustADC;
     signed int yValue = readAdc(yAxis) - signedNumAdjustADC;
-    float angle = atan2(yValue, xValue) * (180 / PI); //returns angle in degrees 06-20-2014
+
+    //sendDebugMessage("\n This is loop number ", i); 
+    //sendDebugMessage("\n Raw x value ", xValue); 
+    //sendDebugMessage("\n Raw y value ", yValue); 
+
+    float angle = atan2(yValue, xValue) * radToDegConst; //returns angle in degrees 06-20-2014
     // Calculate and return the angle of the pump handle
-    if (angle > 20) {
+
+    
+
+    for (i = 50; i > 0; i--) {
+        angleArray[i] = angleArray[i-1];
+        angleSum += angleArray[i] * filter[i];
+    }
+    angleArray[0] = angle;
+    
+    /*if (angle > 20) {
         angle = 20.0;
     } else if (angle < -30) {
         angle = -30.0;
-    }
-    angle10 = angle9;
-    angle9 = angle8;
-    angle8 = angle7;
-    angle7 = angle6;
-    angle6 = angle5;
-    angle5 = angle4;
-    angle4 = angle3;
-    angle3 = angle2;
-    angle2 = angle1;
-    angle1 = angle;
-
-    float averageAngle = (angle1 + angle2 + angle3 + angle4 + angle5 + angle6 + angle7 + angle8 + angle9 + angle10) / 10.0;
-
-    return averageAngle;
-    //return angle;
+    }*/
+    angleSum += angle * filter[0];
+    
+    //float averageAngle = angleSum / 10.0;
+    
+    
+    
+    // testing stuff
+    /*if (year == 1111) {
+        //sendDebugMessage("\n Final angle: ", averageAngle); 
+        aveArray[aveArrayIndex] = averageAngle;
+        aveArrayIndex++;
+        if (aveArrayIndex >= 200) {
+            aveArrayIndex = 0;
+            for (i = 0; i < 200; i++) {
+                sendDebugMessage("\n Final angle: ", aveArray[i]);
+                aveArray[i] = 0;
+            }
+        }
+    }*/
+    
+    //return averageAngle;
+    return angleSum;
 }
 
 /*********************************************************************

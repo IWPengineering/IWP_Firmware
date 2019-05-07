@@ -32,6 +32,12 @@ extern const int xAxis; // analog pin connected to x axis of accelerometer
 extern const int yAxis; // analog pin connected to y axis of accelerometer
 extern const int batteryVoltage;                  // analog pin connected to the battery
 extern const float MKII; // 0.4074 L/Radian; transfer variable for mkII delta handle angle to outflow
+
+extern const float a; // a in quadratic equation to solve for volume
+extern const float b; // b in quadratic equation to solve for volume
+extern const float c; // c in quadratic equation to solve for volume
+extern const float quadVertex; // the y value of the vertex of the parabola used to calculate volume; = (-(b^2)/(4*a))+c
+
 extern const float leakSensorVolume; // This is in Liters; pipe dia. = 33mm; rod diam 12 mm; gage length 24mm
 extern const int alarmHour; // The weekday and hour (24 hour format) (in BCD) that the alarm will go off
 extern const int alarmStartingMinute; // The minimum minute that the alarm will go off
@@ -40,8 +46,7 @@ extern const int signedNumAdjustADC; // Used to divide the total range of the ou
 extern const int pulseWidthThreshold; // The value to check the pulse width against (2048)
 
 extern const int upstrokeInterval; // The number of milliseconds to delay before reading the upstroke
-extern const int max_pause_while_pumping; //The maximum time (in ms) that the pump handle is not moving before we say that the person stopped trying
-extern int waterPrimeTimeOut; // Equivalent to 7 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
+extern const int max_pause_while_pumping; //The maximum time (in loops, each loop delaying 10ms) that the pump handle is not moving before we say that the person stopped trying
 extern long leakRateTimeOut; // Equivalent to 18 seconds (in 50 millisecond intervals); 50 = upstrokeInterval
 //extern long timeBetweenUpstrokes; // 3 seconds (based on upstrokeInterval)
 extern const int decimalAccuracy; // Number of decimal places to use when converting floats to strings
@@ -76,11 +81,16 @@ extern int EEpromDiagStatus; // 1 means report hourly to diagnostic phone number
 extern int EEpromCountryCode;
 extern int EEpromMainphoneNumber;
 extern int EEpromDebugphoneNumber;
+extern int EEpromCodeRevisionNumber;
 
 
 // ****************************************************************************
 // *** Global Variables *******************************************************
 // ****************************************************************************
+extern float codeRevisionNumber;
+
+extern int aveArray[];
+extern int angleArray[];
 
 extern char active_volume_bin;
 
