@@ -134,6 +134,7 @@ void main(void)
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
 		while (handleMovement == 0)
 		{ 
+           //Check pin connected to debug switch? To see if we have to change tech_at_pump setting.
            digitalPinSet(waterPresenceSensorOnOffPin, 1); 
            if(readWaterSensor() == 1) {
                PORTBbits.RB1 = 1;
@@ -148,7 +149,7 @@ void main(void)
            
            // See if the diagnostic PCB is plugged in
 //           if(PORTBbits.RB1 == 0){ //The diagnostic PCB is plugged in (pin #5)
-           if(0) {
+           if(tech_at_pump == 1) {
                  CheckIncommingTextMessages(); //See if there are any text messages
                                          // the SIM is powered ON at this point
            }
@@ -261,7 +262,6 @@ void main(void)
 			}
             
             if((stopped_pumping_index) > max_pause_while_pumping){  // They quit trying for at least 10 seconds
-
                 never_primed = 1;
                 sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
                 break;
@@ -290,7 +290,7 @@ void main(void)
             PORTBbits.RB1 = 0;
         } else if(readWaterSensor() == 2) {
             PORTBbits.RB1 ^= 1;
-            delayMs(50);
+            //delayMs(50);
         }
 
 		///////////////////////////////////////////////////////

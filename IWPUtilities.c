@@ -196,6 +196,7 @@ int success = 0;
 int angleArray[51];
 
 //****************Hourly Diagnostic Message Variables************************
+int tech_at_pump = 0; //default to technician not at pump
 float sleepHrStatus = 0; // 1 if we slept during the current hour, else 0
 float timeSinceLastRestart = 0; // Total time in hours since last restart 
 int internalHour = 0; // Hour of the day according to internal RTCC

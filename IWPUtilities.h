@@ -101,6 +101,7 @@ extern char DebugphoneNumber[]; // Number for the Black Phone
 ///extern char phoneNumber[]; // Number Used to send text message report (daily or hourly)
 
     //****************Hourly Diagnostic Message Variables************************
+extern int tech_at_pump; // 1 if debug switch is on
 extern float sleepHrStatus; // 1 if we slept during the current hour, else 0
 extern float timeSinceLastRestart; // Total time in hours since last restart
 extern int diagnostic_msg_sent; // set to 1 when the hourly diagnostic message is sent 

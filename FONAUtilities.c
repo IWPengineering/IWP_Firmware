@@ -1203,7 +1203,7 @@ int sendTextMessage(char message[160])
  *           3 decimal places of accuracy maintained for values between 0.001 - 999.999
  *           For 1000 - 32000 we only report integers.  Maximum integer is 32000
  * Note: 
- * TestDate: Tested 3-13-08
+ * TestDate: Tested 5-6-19
  ********************************************************************/
 /*
  * Notice that there is a " at the start but not the end of this string????
@@ -1217,7 +1217,7 @@ void CreateNoonMessage(int effective_address){
     SMSMessage[0] = 0; //reset SMS message array to be empty
     LocalString[0] = 0;
     
-    concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"l\":");
+    concat(SMSMessage, "{\"t\":\"d\",\"d\":{\"l\":");
     EEProm_Read_Float(effective_address, &EEFloatData); // Get Longest Leak Rate
     // Limit report to 7 characters within integer range
     if((EEFloatData == 0)||(EEFloatData < 0)||(EEFloatData > 0)){// check for NaN
@@ -1265,7 +1265,7 @@ void CreateNoonMessage(int effective_address){
     
     floatToString(EEFloatData, LocalString);
     concat(SMSMessage, LocalString);
-    concat(SMSMessage, ",\"v\":<");
+    concat(SMSMessage, ",\"v\":[");
     for(vptr = 3; vptr < 15; vptr++){
         EEProm_Read_Float(effective_address+vptr, &EEFloatData); // Get Next Volume
     // Limit report to 7 characters within integer range
@@ -1286,7 +1286,7 @@ void CreateNoonMessage(int effective_address){
             concat(SMSMessage, ",");
         }
         else{
-            concat(SMSMessage, ">))");
+            concat(SMSMessage, "]}");
         }
     }
     concat(SMSMessage, ",\"c\":");
@@ -1299,9 +1299,10 @@ void CreateNoonMessage(int effective_address){
     }
     floatToString(EEFloatData, LocalString);
     concat(SMSMessage, LocalString);
-    concat(SMSMessage, ")");
+    concat(SMSMessage, "}");
         
 }
+
 
 /*********************************************************************
  * Function: ReadSIMresponse(char expected_reply[10])
@@ -1695,20 +1696,31 @@ void createDiagnosticMessage(void) {
  * Overview:  This is called if the external Diagnostic PCB is 
  *            plugged in and each hour to see if there have been any messages sent 
  *            to the system which require action. 
+ *            If the system is in debug mode, don't try as many times to see if
+ *               there are messages because the routine will be called each time
+ *               around the no_pumping loop rather than just once as an hourly
+ *               activity
  * TestDate: 
  ********************************************************************/
 void CheckIncommingTextMessages(void){
     if(!FONAisON){
         turnOnSIM();
-        delayMs(10000); // Give FONA time to get messages from the network
+        if(tech_at_pump == 0){ //not in diagnostic mode
+            delayMs(10000); // Give FONA time to get messages from the network
+        }
     }
     if(FONAisON){
         int msg_remaining = 0;
-        // Try for up to three minutes
+        // Try for up to three minutes if not in debug mode
         int num_tries = 0;
+        if(tech_at_pump == 1){// in diagnostic mode
+            num_tries = 35;
+        }
         while((!msg_remaining)&&(num_tries < 36)){
             msg_remaining = AreThereTextMessagesToRead();
-            delayMs(5000); //wait for 5 seconds
+            if((!msg_remaining)&&(tech_at_pump == 0)){// we did not have a msg yet and we are not in debug mode
+             delayMs(5000); //wait for 5 seconds   
+            }
             num_tries++;    
             ClearWatchDogTimer(); 
         }
