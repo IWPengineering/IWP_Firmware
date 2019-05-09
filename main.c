@@ -103,7 +103,7 @@ void main(void)
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 1;
+    print_debug_messages = 0;
     int temp_debug_flag = print_debug_messages;
     
     EEProm_Read_Float(EEpromCodeRevisionNumber,&codeRevisionNumber); //Get the current Diagnostic Status from EEPROM
@@ -243,7 +243,7 @@ void main(void)
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
         
-        while (readWaterSensor() != 1)
+        while (readWaterSensor() == 0)
 		{
             ClearWatchDogTimer();     // Is unlikely that we will be priming for 130sec without a stop, but we might
             angleCurrent = getHandleAngle();                        //gets the filtered current angle
@@ -271,6 +271,10 @@ void main(void)
 			while (TMR4 < 153); //fixes the sampling rate at about 102Hz
             TMR4 = 0; //reset the timer before reading WPS
 
+        }
+        
+        if (readWaterSensor() == 2) {
+            never_primed = 2;
         }
         
         primeLoopSeconds = secondVTCC - primeLoopSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
@@ -312,7 +316,7 @@ void main(void)
         
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
-        
+        if (never_primed != 2) {
 		while((readWaterSensor() == 1)&& (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
 
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
@@ -337,6 +341,7 @@ void main(void)
             while (TMR4 < 153); //fixes the sampling rate at about 102Hz
             TMR4 = 0; //reset the timer before reading WPS
 		}
+        }
         volumeLoopSeconds = secondVTCC - volumeLoopSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
         volumeLoopSeconds += (TMR2 - startTimer) / 15625.0; // get the remainder of seconds (less than the 4 second increment)
         loopMinutes = minuteVTCC - loopMinutes; // get the number of minutes pumping from VTCC
@@ -358,7 +363,7 @@ void main(void)
             leakCondition = 4;
              sendDebugMessage("There is no water as soon as we get here ", -0.1);  //Debug
         }
-        if(never_primed == 1){
+        if(never_primed == 1 || never_primed == 2){
             leakCondition = 4;   // there was never any water
             sendDebugMessage("There never was any water ", -0.1);  //Debug
         }
