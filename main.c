@@ -1,6 +1,6 @@
 /*
  * File: Main.c
- * Author: jy1189 - and many more
+ * Author: jy1189 - and many moreHELLO
  *
  * Created on April 23, 2015, 11:05 AM
  */
