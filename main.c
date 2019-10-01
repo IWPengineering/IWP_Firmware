@@ -135,12 +135,12 @@ void main(void)
 		while (handleMovement == 0)
 		{ 
            //Check pin connected to debug switch? To see if we have to change tech_at_pump setting.
-           digitalPinSet(waterPresenceSensorOnOffPin, 1); 
-           if(readWaterSensor() == 1) {
+           digitalPinSet(waterPresenceSensorOnOffPin, 1); //turn on the water presence sensor
+           if(readWaterSensor() == 1) { // there is water
                PORTBbits.RB1 = 1;
-            } else if(readWaterSensor() == 0){
+            } else if(readWaterSensor() == 0){ //there is not water
                PORTBbits.RB1 = 0;
-            } else {
+            } else {            // WPS is disconnected
                PORTBbits.RB1 ^= 1;
                delayMs(50);
             }
@@ -157,7 +157,7 @@ void main(void)
            // See if the external RTCC is keeping track of time or if we need to rely on 
            // our less accurate internal timer VTCC
             if(TimeSinceLastHourCheck == 1){ // Check every minute, updated in VTCC interrupt routine
-                VerifyProperTimeSource                                                                 ();
+                VerifyProperTimeSource();   
                 TimeSinceLastHourCheck = 0; //this gets updated in VTCC interrupt routine
             }  
             // Do hourly tasks
@@ -185,7 +185,8 @@ void main(void)
             }       
             // should we be asleep to save power?
            if(((BatteryLevelArray[0]-BatteryLevelArray[2])>BatteryDyingThreshold)||(BatteryLevelArray[2]<=3.2)){
-               while(BatteryLevelArray[2]<BatteryLevelArray[0]){
+              // keep sleeping until the battery charges up to where it was 2 hrs before we went to sleep
+               while(BatteryLevelArray[2]<BatteryLevelArray[0]){ 
             //while(batteryFloat < 3.3){
                 // The WDT settings will let the PIC sleep for about 131 seconds.  
                     if (digitalPinStatus(statusPin) == 1) { // if the Fona is on, shut it off
