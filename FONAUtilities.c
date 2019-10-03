@@ -942,7 +942,10 @@ void OneTimeStatusReport(){
             // Need to make dataMessage
             char localMsg[160];
             localMsg[0] = 0;
-            concat(localMsg,"Battery: ");
+            concat(localMsg," System Revision: ");
+            floatToString(codeRevisionNumber, reportValueString);
+            concat(localMsg, reportValueString);
+            concat(localMsg,"\n Battery: ");
             floatToString(batteryLevel(), reportValueString); 
             concat(localMsg,reportValueString);
             concat(localMsg,"\n Network: ");
