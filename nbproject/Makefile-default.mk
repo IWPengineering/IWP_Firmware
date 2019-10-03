@@ -45,7 +45,7 @@ COMPARISON_BUILD=
 endif
 
 ifdef SUB_IMAGE_ADDRESS
-SUB_IMAGE_ADDRESS_COMMAND=--image-address $(SUB_IMAGE_ADDRESS)
+
 else
 SUB_IMAGE_ADDRESS_COMMAND=
 endif
@@ -68,6 +68,7 @@ OBJECTFILES=${OBJECTDIR}/main.o ${OBJECTDIR}/IWPUtilities.o ${OBJECTDIR}/I2C.o $
 
 # Source Files
 SOURCEFILES=main.c IWPUtilities.c I2C.c Pin_Manager.c FONAUtilities.c
+
 
 
 CFLAGS=

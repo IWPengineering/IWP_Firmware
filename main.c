@@ -103,7 +103,7 @@ void main(void)
     
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 0;
+    print_debug_messages = 1;
     int temp_debug_flag = print_debug_messages;
     
     EEProm_Read_Float(EEpromCodeRevisionNumber,&codeRevisionNumber); //Get the current Diagnostic Status from EEPROM
@@ -243,7 +243,7 @@ void main(void)
         
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
-        
+        sendDebugMessage("        The WPS says   ", readWaterSensor()); // DEBUG
         while (readWaterSensor() == 0)
 		{
             ClearWatchDogTimer();     // Is unlikely that we will be priming for 130sec without a stop, but we might
@@ -273,9 +273,10 @@ void main(void)
             TMR4 = 0; //reset the timer before reading WPS
 
         }
-        
+        // If we are here, they either stopped trying (never_primed = 1), 
+        // there is water (never_primed = 0) or the WPS wire is broken
         if (readWaterSensor() == 2) {
-            never_primed = 2;
+            never_primed = 2; // We are stopping the Priming work because the sensor wire is broken
         }
         
         primeLoopSeconds = secondVTCC - primeLoopSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
@@ -290,11 +291,11 @@ void main(void)
         
 	
         if(readWaterSensor() == 1) {
-            PORTBbits.RB1 = 1;
+            PORTBbits.RB1 = 1; // there is water
         } else if(readWaterSensor() == 0){
-            PORTBbits.RB1 = 0;
+            PORTBbits.RB1 = 0; // there is no water
         } else if(readWaterSensor() == 2) {
-            PORTBbits.RB1 ^= 1;
+            PORTBbits.RB1 = 0; // the WPS wire is broken 
             //delayMs(50);
         }
 
@@ -305,7 +306,7 @@ void main(void)
 		///////////////////////////////////////////////////////
         //sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
         upStrokeExtract = 0;                                                 // gets variable ready for new volume event
-		int volumeLoopCounter = 60; // 588 ms                           //number of zero movement cycles before loop ends
+		int volumeLoopCounter = 60; // 588 ms           //number of zero handle movement cycles before volume loop ends
 		unsigned long extractionDurationCounter = 0;                           //keeps track of pumping duration
 		int i = 0;                                                      //Index to keep track of no movement cycles
         anglePrevious = getHandleAngle();
@@ -317,8 +318,9 @@ void main(void)
         
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
-        if (never_primed != 2) {
-		while((readWaterSensor() == 1)&& (i < volumeLoopCounter)){            //if the pump is primed and the handle has not been 
+        if (never_primed != 2) { // The WPS is working. If they stopped pumping
+                                 // [never_primed = 1], that is caught in the next WHILE )
+		while((readWaterSensor() == 1)&& (i < volumeLoopCounter)){  //if the pump is primed and the handle has not been inactive for 588ms 
 
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
 

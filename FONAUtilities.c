@@ -1703,6 +1703,7 @@ void createDiagnosticMessage(void) {
  * TestDate: 
  ********************************************************************/
 void CheckIncommingTextMessages(void){
+    sendDebugMessage("Checking for incoming text messages ", 0);
     if(!FONAisON){
         turnOnSIM();
         if(tech_at_pump == 0){ //not in diagnostic mode
@@ -1711,9 +1712,10 @@ void CheckIncommingTextMessages(void){
     }
     if(FONAisON){
         int msg_remaining = 0;
-        // Try for up to three minutes if not in debug mode
+        // Try for up to three minutes if we are checking once each hour
         int num_tries = 0;
-        if(tech_at_pump == 1){// in diagnostic mode
+        if(tech_at_pump == 1){// Only try once. We will be back here as soon 
+                              // as we go around the handle not moving loop
             num_tries = 35;
         }
         while((!msg_remaining)&&(num_tries < 36)){
