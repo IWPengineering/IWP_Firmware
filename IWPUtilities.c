@@ -90,8 +90,8 @@ const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) 
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
 const int signedNumAdjustADC = 512; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
-const int pulseWidthThreshold = 78; // The value to check the pulse width against (2048). Changed from 20 to 78
-const int pulseWidthThreshold2 = 19;
+const int NoWaterThreshold = 78; // The value to check the pulse width against (2048). Changed from 20 to 78
+const int BrokenWPSThreshold = 19;
 
 ///const int pulseWidthThreshold = 130; // This is just for Zantele we see about 160hz, not when water is there.  Not sure what we would see with no water
 
@@ -627,8 +627,8 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
 * Function: readWaterSensor
  * Input: None (assumes that the WPS_On/Off signal to the 555 timer has 
  *              been set high) digitalPinSet(waterPresenceSensorOnOffPin, 1);
- * Output: 1 if water is present, 
- *         0 if it is not and 
+ * Output: 0 if water is present, 
+ *         1 if it is not and 
  *         2 if the wire to the WPS is broken
  * Overview: The output of the 555 times is monitored to see what its
  *           output frequency is.  When there is no water, the frequency
@@ -652,35 +652,36 @@ int readWaterSensor(void) // RB5 is one water sensor
     //make sure you start at the beginning of the positive pulse
     TMR1 = 0;
     if (digitalPinStatus(waterPresenceSensorPin) == 1) {
-        while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)) { //quit if the line is high for too long
+        while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= NoWaterThreshold)) { //quit if the line is high for too long
         };
+        if(TMR1 >= NoWaterThreshold){
+            QuitLooking = 1; 
+            WaterPresent = 1; //The pulse was high long enough that we know there is no water
+        }
     }
-    if(TMR1 >= pulseWidthThreshold){
-        QuitLooking = 1; 
-        WaterPresent = 0; //The pulse was high long enough that we know there is no water
-    }
+   
     //wait for rising edge
     TMR1 = 0;
-    while ((digitalPinStatus(waterPresenceSensorPin) == 0)&&(TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) { //quit if the line is low for too long
+    while ((digitalPinStatus(waterPresenceSensorPin) == 0)&&(TMR1 <= NoWaterThreshold)&&(!QuitLooking)) { //quit if the line is low for too long
     };
-    if(TMR1 >= pulseWidthThreshold){
+    if(TMR1 >= NoWaterThreshold){
         QuitLooking = 1; 
-        WaterPresent = 0; // The pulse was low long enough that we know there is no water
+        WaterPresent = 1; // The pulse was low long enough that we know there is no water
     }
     //Now measure the high part of the signal
     TMR1 = 0;
-    while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= pulseWidthThreshold)&&(!QuitLooking)) { //quit if the line is high for too long
+    while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= NoWaterThreshold)&&(!QuitLooking)) { //quit if the line is high for too long
     };
     if (!QuitLooking) { // If we already know the answer don't bother with this
-        if ((TMR1 <= pulseWidthThreshold2)&&(!QuitLooking)) {
-            WaterPresent = 1; //water is present, frequency is greater than 411 hz
+        if (TMR1 <= BrokenWPSThreshold) {
+            WaterPresent = 0; //water is present, frequency is greater than 411 hz
         } 
-        else if ((TMR1 > pulseWidthThreshold2)&&(TMR1 <= pulseWidthThreshold)){
+        else if ((TMR1 > BrokenWPSThreshold)&&(TMR1 <= NoWaterThreshold)){
             WaterPresent = 2; // The wire to the WPS is disconnected since the 
                               // frequency is between 100hz and 400hz
         }
         else {
-            WaterPresent = 0; // There is no water
+            WaterPresent = 1; // There is no water
         }
     }
 

@@ -136,9 +136,9 @@ void main(void)
 		{ 
            //Check pin connected to debug switch? To see if we have to change tech_at_pump setting.
            digitalPinSet(waterPresenceSensorOnOffPin, 1); //turn on the water presence sensor
-           if(readWaterSensor() == 1) { // there is water
+           if(readWaterSensor() == 0) { // there is water
                PORTBbits.RB1 = 1;
-            } else if(readWaterSensor() == 0){ //there is not water
+            } else if(readWaterSensor() == 1){ //there is not water
                PORTBbits.RB1 = 0;
             } else {            // WPS is disconnected
                PORTBbits.RB1 ^= 1;
@@ -244,7 +244,7 @@ void main(void)
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
         sendDebugMessage("        The WPS says   ", readWaterSensor()); // DEBUG
-        while (readWaterSensor() == 0)
+        while (readWaterSensor() != 0)
 		{
             ClearWatchDogTimer();     // Is unlikely that we will be priming for 130sec without a stop, but we might
             angleCurrent = getHandleAngle();                        //gets the filtered current angle
@@ -290,9 +290,9 @@ void main(void)
         primeLoopSeconds += loopMinutes * 60; // add minutes to the seconds
         
 	
-        if(readWaterSensor() == 1) {
+        if(readWaterSensor() == 0) {
             PORTBbits.RB1 = 1; // there is water
-        } else if(readWaterSensor() == 0){
+        } else if(readWaterSensor() == 1){
             PORTBbits.RB1 = 0; // there is no water
         } else if(readWaterSensor() == 2) {
             PORTBbits.RB1 = 0; // the WPS wire is broken 
@@ -320,7 +320,7 @@ void main(void)
         TMR4 = 0; // clear timer
         if (never_primed != 2) { // The WPS is working. If they stopped pumping
                                  // [never_primed = 1], that is caught in the next WHILE )
-		while((readWaterSensor() == 1)&& (i < volumeLoopCounter)){  //if the pump is primed and the handle has not been inactive for 588ms 
+		while((readWaterSensor() == 0)&& (i < volumeLoopCounter)){  //if the pump is primed and the handle has not been inactive for 588ms 
 
             ClearWatchDogTimer();     // Is unlikely that we will be pumping for 130sec without a stop, but we might
 
@@ -362,7 +362,7 @@ void main(void)
 		// Get the angle of the pump handle to measure against
 		int leakCondition = 3;  // Assume that we are going to be able to calculate a valid leak rate
         
-        if(!(readWaterSensor() == 1)){  // If there is already no water when we get here, something strange is happening, don't calculate leak
+        if(readWaterSensor() != 0){  // If there is already no water when we get here, something strange is happening, don't calculate leak
             leakCondition = 4;
              sendDebugMessage("There is no water as soon as we get here ", -0.1);  //Debug
         }
@@ -375,7 +375,7 @@ void main(void)
 		long leakDurationCounter = volumeLoopCounter;                            // The volume loop has 150 milliseconds of delay 
         angleAtRest = getHandleAngle();                                                                        // if no water or no handle movement before entry.
         //AD1CON1bits.ADON = 0; // Turn off ADC
-        while ((readWaterSensor() == 1)&&(leakCondition == 3)){
+        while ((readWaterSensor() == 0)&&(leakCondition == 3)){
             if(HasTheHandleMoved(angleAtRest)){ // if they start pumping, stop calculating leak
                 leakCondition = 1;
             }
