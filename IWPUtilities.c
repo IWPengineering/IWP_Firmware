@@ -69,7 +69,7 @@ EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
 void noonMessage(void);
  **********************************/
 
-float codeRevisionNumber = 5.0;
+float codeRevisionNumber = 5.0;  //Current as of 10/1/19
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -190,7 +190,7 @@ int success = 0;
 
 // ****************************************************************************
 // *** Global Variables *******************************************************
-// ****************************************************************************
+// ****************************************************************** 
 
 
 int angleArray[51];
