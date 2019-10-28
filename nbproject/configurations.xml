@@ -45,7 +45,7 @@
         <platform>3</platform>
       </toolsSet>
       <packs>
-        <pack name="PIC24F-KA-KL-KM_DFP" vendor="Microchip" version="1.0.12"/>
+        <pack name="PIC24F-KA-KL-KM_DFP" vendor="Microchip" version="1.1.18"/>
       </packs>
       <compileType>
         <linkerTool>
