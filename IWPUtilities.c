@@ -70,7 +70,6 @@ void noonMessage(void);
  **********************************/
 
 float codeRevisionNumber = 5.0;  //Current as of 10/1/19
-// HELLO THIS IS CORY
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
