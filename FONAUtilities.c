@@ -945,6 +945,10 @@ void OneTimeStatusReport(){
             concat(localMsg," System Revision: ");
             floatToString(codeRevisionNumber, reportValueString);
             concat(localMsg, reportValueString);
+            concat(localMsg,"\n Priming Distance: ");
+            EEProm_Read_Float(1,&EEFloatData);
+            floatToString(EEFloatData, reportValueString);
+            concat(localMsg, reportValueString);
             concat(localMsg,"\n Battery: ");
             floatToString(batteryLevel(), reportValueString); 
             concat(localMsg,reportValueString);
