@@ -90,8 +90,8 @@ const int alarmHour = 0x0000; // The weekday and hour (24 hour format) (in BCD) 
 const int alarmStartingMinute = 1; // The minimum minute that the alarm will go off
 const int alarmMinuteMax = 5; // The max number of minutes to offset the alarm (the alarmStartingMinute + a random number between 0 and this number)
 const int signedNumAdjustADC = 512; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
-const int NoWaterThreshold = 78; // The value to check the pulse width against (2048). Changed from 20 to 78
-const int BrokenWPSThreshold = 19;
+const int NoWPSThreshold = 78; // The value to check the pulse width against (2048). Changed from 20 to 78
+const int NoWaterThreshold = 19; //If the WPS pulse is less than this, there is water
 
 ///const int pulseWidthThreshold = 130; // This is just for Zantele we see about 160hz, not when water is there.  Not sure what we would see with no water
 
@@ -628,13 +628,13 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
  * Input: None (assumes that the WPS_On/Off signal to the 555 timer has 
  *              been set high) digitalPinSet(waterPresenceSensorOnOffPin, 1);
  * Output: 0 if water is present, 
- *         1 if it is not and 
+ *         1 if it is not  
  *         2 if the wire to the WPS is broken
  * Overview: The output of the 555 times is monitored to see what its
- *           output frequency is.  When there is no water, the frequency
+ *           output frequency is.  When the WPS wire is broken, the frequency
  *           is less than 100hz.  If the frequency is greater than 411 hz
  *           we assume water is present.  If it is between 100 - 400hz, 
- *           the wire to the WPS must be broken or disconnected
+ *           the wire to the WPS is not broken but there is no water.
  * 
  *           We only measure the duration of the high part of the pulse. 
  *           This routine assumes that Timer1 is clocked at 15.625khz
@@ -643,8 +643,8 @@ void floatToString(float myValue, char *myString) //tested 06-20-2014
  ********************************************************************/
 int readWaterSensor(void) // RB5 is one water sensor
 {
-    int WaterPresent = 0; //assume there is no water
-    int QuitLooking = 0; // set to 1 if we know there is no water
+    int WaterStatus = 1; //assume there is no water
+    int QuitLooking = 0; // set to 1 if we know the sensor is disconnected
     // turn WPS on and off in the Main loop 
     //delayMs(5); //make sure the 555 has had time to turn on 
 
@@ -652,40 +652,41 @@ int readWaterSensor(void) // RB5 is one water sensor
     //make sure you start at the beginning of the positive pulse
     TMR1 = 0;
     if (digitalPinStatus(waterPresenceSensorPin) == 1) {
-        while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= NoWaterThreshold)) { //quit if the line is high for too long
+        while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= NoWPSThreshold)) { //quit if the line is high for too long
         };
-        if(TMR1 >= NoWaterThreshold){
+        if(TMR1 >= NoWPSThreshold){
             QuitLooking = 1; 
-            WaterPresent = 1; //The pulse was high long enough that we know there is no water
+            WaterStatus = 2; //The pulse was high long enough that we know the sensor is disconnected
         }
     }
    
     //wait for rising edge
     TMR1 = 0;
-    while ((digitalPinStatus(waterPresenceSensorPin) == 0)&&(TMR1 <= NoWaterThreshold)&&(!QuitLooking)) { //quit if the line is low for too long
+    while ((digitalPinStatus(waterPresenceSensorPin) == 0)&&(TMR1 <= NoWPSThreshold)&&(!QuitLooking)) { //quit if the line is low for too long
     };
-    if(TMR1 >= NoWaterThreshold){
+    if(TMR1 >= NoWPSThreshold){
         QuitLooking = 1; 
-        WaterPresent = 1; // The pulse was low long enough that we know there is no water
+        WaterStatus = 2; // The pulse was low long enough that we know the sensor is disconnected
     }
     //Now measure the high part of the signal
     TMR1 = 0;
-    while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= NoWaterThreshold)&&(!QuitLooking)) { //quit if the line is high for too long
+    while ((digitalPinStatus(waterPresenceSensorPin))&&(TMR1 <= NoWPSThreshold)&&(!QuitLooking)) { //quit if the line is high for too long
     };
-    if (!QuitLooking) { // If we already know the answer don't bother with this
-        if (TMR1 <= BrokenWPSThreshold) {
-            WaterPresent = 0; //water is present, frequency is greater than 411 hz
+    if (!QuitLooking) { // If we already know the sensor is disconnected don't bother with this
+        if (TMR1 <= NoWaterThreshold) {
+            WaterStatus = 0; //water is present, frequency is greater than 411 hz
         } 
-        else if ((TMR1 > BrokenWPSThreshold)&&(TMR1 <= NoWaterThreshold)){
-            WaterPresent = 2; // The wire to the WPS is disconnected since the 
-                              // frequency is between 100hz and 400hz
+        else if ((TMR1 > NoWaterThreshold)&&(TMR1 <= NoWPSThreshold)){
+            WaterStatus = 1; // The WPS is connected but there is no water since
+                              // the frequency is between 100hz and 400hz
         }
         else {
-            WaterPresent = 1; // There is no water
+            WaterStatus = 2; // The wire to the WPS is disconnected because the 
+                             // the frequency is less than 100hz.
         }
     }
 
-    return WaterPresent;
+    return WaterStatus;
 }
 
 /*********************************************************************

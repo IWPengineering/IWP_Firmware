@@ -15,36 +15,20 @@
 # $ makeMP_CC="/opt/microchip/mplabc30/v3.30c/bin/pic30-gcc" ...  
 #
 SHELL=cmd.exe
-<<<<<<< HEAD
 PATH_TO_IDE_BIN=C:/Program Files (x86)/Microchip/MPLABX/v5.25/mplab_platform/platform/../mplab_ide/modules/../../bin/
 # Adding MPLAB X bin directory to path.
 PATH:=C:/Program Files (x86)/Microchip/MPLABX/v5.25/mplab_platform/platform/../mplab_ide/modules/../../bin/:$(PATH)
 # Path to java used to run MPLAB X when this makefile was created
 MP_JAVA_PATH="C:\Program Files (x86)\Microchip\MPLABX\v5.25\sys\java\jre1.8.0_181/bin/"
-=======
-PATH_TO_IDE_BIN=C:/Program Files (x86)/Microchip/MPLABX/v5.15/mplab_platform/platform/../mplab_ide/modules/../../bin/
-# Adding MPLAB X bin directory to path.
-PATH:=C:/Program Files (x86)/Microchip/MPLABX/v5.15/mplab_platform/platform/../mplab_ide/modules/../../bin/:$(PATH)
-# Path to java used to run MPLAB X when this makefile was created
-MP_JAVA_PATH="C:\Program Files (x86)\Microchip\MPLABX\v5.15\sys\java\jre1.8.0_181/bin/"
->>>>>>> Cory'sBranch
 OS_CURRENT="$(shell uname -s)"
 MP_CC="C:\Program Files (x86)\Microchip\xc16\v1.26\bin\xc16-gcc.exe"
 # MP_CPPC is not defined
 # MP_BC is not defined
-<<<<<<< HEAD
 MP_AS="C:\Program Files (x86)\Microchip\xc16\v1.26\bin\xc16-as.exe"
 MP_LD="C:\Program Files (x86)\Microchip\xc16\v1.26\bin\xc16-ld.exe"
 MP_AR="C:\Program Files (x86)\Microchip\xc16\v1.26\bin\xc16-ar.exe"
 DEP_GEN=${MP_JAVA_PATH}java -jar "C:/Program Files (x86)/Microchip/MPLABX/v5.25/mplab_platform/platform/../mplab_ide/modules/../../bin/extractobjectdependencies.jar"
 MP_CC_DIR="C:\Program Files (x86)\Microchip\xc16\v1.26\bin"
-=======
-MP_AS="C:\Program Files (x86)\Microchip\xc16\v1.36\bin\xc16-as.exe"
-MP_LD="C:\Program Files (x86)\Microchip\xc16\v1.36\bin\xc16-ld.exe"
-MP_AR="C:\Program Files (x86)\Microchip\xc16\v1.36\bin\xc16-ar.exe"
-DEP_GEN=${MP_JAVA_PATH}java -jar "C:/Program Files (x86)/Microchip/MPLABX/v5.15/mplab_platform/platform/../mplab_ide/modules/../../bin/extractobjectdependencies.jar"
-MP_CC_DIR="C:\Program Files (x86)\Microchip\xc16\v1.36\bin"
->>>>>>> Cory'sBranch
 # MP_CPPC_DIR is not defined
 # MP_BC_DIR is not defined
 MP_AS_DIR="C:\Program Files (x86)\Microchip\xc16\v1.26\bin"

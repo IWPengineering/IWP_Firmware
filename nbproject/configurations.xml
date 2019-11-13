@@ -45,11 +45,7 @@
         <platform>3</platform>
       </toolsSet>
       <packs>
-<<<<<<< HEAD
         <pack name="PIC24F-KA-KL-KM_DFP" vendor="Microchip" version="1.1.18"/>
-=======
-        <pack name="PIC24F-KA-KL-KM_DFP" vendor="Microchip" version="1.0.12"/>
->>>>>>> Cory'sBranch
       </packs>
       <compileType>
         <linkerTool>
