@@ -292,12 +292,12 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {    
     char localSec = 0;
-    char localMin = 3;
-    char localHr = 8;
+    char localMin = 34;
+    char localHr = 11;
     char localWkday = 2;
-    char localDate = 8;
-    char localMonth = 10;
-    char localYear = 18;
+    char localDate = 19;
+    char localMonth = 11;
+    char localYear = 19;
     ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
     ANSA = 0; // Make PORTA digital I/O

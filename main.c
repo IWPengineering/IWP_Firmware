@@ -241,9 +241,10 @@ void main(void)
         float primeLoopSeconds = secondVTCC - 10; // keeps track of loop seconds, minus 10 to account for end waiting time
         float startTimer = TMR2;
         
+        
+        sendDebugMessage("        The WPS says   ", readWaterSensor()); // DEBUG
         // needed to ensure consistent sampling frequency of 102Hz
         TMR4 = 0; // clear timer
-        sendDebugMessage("        The WPS says   ", readWaterSensor()); // DEBUG
         while (readWaterSensor() != 0)
 		{
             ClearWatchDogTimer();     // Is unlikely that we will be priming for 130sec without a stop, but we might
@@ -289,7 +290,7 @@ void main(void)
         
         primeLoopSeconds += loopMinutes * 60; // add minutes to the seconds
         
-	
+	// We will not flash the Water LED except when handle is not moving
         if(readWaterSensor() == 0) {
             PORTBbits.RB1 = 1; // there is water
         } else if(readWaterSensor() == 1){
@@ -453,6 +454,7 @@ void main(void)
 		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
 			longestPrime = upStrokePrimeMeters;
             EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
+            sendDebugMessage("Saved New Max Prime Distance ", upStrokePrimeMeters);  //Debug
 		}
         sendDebugMessage("Prime Distance ", upStrokePrimeMeters);  //Debug
         
