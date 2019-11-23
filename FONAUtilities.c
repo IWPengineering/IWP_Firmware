@@ -942,9 +942,14 @@ void OneTimeStatusReport(){
             // Need to make dataMessage
             char localMsg[160];
             localMsg[0] = 0;
-            concat(localMsg," System Revision: ");
+            concat(localMsg," Priming Distance: ");
+            EEProm_Read_Float(EELongestPrime,&EEFloatData);
+            floatToString(EEFloatData, reportValueString);
+            concat(localMsg, reportValueString);
+            concat(localMsg,"\n System Revision: ");
             floatToString(codeRevisionNumber, reportValueString);
             concat(localMsg, reportValueString);
+
             concat(localMsg,"\n Battery: ");
             floatToString(batteryLevel(), reportValueString); 
             concat(localMsg,reportValueString);
@@ -1392,15 +1397,15 @@ void CreateAndSaveDailyReport(void){
     int effective_address;
     int vptr;
     float date;
-    // Read EEPROM address, right now 21, which contains the number of messages already saved
-    EEProm_Read_Float(DailyReportEEPromStart, &EEFloatData);
+    // Read EEPROM address which contains the number of messages already saved
+    EEProm_Read_Float(NumMsgInQueue, &EEFloatData);
     num_saved_messages = EEFloatData;
     num_saved_messages++; //we are adding to the queue
     if(num_saved_messages > 10){
         num_saved_messages = 6;
     }
     EEFloatData = num_saved_messages;  //Update the number of messages in the queue
-    EEProm_Write_Float(DailyReportEEPromStart,&EEFloatData);
+    EEProm_Write_Float(NumMsgInQueue,&EEFloatData);
     // Find the first available address to store this daily report
     if(num_saved_messages > 5){
         message_position = num_saved_messages-5;  //If this is the 24th message since 
@@ -1409,28 +1414,28 @@ void CreateAndSaveDailyReport(void){
     }
     else{message_position = num_saved_messages;
     }
-    effective_address = ((message_position - 1)*16)+DailyReportEEPromStart+1;
+    effective_address = ((message_position - 1)*16)+DailyReportEEPromStart;
 
   /*                  EEPROM STORAGE
  * EEProm#		    EEProm#		         EEProm#	
-0	leakRateLong	9	Volume01416	     18	Volume1810
-1	longestPrime	10	Volume01618	     19	Volume11012
-2	Volume002	    11	Volume01820	     20	Restart Status
-3	Volume024	    12	Volume02022		
-4	Volume046	    13	Volume02224		
-5	Volume068	    14	Volume102		
-6	Volume0810	    15	Volume124		
-7	Volume01012	    16	Volume146		
-8	Volume01214	    17	Volume168		
+2	leakRateLong	11	Volume01416	     20	Volume1810
+3	longestPrime	12	Volume01618	     21	Volume11012
+4	Volume002	    13	Volume01820	     
+5	Volume024	    14	Volume02022		
+6	Volume046	    15	Volume02224		
+7	Volume068	    16	Volume102		
+8	Volume0810	    17	Volume124		
+9	Volume01012	    18	Volume146		
+10	Volume01214	    19	Volume168		
 
  Volume01012 = Yesterday(0)10AM-12AM
  Volume124 = Today(1) 2AM-4AM
  */
-    EEProm_Read_Float(0, &EEFloatData); // Longest Leak Rate
+    EEProm_Read_Float(EELeakRateLong, &EEFloatData); // Longest Leak Rate
     EEProm_Write_Float(effective_address,&EEFloatData);
     effective_address++;
 
-    EEProm_Read_Float(1, &EEFloatData); // Longest Prime
+    EEProm_Read_Float(EELongestPrime, &EEFloatData); // Longest Prime
     EEProm_Write_Float(effective_address,&EEFloatData);
     effective_address++;
     
@@ -1438,7 +1443,7 @@ void CreateAndSaveDailyReport(void){
     EEProm_Write_Float(effective_address,&EEFloatData);
     effective_address++;
     
-    for(vptr = 2; vptr < 14; vptr++){
+    for(vptr = EEVolume02; vptr < EEVolumeNew02; vptr++){
         EEProm_Read_Float(vptr, &EEFloatData); // Get Next Volume
         EEProm_Write_Float(effective_address,&EEFloatData);
         effective_address++;
@@ -1555,9 +1560,9 @@ void SendHourlyDiagnosticReport(void){
             ready = ReadSIMresponse(CmdMatch);
             extRtccTalked = 0; // reset the external clock talked bit
             sleepHrStatus = 0; // reset the slept during that hour
-            EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus); // Save to EEProm
+            EEProm_Write_Float(DiagSystemWentToSleep,&sleepHrStatus); // Save to EEProm
             resetCause = 0; // reset the reset cause bits
-            EEProm_Write_Float(DiagnosticEEPromStart + 1,&resetCause); // Save to EEProm
+            EEProm_Write_Float(DiagCauseOfSystemReset,&resetCause); // Save to EEProm
         }
     }
     timeSinceLastRestart++; // increase the # of hours since the last system restart (cleared during initialization)
@@ -1628,7 +1633,7 @@ void createDiagnosticMessage(void) {
     LocalString[0] = 0;
     
     concat(SMSMessage, "(\"t\":\"d\",\"d\":(\"s\":");
-    EEProm_Read_Float(DiagnosticEEPromStart, &EEFloatData);
+    EEProm_Read_Float(DiagSystemWentToSleep, &EEFloatData);
     floatToString(EEFloatData, LocalString); //populates the sleepHrStatusString with the value from EEPROM
     concat(SMSMessage, LocalString);
     concat(SMSMessage, ",\"b\":");

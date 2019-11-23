@@ -194,7 +194,7 @@ void main(void)
                     }
                     if (sleepHrStatus != 1){ // Record the fact that we went to sleep for diagnostic reporting purposes
                         sleepHrStatus = 1;
-                        EEProm_Write_Float(DiagnosticEEPromStart,&sleepHrStatus); 
+                        EEProm_Write_Float(DiagSystemWentToSleep,&sleepHrStatus);        
                     }                
                     Sleep(); 
                     // OK, we just woke up  
@@ -253,7 +253,7 @@ void main(void)
 			anglePrevious = angleCurrent;                           //Prepares anglePrevious for the next loop
 			if(angleDelta < 0) {  //Determines direction of handle movement
                 upStrokePrime += (-1) * angleDelta;                  //If the valve is moving downward, the movement is added to an
-										                        //accumlation var
+										                        //accumulation var
 			}
             
             // If they have stopped, pumping we should give up too
@@ -428,7 +428,7 @@ void main(void)
 		if ((leakRate * 3600) > leakRateLong)
 		{
 			leakRateLong = leakRate * 3600;                                              //reports in L/hr
-            EEProm_Write_Float(0,&leakRateLong);                                        // Save to EEProm
+            EEProm_Write_Float(EELeakRateLongCurrent,&leakRateLong);                    // Save to EEProm
             sendDebugMessage("Saved new longest leak rate to EEProm ", leakRateLong);  //Debug
 		}
         
@@ -451,9 +451,9 @@ void main(void)
             upStrokePrimeMeters = (upStrokePrimeMeters / 1000) / 0.000899; // convert to meters based on volume of rising main
         }
 
-		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime
+		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime  
 			longestPrime = upStrokePrimeMeters;
-            EEProm_Write_Float(1,&longestPrime);                      // Save to EEProm
+            EEProm_Write_Float(EELongestPrimeCurrent,&longestPrime);                      // Save to EEProm
             sendDebugMessage("Saved New Max Prime Distance ", upStrokePrimeMeters);  //Debug
 		}
         sendDebugMessage("Prime Distance ", upStrokePrimeMeters);  //Debug

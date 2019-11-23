@@ -75,13 +75,31 @@ extern float omega3;
 extern float alpha;
 extern double timeStep;
 extern int prevTimer2;
+
+
+// Global variables related to EEProm locations
+extern int EELeakRateLongCurrent;
+extern int EELongestPrimeCurrent;
+extern int EELeakRateLong;
+extern int EELongestPrime;
+extern int EEVolume02; //Midnight to 2AM
+extern int EEVolume1214; //noon to 2PM
+extern int EEVolume2224; //10PM to Midnight
+extern int EEVolumeNew02; //Midnight to 2AM of the day when report will be sent
+extern int RestartStatus;  // This is a 0 if the system has been run and garbage just after programming
+extern int NumMsgInQueue; //This is the number of noon messages waiting to be sent
+
 extern int DailyReportEEPromStart; // this is the EEPROM slot that Daily Report Messages will begin to be saved
-extern int DiagnosticEEPromStart;  // this is the EEPROM slot that Diagnostic information can begin to be saved
+
+extern int DiagSystemWentToSleep; // This will be set to 1 if the system went to sleep
+extern int DiagCauseOfSystemReset; // This is a number indicating why the system reset itself (need better comment to desribe the options)
 extern int EEpromDiagStatus; // 1 means report hourly to diagnostic phone number, 0 = don't report
 extern int EEpromCountryCode;
-extern int EEpromMainphoneNumber;
-extern int EEpromDebugphoneNumber;
+extern int EEpromMainphoneNumber;// also needs 107
+extern int EEpromDebugphoneNumber; //also needs 109
 extern int EEpromCodeRevisionNumber;
+
+
 
 
 // ****************************************************************************

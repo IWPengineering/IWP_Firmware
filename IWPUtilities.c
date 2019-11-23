@@ -127,14 +127,30 @@ const int yearI2Cvar = 0x06;
 const float PI = 3.141592;
 
 const float angleRadius = .008; // this is 80 millimeters so should it equal 80 or .008?
+/////////////////////////////////
 // EEPROM locations
-int DailyReportEEPromStart = 21; // this is the EEPROM slot that Daily Report Messages will begin to be saved
-int DiagnosticEEPromStart = 102; // this is the EEPROM slot that Diagnostic information can begin to be saved
-int EEpromDiagStatus = 104; // 1 means report hourly to diagnostic phone number, 0 = don't report
-int EEpromCountryCode = 105;
-int EEpromMainphoneNumber = 106;
-int EEpromDebugphoneNumber = 108;
-int EEpromCodeRevisionNumber = 110;
+/////////////////////////////////
+int EELeakRateLongCurrent = 0;
+int EELongestPrimeCurrent = 1;
+int EELeakRateLong = 2;
+int EELongestPrime = 3;
+int EEVolume02 = 4; //Midnight to 2AM
+int EEVolume1214 = 10; //noon to 2PM
+int EEVolume2224 = 15; //10PM to Midnight
+int EEVolumeNew02 = 16; //Midnight to 2AM of the day when report will be sent
+int NumMsgInQueue = 22; //This is the number of noon messages waiting to be sent
+int DailyReportEEPromStart = 23; // this is the EEPROM slot that Daily Report Messages will begin to be saved
+int EEpromCountryCode = 103;
+int EEpromMainphoneNumber = 104;// Needs two floats
+int EEpromDebugphoneNumber = 106; //Needs two floats
+int DiagSystemWentToSleep = 123; // This will be set to 1 if the system went to sleep
+int DiagCauseOfSystemReset = 124; // This is a number indicating why the system reset itself (need better comment to desribe the options)
+int EEpromDiagStatus = 125; // 1 means report hourly to diagnostic phone number, 0 = don't report
+int RestartStatus = 126;  // This is a 0 if the system has been run and garbage just after programming
+int EEpromCodeRevisionNumber = 127;
+/////////////////////////////////
+// End of EEPROM locations
+/////////////////////////////////
 int depthSensorInUse;
 
 
@@ -292,10 +308,10 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {    
     char localSec = 0;
-    char localMin = 34;
+    char localMin = 40;
     char localHr = 11;
     char localWkday = 2;
-    char localDate = 19;
+    char localDate = 21;
     char localMonth = 11;
     char localYear = 19;
     ////------------Sets up all ports as digital inputs-----------------------
@@ -383,22 +399,26 @@ void initialization(void) {
     }
 
     // We may be waking up because the battery was dead or the WatchDog expired.  
-    // If that is the case, Restart Status, EEProm#20, will be zero and we want 
-    // to continue using the leakRateLong and longestPrime from EEProm. Otherwise, 
-    // it will be a bogus number indicating the original start up after programming 
-    // and we want to clear our EEProm memory locations
-    EEProm_Read_Float(20, &EEFloatData);
+    // If that is the case, Restart Status (in EEPROM), will be zero and we want 
+    // to continue using values that had been saved in EEPROM such as 
+    // the leakRateLong, longestPrime and the code revision and various phone numbers.
+    EEProm_Read_Float(RestartStatus, &EEFloatData);
     print_debug_messages = 2;
     if (EEFloatData == 0) {
-        EEProm_Read_Float(0, &leakRateLong);
-        EEProm_Read_Float(1, &longestPrime);
+        EEProm_Read_Float(EELeakRateLong, &leakRateLong);
+        EEProm_Read_Float(EELongestPrime, &longestPrime);
         EEPROMtoPhonenumber(EEpromMainphoneNumber,MainphoneNumber); //get Main Phone Number from EEPROM
         EEPROMtoPhonenumber(EEpromDebugphoneNumber,DebugphoneNumber); //get Debug Phone Number from EEPROM
         EEPROMtoPhonenumber(EEpromCountryCode,CountryCode); //get Country Code from EEPROM
         EEProm_Read_Float(EEpromDiagStatus,&diagnostic); //Get the current Diagnostic Status from EEPROM
         initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
         // Reset the phone numbers from EEPROM
-    } else {
+    } else {  
+        // If this is the first time we get here after programming, we want to 
+        // clear out EEProm and save the hard coded versions of things
+        // like various phone numbers to EEProm.  That way we can change these
+        // after the fact from text messages if we need to by writing new values
+        // to the EEProm.
         ClearEEProm();
         // Only set the time if this is the first time the system is coming alive
         //   (sec, min, hr, wkday, date, month, year)
@@ -950,9 +970,9 @@ float checkResetStatus(void) {
     else if (RCONbits.WDTO == 1) {
         resetcause = 4; //bit 4 is the Watchdog Timer time-out reset
     }*/
-    EEProm_Read_Float(DiagnosticEEPromStart + 1, &EEFloatData);
+    EEProm_Read_Float(DiagCauseOfSystemReset, &EEFloatData);
     resetcause = (int) EEFloatData | (int) resetcause;
-    EEProm_Write_Float(DiagnosticEEPromStart + 1, &resetcause);
+    EEProm_Write_Float(DiagCauseOfSystemReset, &resetcause);
     RCON = 0;
     return resetcause;
 }
@@ -1154,41 +1174,23 @@ void ResetMsgVariables() //Not Tested
 {
     // Move today's 0-12AM values into the yesterday positions
     // There is no need to relocate data from 12-24PM since it has not yet been measured
-    // This should only be done if the message was able to be sent
-    EEProm_Read_Float(14, &EEFloatData); // Overwrite saved volume with today's value
-    EEProm_Write_Float(2, &EEFloatData);
-    EEProm_Read_Float(15, &EEFloatData); // Overwrite saved volume with today's value
-    EEProm_Write_Float(3, &EEFloatData);
-    EEProm_Read_Float(16, &EEFloatData); // Overwrite saved volume with today's value
-    EEProm_Write_Float(4, &EEFloatData);
-    EEProm_Read_Float(17, &EEFloatData); // Overwrite saved volume with today's value
-    EEProm_Write_Float(5, &EEFloatData);
-    EEProm_Read_Float(18, &EEFloatData); // Overwrite saved volume with today's value
-    EEProm_Write_Float(6, &EEFloatData);
-    EEProm_Read_Float(19, &EEFloatData); // Overwrite saved volume with today's value
-    EEProm_Write_Float(7, &EEFloatData);
-    // Clear saved leakRateLong and longestPrime
-    leakRateLong = 0; //Clear local and saved value 
-    EEProm_Write_Float(0, &leakRateLong);
-    longestPrime = 0; //Clear local and saved value
-    EEProm_Write_Float(1, &longestPrime);
-
+   
+    char offset;
+    for(offset = 0; offset <= 5; offset++){
+        EEProm_Read_Float(EEVolumeNew02+offset, &EEFloatData); // Overwrite saved volume with today's value
+        EEProm_Write_Float(EEVolume02+offset, &EEFloatData);
+    }
+   
+    // LeakRateLong and LongestPrime will be overwritten at midnight
     // The RAM location for each volume bin was cleared when the value was saved to EEPROM
 
-    //Clear slots for volume 1214-2224 to make sure they are zero in case there is no power to fill
+    //Enter 0.01 for volume 1214-2224
+    // if there is no power during these times, this value will indicate
+    // that nothing valid was saved.
     EEFloatData = 0.01;
-    EEProm_Write_Float(8, &EEFloatData);
-    EEProm_Write_Float(9, &EEFloatData);
-    EEProm_Write_Float(10, &EEFloatData);
-    EEProm_Write_Float(11, &EEFloatData);
-    EEProm_Write_Float(12, &EEFloatData);
-    EEProm_Write_Float(13, &EEFloatData);
-    EEProm_Write_Float(14, &EEFloatData);
-    EEProm_Write_Float(15, &EEFloatData);
-    EEProm_Write_Float(16, &EEFloatData);
-    EEProm_Write_Float(17, &EEFloatData);
-    EEProm_Write_Float(18, &EEFloatData);
-    EEProm_Write_Float(19, &EEFloatData);
+    for(offset = 0; offset <= 11; offset++){
+        EEProm_Write_Float(EEVolume1214+offset, &EEFloatData);
+    }   
 }
 
 /*********************************************************************
@@ -1554,62 +1556,70 @@ void ClearWatchDogTimer(void) {
 void SaveVolumeToEEProm(void) {
     switch (hour / 2) {
         case 0:
-            EEProm_Write_Float(13, &volume2224);
+            EEProm_Write_Float(EEVolume2224, &volume2224);
+            //EEProm_Write_Float(13, &volume2224);
             volume2224 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
+            // Save MaxPrime and MaxLeak at the end of the day for daily report
+            EEProm_Read_Float(EELeakRateLongCurrent,&EEFloatData);
+            EEProm_Write_Float(EELeakRateLong,&EEFloatData);
+            leakRateLong = 0; // Reset the Leak Rate Variable
+            EEProm_Read_Float(EELongestPrimeCurrent,&EEFloatData);
+            EEProm_Write_Float(EELongestPrime,&EEFloatData);
+            longestPrime = 0;  // Reset the Prime Variable
             break;
         case 1:
-            EEProm_Write_Float(14, &volume02);
+            EEProm_Write_Float(EEVolume2224+1, &volume02);
             volume02 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 2:
-            EEProm_Write_Float(15, &volume24);
+            EEProm_Write_Float(EEVolume2224+2, &volume24);
             volume24 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 3:
-            EEProm_Write_Float(16, &volume46);
+            EEProm_Write_Float(EEVolume2224+3, &volume46);
             volume46 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 4:
-            EEProm_Write_Float(17, &volume68);
+            EEProm_Write_Float(EEVolume2224+4, &volume68);
             volume68 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 5:
-            EEProm_Write_Float(18, &volume810);
+            EEProm_Write_Float(EEVolume2224+5, &volume810);
             volume810 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 6:
-            EEProm_Write_Float(19, &volume1012);
+            EEProm_Write_Float(EEVolume2224+6, &volume1012);
             volume1012 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 7:
-            EEProm_Write_Float(8, &volume1214);
+            EEProm_Write_Float(EEVolume1214, &volume1214);
             volume1214 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 8:
-            EEProm_Write_Float(9, &volume1416);
+            EEProm_Write_Float(EEVolume1214+1, &volume1416);
             volume1416 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 9:
-            EEProm_Write_Float(10, &volume1618);
+            EEProm_Write_Float(EEVolume1214+2, &volume1618);
             volume1618 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 10:
-            EEProm_Write_Float(11, &volume1820);
+            EEProm_Write_Float(EEVolume1214+3, &volume1820);
             volume1820 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
         case 11:
-            EEProm_Write_Float(12, &volume2022);
+            EEProm_Write_Float(EEVolume1214+4, &volume2022);
             volume2022 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             break;
@@ -1627,45 +1637,45 @@ void SaveVolumeToEEProm(void) {
  * TestDate: 1-4-2017
  ********************************************************************/
 void DebugReadEEProm(void) {
-    EEProm_Read_Float(0, &EEFloatData);
+    EEProm_Read_Float(EELeakRateLong, &EEFloatData);
     sendDebugMessage("Leak Rate = ", EEFloatData); //Debug
-    EEProm_Read_Float(1, &EEFloatData);
+    EEProm_Read_Float(EELongestPrime, &EEFloatData);
     sendDebugMessage("Longest Prime = ", EEFloatData); //Debug
-    EEProm_Read_Float(2, &EEFloatData);
+    EEProm_Read_Float(EEVolume02, &EEFloatData);
     sendDebugMessage("Volume 02 = ", EEFloatData); //Debug
-    EEProm_Read_Float(3, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+1, &EEFloatData);
     sendDebugMessage("Volume 24 = ", EEFloatData); //Debug
-    EEProm_Read_Float(4, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+2, &EEFloatData);
     sendDebugMessage("Volume 46 = ", EEFloatData); //Debug
-    EEProm_Read_Float(5, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+3, &EEFloatData);
     sendDebugMessage("Volume 68 = ", EEFloatData); //Debug
-    EEProm_Read_Float(6, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+4, &EEFloatData);
     sendDebugMessage("Volume 810 = ", EEFloatData); //Debug
-    EEProm_Read_Float(7, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+5, &EEFloatData);
     sendDebugMessage("Volume 1012 = ", EEFloatData); //Debug
-    EEProm_Read_Float(8, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+6, &EEFloatData);
     sendDebugMessage("Volume 1214 = ", EEFloatData); //Debug
-    EEProm_Read_Float(9, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+7, &EEFloatData);
     sendDebugMessage("Volume 1416 = ", EEFloatData); //Debug
-    EEProm_Read_Float(10, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+8, &EEFloatData);
     sendDebugMessage("Volume 1618 = ", EEFloatData); //Debug
-    EEProm_Read_Float(11, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+9, &EEFloatData);
     sendDebugMessage("Volume 1820 = ", EEFloatData); //Debug
-    EEProm_Read_Float(12, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+10, &EEFloatData);
     sendDebugMessage("Volume 2022 = ", EEFloatData); //Debug
-    EEProm_Read_Float(13, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+11, &EEFloatData);
     sendDebugMessage("Volume 2224 = ", EEFloatData); //Debug
-    EEProm_Read_Float(14, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+12, &EEFloatData);
     sendDebugMessage("Today Volume 02 = ", EEFloatData); //Debug
-    EEProm_Read_Float(15, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+13, &EEFloatData);
     sendDebugMessage("Today Volume 24 = ", EEFloatData); //Debug
-    EEProm_Read_Float(16, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+14, &EEFloatData);
     sendDebugMessage("Today Volume 46 = ", EEFloatData); //Debug
-    EEProm_Read_Float(17, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+15, &EEFloatData);
     sendDebugMessage("Today Volume 68 = ", EEFloatData); //Debug
-    EEProm_Read_Float(18, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+16, &EEFloatData);
     sendDebugMessage("Today Volume 810 = ", EEFloatData); //Debug
-    EEProm_Read_Float(19, &EEFloatData);
+    EEProm_Read_Float(EEVolume02+17, &EEFloatData);
     sendDebugMessage("Today Volume 1012 = ", EEFloatData); //Debug
 }
 
@@ -1683,7 +1693,7 @@ void DebugReadEEProm(void) {
 void ClearEEProm(void) {
     int i;
     EEFloatData = 0;
-    for (i = 0; i <= DiagnosticEEPromStart + 3; i++) {
+    for (i = 0; i <= 127; i++) {
         EEProm_Write_Float(i, &EEFloatData);
     }
 }
