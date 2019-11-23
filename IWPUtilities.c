@@ -405,8 +405,8 @@ void initialization(void) {
     EEProm_Read_Float(RestartStatus, &EEFloatData);
     print_debug_messages = 2;
     if (EEFloatData == 0) {
-        EEProm_Read_Float(EELeakRateLong, &leakRateLong);
-        EEProm_Read_Float(EELongestPrime, &longestPrime);
+        EEProm_Read_Float(EELeakRateLongCurrent, &leakRateLong);
+        EEProm_Read_Float(EELongestPrimeCurrent, &longestPrime);
         EEPROMtoPhonenumber(EEpromMainphoneNumber,MainphoneNumber); //get Main Phone Number from EEPROM
         EEPROMtoPhonenumber(EEpromDebugphoneNumber,DebugphoneNumber); //get Debug Phone Number from EEPROM
         EEPROMtoPhonenumber(EEpromCountryCode,CountryCode); //get Country Code from EEPROM
@@ -1557,7 +1557,6 @@ void SaveVolumeToEEProm(void) {
     switch (hour / 2) {
         case 0:
             EEProm_Write_Float(EEVolume2224, &volume2224);
-            //EEProm_Write_Float(13, &volume2224);
             volume2224 = 0; //Clear for the next days readings
             active_volume_bin = hour / 2;
             // Save MaxPrime and MaxLeak at the end of the day for daily report
