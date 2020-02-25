@@ -106,7 +106,7 @@ void main(void)
     print_debug_messages = 1;
     int temp_debug_flag = print_debug_messages;
     
-    EEProm_Read_Float(EEpromCodeRevisionNumber,&codeRevisionNumber); //Get the current Diagnostic Status from EEPROM
+    EEProm_Read_Float(EEpromCodeRevisionNumber,&codeRevisionNumber); //Get the current code revision number from EEPROM
     
     print_debug_messages = 1;                                        //// We always want to print this out
     sendDebugMessage("   \n JUST CAME OUT OF INITIALIZATION ",-0.1);  //Debug

@@ -69,7 +69,7 @@ EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
 void noonMessage(void);
  **********************************/
 
-float codeRevisionNumber = 5.0;  //Current as of 10/1/19
+float codeRevisionNumber = 5.01;  //Current as of 10/1/19
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -308,12 +308,12 @@ int vcc2Pin = 28;
  ********************************************************************/
 void initialization(void) {    
     char localSec = 0;
-    char localMin = 40;
-    char localHr = 11;
+    char localMin = 25;
+    char localHr = 9;
     char localWkday = 2;
     char localDate = 21;
-    char localMonth = 11;
-    char localYear = 19;
+    char localMonth = 2;
+    char localYear = 20;
     ////------------Sets up all ports as digital inputs-----------------------
     //IO port control
     ANSA = 0; // Make PORTA digital I/O

@@ -1395,7 +1395,7 @@ void CreateAndSaveDailyReport(void){
     int num_saved_messages;
     int message_position;
     int effective_address;
-    int vptr;
+    int vptr; // volume pointer
     float date;
     // Read EEPROM address which contains the number of messages already saved
     EEProm_Read_Float(NumMsgInQueue, &EEFloatData);
@@ -1416,21 +1416,6 @@ void CreateAndSaveDailyReport(void){
     }
     effective_address = ((message_position - 1)*16)+DailyReportEEPromStart;
 
-  /*                  EEPROM STORAGE
- * EEProm#		    EEProm#		         EEProm#	
-2	leakRateLong	11	Volume01416	     20	Volume1810
-3	longestPrime	12	Volume01618	     21	Volume11012
-4	Volume002	    13	Volume01820	     
-5	Volume024	    14	Volume02022		
-6	Volume046	    15	Volume02224		
-7	Volume068	    16	Volume102		
-8	Volume0810	    17	Volume124		
-9	Volume01012	    18	Volume146		
-10	Volume01214	    19	Volume168		
-
- Volume01012 = Yesterday(0)10AM-12AM
- Volume124 = Today(1) 2AM-4AM
- */
     EEProm_Read_Float(EELeakRateLong, &EEFloatData); // Longest Leak Rate
     EEProm_Write_Float(effective_address,&EEFloatData);
     effective_address++;
@@ -1478,7 +1463,7 @@ int SendSavedDailyReports(void){
     int effective_address;  //EEProm position.  We assume each position is a float and start at 0
       
     // Send a daily report if we have network connection and there are messages to send
-    EEProm_Read_Float(DailyReportEEPromStart, &EEFloatData);// Read EEPROM address, as of now 21, which contains the number of messages already saved
+    EEProm_Read_Float(NumMsgInQueue, &EEFloatData);// Read EEPROM address which contains the number of messages already saved
     num_saved_messages = EEFloatData;
     num_unsent_daily_reports = num_saved_messages;  //as long as there have been 5 or less saved messages, these are the same
     if(num_saved_messages > 5){
@@ -1495,7 +1480,7 @@ int SendSavedDailyReports(void){
                                                        //belongs in position 2 of the circular buffer
         }
         else{message_position = num_saved_messages;}
-        effective_address = ((message_position - 1)*16)+DailyReportEEPromStart+1;
+        effective_address = ((message_position - 1)*16)+DailyReportEEPromStart;
         // Create the message including adding the hour
         CreateNoonMessage(effective_address);  //Gather the data into the array SMSMessage
         // send the message and check for the reply that it was sent
