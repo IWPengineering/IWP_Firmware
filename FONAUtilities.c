@@ -572,9 +572,6 @@ void updateClockCalendar(){
     if(info_provided){
         hour = new_hour;
         min = new_min;
-        if(hour > 23){ // In case someone adds time that wraps over
-            hour = hour - 24;
-        }
         int year = BcdToDec(getYearI2C());
         int wkday = 1; //just always assume its the 1st day of the week
         ext_success = setTime(0,min,hour,wkday,newDate,newMonth,year);//   (sec, min, hr, wkday, date, month, year)
@@ -1500,7 +1497,7 @@ int SendSavedDailyReports(void){
     // after we are done sending, update the number of messages still waiting to be sent
     // if there is no problem with the network, this will be zero
     EEFloatData = num_saved_messages;  //Update the number of messages in the queue
-    EEProm_Write_Float(DailyReportEEPromStart,&EEFloatData);
+    EEProm_Write_Float(NumMsgInQueue,&EEFloatData);
     return num_unsent_daily_reports;  
 }
 /*********************************************************************
