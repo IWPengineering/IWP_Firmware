@@ -69,7 +69,8 @@ EEProm_Write_Float(unsigned int ee_addr, void *obj_p);
 void noonMessage(void);
  **********************************/
 
-float codeRevisionNumber = 5.02;  //Current as of 2/27/2020 //TEST COMMENT
+float codeRevisionNumber = 5.02;  //Current as of 2/27/2020
+float coolnamevariablehere;
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
