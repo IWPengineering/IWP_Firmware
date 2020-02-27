@@ -70,7 +70,6 @@ void noonMessage(void);
  **********************************/
 
 float codeRevisionNumber = 5.02;  //Current as of 2/27/2020
-float coolnamevariablehere;
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
